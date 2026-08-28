@@ -25,7 +25,7 @@ Unacceptable behaviour:
 
 Project maintainers are responsible for clarifying these standards and will take fair corrective action against behaviour they consider inappropriate — from removing a comment to a temporary or permanent ban.
 
-Reports: `conduct@cometweb.io`, or GitHub's private reporting (*Security* tab → *Report a vulnerability*) if you would rather not use email. Every report is reviewed, and the reporter's identity is kept confidential.
+Reports: `maciej@cometweb.io`. Every report is reviewed, and the reporter's identity is kept confidential.
 
 ## Attribution
 
