@@ -1,0 +1,31 @@
+{
+  // Emits the CLI/API engine as plain JavaScript for the published package.
+  //
+  // Node refuses to strip types for files under `node_modules`
+  // (ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING), so shipping the .ts sources
+  // makes every command fail the moment the package is installed rather than
+  // cloned. `rewriteRelativeImportExtensions` turns the `./x.ts` specifiers the
+  // source uses into `./x.js` in the output.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": false,
+    "sourceMap": false,
+    "module": "NodeNext",
+    "moduleResolution": "nodenext",
+    "rewriteRelativeImportExtensions": true,
+    "verbatimModuleSyntax": true,
+    "checkJs": false,
+    "types": ["node"],
+    "outDir": "dist",
+    "rootDir": "src/lib/backlinks"
+  },
+  "include": ["src/lib/backlinks"],
+  "exclude": [
+    "src/lib/backlinks/**/*.test.ts",
+    "src/lib/backlinks/scan.ts",
+    "src/lib/backlinks/store.server.ts",
+    "src/lib/backlinks/history.ts",
+    "src/lib/backlinks/history-diff.ts"
+  ]
+}

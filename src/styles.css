@@ -1,0 +1,124 @@
+@import "tailwindcss";
+
+/*
+ * Nunito Sans is bundled in public/fonts rather than pulled from a CDN: this
+ * tool exists to avoid third-party calls, and a self-hosted copy keeps the UI
+ * intact offline. Licence (SIL OFL 1.1) travels with the files.
+ */
+@font-face {
+  font-family: "Nunito Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/nunito-sans-regular.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Nunito Sans";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/nunito-sans-600.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Nunito Sans";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/nunito-sans-700.woff2") format("woff2");
+}
+
+@theme {
+  --font-sans: "Nunito Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-display: "Nunito Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /*
+   * The one place a second typeface earns its keep: positions, URLs, subnets
+   * and score tables all read better aligned. System monospace, so it costs
+   * no download.
+   */
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* CometWeb brand surfaces — Night Black through the card ramp. */
+  --color-bg: #0f0f0f;
+  --color-surface: #1a1a1a;
+  --color-surface-2: #1f1f23;
+  --color-surface-3: #2d2d2d;
+  --color-fg: #ffffff;
+  --color-muted: #9ca3af;
+  --color-subtle: #6b7280;
+  --color-fg-soft: #d1d5db;
+  --color-border: #2d2d2d;
+  --color-border-strong: #4b5563;
+
+  /* Energy Mint is the action colour; Depth Green is the text that sits on it. */
+  --color-accent: #05f29b;
+  --color-accent-fg: #034c32;
+  --color-ring: color-mix(in oklab, #05f29b 55%, transparent);
+
+  /*
+   * Semantic colours stay distinct from the accent on purpose — a dofollow
+   * badge must not read as a button. Trust Green is a step deeper than mint.
+   */
+  --color-follow: #04c27c;
+  --color-nofollow: #f59e0b;
+  --color-danger: #ef4444;
+
+  --radius-xs: 0.25rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+
+  --shadow-panel: 0 1px 0 color-mix(in oklab, #ffffff 6%, transparent);
+}
+
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background: var(--color-bg);
+    color: var(--color-fg);
+  }
+
+  body {
+    min-height: 100dvh;
+    background: var(--color-bg);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+:root {
+  --motion-stagger: 40ms;
+  --motion-micro: 80ms;
+  --motion-quick: 150ms;
+  --motion-fast: 250ms;
+  --motion-medium: 350ms;
+  --motion-slow: 400ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.45, 0, 0.55, 1);
+}

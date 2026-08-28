@@ -1,0 +1,36 @@
+name: Broken SERP parser
+description: A search engine changed its markup and results stopped being parsed
+labels: ["parser", "bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Run `npm run cli -- doctor` first. It tells you whether the engine is
+        blocking you (nothing we can fix in code) or whether the parser no
+        longer understands the markup (which this issue is for).
+  - type: dropdown
+    id: engine
+    attributes:
+      label: Engine
+      options: [bing, duckduckgo, mojeek, brave]
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: doctor output
+      description: Paste the output of `npm run cli -- doctor`.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: html
+    attributes:
+      label: HTML fragment
+      description: |
+        The smallest fragment of the results page that still contains several
+        organic results. Remove tracking parameters and anything personal —
+        never paste a page captured while logged in.
+      render: html
+    validations:
+      required: true

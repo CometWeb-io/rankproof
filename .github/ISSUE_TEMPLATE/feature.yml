@@ -1,0 +1,27 @@
+name: Feature request
+description: Propose a capability, starting from the problem
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: |
+        What are you trying to find out or decide, and why does the tool not
+        help today? Describe the problem before the solution — it often turns
+        out an existing report already answers it.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: How you imagine it working.
+  - type: textarea
+    id: data
+    attributes:
+      label: Data source
+      description: |
+        This project uses only open sources and the site owner's own accounts.
+        If your idea needs data, say where it would come from and whether it
+        is free to access.

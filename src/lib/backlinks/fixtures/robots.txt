@@ -1,0 +1,11 @@
+User-agent: *
+Disallow: /admin/
+Disallow: /cart
+Crawl-delay: 2
+
+User-agent: rankproof
+Disallow: /private/
+Allow: /private/public-page
+Crawl-delay: 1
+
+Sitemap: https://example.com/sitemap.xml

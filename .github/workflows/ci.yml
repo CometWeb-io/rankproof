@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Scans query other people's servers — CI never runs networked tests.
+env:
+  RANKPROOF_PERSIST_HISTORY: "0"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: CLI responds
+        run: node bin/rankproof.mjs help
+
+      - name: CLI argument errors exit with code 2
+        run: |
+          set +e
+          node bin/rankproof.mjs gap example.com
+          test $? -eq 2
+
+      - name: Scaffold tests
+        run: npm run test:scaffold
+
+      # Node refuses to strip types under node_modules, so shipping the .ts
+      # sources breaks every command once the package is installed rather than
+      # cloned. Install the real tarball, into a path with a space, and run it.
+      - name: Packed CLI runs when installed
+        run: |
+          set -eu
+          mkdir -p "/tmp/pack check"
+          npm pack --pack-destination "/tmp/pack check"
+          cd "/tmp/pack check"
+          npm init -y >/dev/null
+          npm install ./rankproof-*.tgz
+          ./node_modules/.bin/rankproof version
+          ./node_modules/.bin/rankproof help > /dev/null

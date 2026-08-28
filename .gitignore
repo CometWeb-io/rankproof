@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.output/
+.nitro/
+.vinxi/
+.tanstack/
+.vite/
+.vercel/
+.cache/
+.rankproof/
+*.log
+.env
+.env.local
+.DS_Store

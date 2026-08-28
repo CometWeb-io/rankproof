@@ -1,0 +1,37 @@
+name: Bug report
+description: Something does not work as documented
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you got instead.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version and Node
+      placeholder: "RankProof 8.0.0, Node 22.14"
+    validations:
+      required: true
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: |
+        Relevant RANKPROOF_* variables, whether a database is connected, and
+        whether Search Console is connected. Never paste tokens or API keys.
+      render: text
+  - type: textarea
+    id: logs
+    attributes:
+      label: Output or error
+      render: text
+  - type: markdown
+    attributes:
+      value: |
+        If a search engine stopped returning results, run `npm run cli -- doctor`
+        and use the **Broken SERP parser** template instead — it asks for the
+        HTML fragment needed to fix it.
