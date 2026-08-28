@@ -115,8 +115,9 @@ truthfulness, and the packaging a stranger's first clone runs into.
 - README/docs corrected: 17 CSV sets (not 14), Brave is off by default, `/doctor`
   accepts GET, the rate limit's real scope, the JSON-redirect recipe that npm's
   banner used to break, and a stale hard-coded test count.
-- Code of Conduct reports went to `conduct@rankproof.dev`, a domain with no MX
-  and no A record, so every report bounced. They now go to `maciej@cometweb.io`.
+- Code of Conduct reports went to `conduct@rankproof.dev` — a domain nobody
+  here owns, with neither MX nor A records, so every report bounced. All
+  contact now goes to `maciej@cometweb.io`.
 
 ## [8.1.0-rc.0] — 2026-08-25
 

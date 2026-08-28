@@ -230,7 +230,10 @@ The bundled Nunito Sans files in `public/fonts/` are covered separately by the
 
 ## Who maintains this
 
-RankProof is built and maintained by [CometWeb](https://cometweb.io), and it is
-a real open-source project rather than a demo: MIT, no telemetry, no hosted
-tier you get upsold to, and outside pull requests are reviewed on their merits.
-Security reports go to `security@cometweb.io` (see [`SECURITY.md`](SECURITY.md)).
+RankProof is a tool, not a product line: there is no company behind the name,
+no hosted tier and no paid edition to be upsold to. It is built and maintained
+at [CometWeb](https://cometweb.io) and released under MIT, with no telemetry.
+Outside pull requests are reviewed on their merits.
+
+Reach the maintainer at `maciej@cometweb.io` — security reports included
+(see [`SECURITY.md`](SECURITY.md)).
