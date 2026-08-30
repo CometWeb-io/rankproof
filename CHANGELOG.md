@@ -2,6 +2,24 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic versioning.
 
+## [8.1.0] — 2026-08-30
+
+First stable public release after the RC hardening pass.
+
+### Added
+
+- Playwright UI smoke tests (`e2e/smoke.spec.ts`) and CI job — landing page, skip link, form validation, market toggles.
+- [`docs/production-ops.md`](docs/production-ops.md) — doctor cron, npm publish, deployment, cache, upgrade checklist.
+- Modular scan UI under `src/components/scan/` — labels, primitives, charts, link gap, empty states, accessible tab navigation.
+- Skip link, `aria-pressed` market/device toggles, `:focus-visible` rings, and 44px touch targets on primary controls.
+
+### Changed
+
+- **GA status** — version `8.1.0`, npm publish tag `latest`, README no longer marks the project as RC.
+- **English UI** — removed remaining Polish strings from components and user-facing engine output.
+- `scan-results.tsx` refactored from a single 1.5k-line module into focused subcomponents.
+- `scan-serp.tsx` split into `src/components/scan/` modules (barrel re-export; largest file ~250 lines).
+
 ## [Unreleased] — open-source readiness
 
 Pre-publication pass: a security fix, the last of the Polish surface, engine

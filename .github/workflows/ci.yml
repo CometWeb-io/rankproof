@@ -46,6 +46,12 @@ jobs:
       - name: Scaffold tests
         run: npm run test:scaffold
 
+      - name: Install Playwright browser
+        run: npx playwright install chromium --with-deps
+
+      - name: E2E smoke (UI)
+        run: npm run test:e2e
+
       # Node refuses to strip types under node_modules, so shipping the .ts
       # sources breaks every command once the package is installed rather than
       # cloned. Install the real tarball, into a path with a space, and run it.

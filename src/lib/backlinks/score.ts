@@ -447,7 +447,7 @@ export function buildAnalytics(
   const targetPages = new Map<string, number>();
 
   for (const item of backlinks) {
-    const anchorKey = (item.anchor || "(brak kotwicy)").trim().slice(0, 70);
+    const anchorKey = (item.anchor || "(no anchor text)").trim().slice(0, 70);
     const anchor = anchorMap.get(anchorKey);
     if (anchor) {
       anchor.count += 1;
@@ -850,7 +850,7 @@ function buildHealth(
         ? `${plural(ranked, "keyword")} in the top 10 · visibility ${vis}/100`
         : vis > 0
           ? `Visibility ${vis}/100`
-          : "Brak pozycji w sprawdzonych frazach",
+          : "No positions in the checked keywords",
   });
 
   const totalScore = clamp(

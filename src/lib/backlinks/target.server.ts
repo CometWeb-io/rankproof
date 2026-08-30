@@ -373,7 +373,7 @@ export async function inspectTarget(host: string, budget: Budget): Promise<Targe
     notes.push(`Target sitemap: ${sitemapUrls.length} URLs.`);
   }
   if (subdomains.length > 0) {
-    notes.push(`Certificate Transparency: ${subdomains.length} subdomen.`);
+    notes.push(`Certificate Transparency: ${subdomains.length} subdomains.`);
   }
 
   /* --- RSS ------------------------------------------------------------ */

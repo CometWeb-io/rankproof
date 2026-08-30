@@ -1,8 +1,8 @@
 {
   "name": "rankproof",
-  "version": "8.1.0-rc.0",
+  "version": "8.1.0",
   "private": false,
-  "description": "RankProof \u2014 open search-visibility and backlink auditor (RC). Bing/DDG/Mojeek/Brave SERP + optional Google via self-hosted provider; verified links; site structure. No paid SEO APIs.",
+  "description": "RankProof — open search-visibility and backlink auditor. Bing/DDG/Mojeek/Brave SERP + optional Google via self-hosted provider; verified links; site structure. No paid SEO APIs.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -66,17 +66,19 @@
     "cli": "node bin/rankproof.mjs",
     "api": "node scripts/serve-api.mjs",
     "check": "npm run typecheck && npm run lint && npm test",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install chromium",
     "smoke": "node bin/rankproof.mjs doctor && node bin/rankproof.mjs version && node bin/rankproof.mjs help >/dev/null",
     "test:scaffold": "node --test scripts/check-auth-invariant.test.mjs scripts/migration-plan.test.mjs scripts/sign-out-plan.test.mjs scripts/with-app-env.test.mjs",
     "dev:lan": "node scripts/with-app-env.mjs vite dev --host 0.0.0.0 --port 8080",
     "build:cli": "tsc -p tsconfig.build.json",
     "prepack": "npm run build:cli"
   },
-  "dependencies": {},
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.4",
     "@eslint/js": "^9.20.0",
     "@hookform/resolvers": "^5.7.0",
+    "@playwright/test": "^1.62.1",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-avatar": "^1.1.11",
@@ -146,6 +148,6 @@
     "zustand": "^5.0.0"
   },
   "publishConfig": {
-    "tag": "next"
+    "tag": "latest"
   }
 }

@@ -1,29 +1,28 @@
 import { useMemo, useState } from "react";
-import { useServerFn } from "@tanstack/react-start";
 import {
-  AlertTriangle,
   ArrowUpRight,
-  BookOpenText,
   Download,
   FileJson,
   Filter,
   Gauge,
   Globe,
   Link2,
-  Network,
-  Newspaper,
-  Radar,
   Search,
   ShieldCheck,
   ShieldOff,
   Server,
   FileText,
-  Sparkles,
-  Swords,
-  TrendingDown,
-  TrendingUp,
-  Users,
 } from "lucide-react";
+import { BacklinkRow } from "@/components/scan/backlink-row";
+import { GrowthChart, TrendChart } from "@/components/scan/charts";
+import { DiffStrip } from "@/components/scan/diff-strip";
+import { IssueCard } from "@/components/scan/issue-card";
+import { ANCHOR_LABEL, PLACEMENT_LABEL, SOURCE_LABEL } from "@/components/scan/labels";
+import { LinkGapPanel } from "@/components/scan/link-gap-panel";
+import { TabNav } from "@/components/scan/tab-nav";
+import type { LinkFilter, SortKey, Tab, TabItem } from "@/components/scan/types";
+import { DistributionList, Meter, StatCard } from "@/components/scan/ui-primitives";
+import { formatDate, percent } from "@/components/scan/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,13 +33,10 @@ import {
   disavowFile,
   domainsCsv,
   download,
-  gapCsv,
   reportHtml,
   reportJson,
   targetPagesCsv,
 } from "@/lib/backlinks/export";
-
-import { scanLinkGap } from "@/lib/backlinks/scan";
 import { KeywordsTab, OnPagePanel, ProspectsTab, SerpOverviewHint, SerpTab } from "@/components/scan-serp";
 import { ToxicTab } from "@/components/scan-toxic";
 import { PlanTab } from "@/components/scan-plan";
@@ -51,626 +47,10 @@ import {
   SiteAuditPanel,
 } from "@/components/scan-insights";
 import type { ScanDiff } from "@/lib/backlinks/history";
-import type {
-  AnchorType,
-  Backlink,
-  CountStat,
-  Issue,
-  LinkGapReport,
-  LinkPlacement,
-  TrendPoint,
-  LinkRel,
-  ScanReport,
-} from "@/lib/backlinks/types";
+import type { ScanReport } from "@/lib/backlinks/types";
 
+export { EmptyGuide, ScanSkeleton } from "@/components/scan/empty-states";
 
-const SOURCE_LABEL: Record<string, string> = {
-  wikipedia: "Wikipedia",
-  "hacker-news": "Hacker News",
-  reddit: "Reddit",
-  bluesky: "Bluesky",
-  stackexchange: "Stack Exchange",
-  bing: "Bing",
-  duckduckgo: "DuckDuckGo",
-  mojeek: "Mojeek",
-  news: "News",
-  urlscan: "urlscan",
-  github: "GitHub",
-  commoncrawl: "Common Crawl",
-  graph: "Graph / partner",
-  sitemap: "Sitemap",
-  archive: "Archive",
-  lookup: "Report",
-  page: "Deep scan",
-};
-
-const PLACEMENT_LABEL: Record<LinkPlacement, string> = {
-  content: "in content",
-  navigation: "menu",
-  footer: "footer",
-  sidebar: "sidebar",
-  comment: "comment",
-  unknown: "unknown",
-};
-
-const ANCHOR_LABEL: Record<AnchorType, string> = {
-  brand: "brand",
-  "exact-match": "exact-match",
-  url: "URL",
-  generic: "generic",
-  image: "image",
-  empty: "empty",
-  "long-tail": "long tail",
-};
-
-const FLAG_LABEL: Record<string, string> = {
-  "broken-target": "broken target",
-  "noindex-source": "noindex source",
-  "page-level-nofollow": "page nofollow",
-  boilerplate: "boilerplate",
-  sitewide: "sitewide",
-  "spam-risk": "spam risk",
-  "high-authority": "high authority",
-  "image-link": "image link",
-  lost: "lost",
-  reciprocal: "reciprocal",
-  "redirected-target": "redirected target",
-  "off-topic": "off-topic",
-  "serp-coranker": "co-ranks",
-};
-
-
-type Tab =
-  | "overview"
-  | "plan"
-  | "performance"
-  | "structure"
-  | "serp"
-  | "keywords"
-  | "links"
-  | "domains"
-  | "pages"
-  | "anchors"
-  | "toxic"
-  | "outbound"
-  | "gap"
-  | "prospects"
-  | "mentions"
-  | "issues"
-  | "sources";
-
-
-type LinkFilter =
-  | "all"
-  | "dofollow"
-  | "nofollow"
-  | "content"
-  | "authority"
-  | "ontopic"
-  | "risk"
-  | "broken"
-  | "lost"
-  | "new";
-
-type SortKey = "score" | "authority" | "relevance" | "domain" | "recent";
-
-function relVariant(item: Backlink): "follow" | "nofollow" | "default" {
-  if (item.effectiveFollow) return "follow";
-  return "nofollow";
-}
-
-function relLabel(rel: LinkRel): string {
-  if (rel === "dofollow") return "dofollow";
-  if (rel === "sponsored") return "sponsored";
-  if (rel === "ugc") return "ugc";
-  return "nofollow";
-}
-
-function formatDate(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat(undefined, {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }).format(new Date(iso));
-  } catch {
-    return iso;
-  }
-}
-
-function percent(part: number, total: number): number {
-  if (total <= 0) return 0;
-  return Math.round((part / total) * 100);
-}
-
-/* ------------------------------------------------------------------ */
-/* Elementy pomocnicze                                                 */
-/* ------------------------------------------------------------------ */
-
-function StatCard({
-  label,
-  value,
-  hint,
-  tone,
-}: {
-  label: string;
-  value: string | number;
-  hint?: string;
-  tone?: "follow" | "nofollow" | "default";
-}) {
-  return (
-    <div className="rounded-lg border border-border bg-surface p-4 shadow-[var(--shadow-panel)]">
-      <p className="text-xs font-medium tracking-wide text-muted uppercase">{label}</p>
-      <p
-        className={cn(
-          "mt-2 font-mono text-3xl tabular-nums tracking-tight",
-          tone === "follow" && "text-follow",
-          tone === "nofollow" && "text-nofollow",
-          (!tone || tone === "default") && "text-fg",
-        )}
-      >
-        {value}
-      </p>
-      {hint ? <p className="mt-1 text-xs text-subtle">{hint}</p> : null}
-    </div>
-  );
-}
-
-function Meter({
-  value,
-  max = 100,
-  tone = "default",
-}: {
-  value: number;
-  max?: number;
-  tone?: "default" | "risk" | "good";
-}) {
-  const width = Math.max(2, Math.min(100, Math.round((value / max) * 100)));
-  return (
-    <span className="block h-1.5 w-full overflow-hidden rounded-full bg-surface-3">
-      <span
-        className={cn(
-          "block h-full rounded-full",
-          tone === "risk" && "bg-nofollow",
-          tone === "good" && "bg-follow",
-          tone === "default" && "bg-fg-soft",
-        )}
-        style={{ width: `${width}%` }}
-      />
-    </span>
-  );
-}
-
-function DistributionList({
-  title,
-  stats,
-  labelMap,
-  empty,
-}: {
-  title: string;
-  stats: CountStat[];
-  labelMap?: Record<string, string>;
-  empty?: string;
-}) {
-  return (
-    <div className="rounded-lg border border-border bg-surface p-4">
-      <p className="text-xs font-medium tracking-wide text-muted uppercase">{title}</p>
-      {stats.length === 0 ? (
-        <p className="mt-3 text-sm text-subtle">{empty ?? "No data"}</p>
-      ) : (
-        <ul className="mt-3 flex flex-col gap-2.5">
-          {stats.map((stat) => (
-            <li key={stat.key}>
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="truncate text-sm text-fg-soft">
-                  {labelMap?.[stat.key] ?? stat.key}
-                </span>
-                <span className="font-mono text-xs tabular-nums text-muted">
-                  {stat.count} · {stat.share}%
-                </span>
-              </div>
-              <div className="mt-1">
-                <Meter value={stat.share} />
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function BacklinkRow({ item, isNew }: { item: Backlink; isNew: boolean }) {
-  return (
-    <article className="grid gap-3 border-b border-border py-4 last:border-b-0 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_auto] md:items-start">
-      <div className="min-w-0">
-        <a
-          href={item.sourceUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="group inline-flex max-w-full items-start gap-1.5 text-sm font-medium text-fg hover:text-fg-soft"
-        >
-          <span className="truncate">{item.sourceTitle || item.sourceHost}</span>
-          <ArrowUpRight className="mt-0.5 size-3.5 shrink-0 text-subtle group-hover:text-fg" />
-        </a>
-        <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs text-muted">
-          <span className="truncate">{item.sourceHost}</span>
-          <span className="text-subtle">·</span>
-          <span title="Domain score (0–100)">DS {item.domainScore}</span>
-          <span className="text-subtle">·</span>
-          <span title="Topical relevance (0–100)">TM {item.relevance}</span>
-          {item.firstSeen ? (
-            <>
-              <span className="text-subtle">·</span>
-              <span title="First seen in the archive">since {item.firstSeen.slice(0, 4)}</span>
-            </>
-          ) : null}
-          {item.sourceLang ? (
-            <>
-              <span className="text-subtle">·</span>
-              <span>{item.sourceLang}</span>
-            </>
-          ) : null}
-        </p>
-        <div className="mt-2 max-w-[220px]">
-          <Meter
-            value={item.domainScore}
-            tone={item.spamScore >= 55 ? "risk" : item.domainScore >= 70 ? "good" : "default"}
-          />
-        </div>
-      </div>
-
-      <div className="min-w-0">
-        <p className="text-xs text-subtle">Link target</p>
-        <p className="truncate font-mono text-xs text-fg-soft">{item.targetPath}</p>
-        {item.anchor ? (
-          <p className="mt-1 truncate text-sm text-muted">„{item.anchor}”</p>
-        ) : (
-          <p className="mt-1 text-sm text-subtle">no text anchor</p>
-        )}
-        <p className="mt-1 text-xs text-subtle">
-          {ANCHOR_LABEL[item.anchorType]} · {PLACEMENT_LABEL[item.placement]}
-          {item.targetStatus ? ` · HTTP ${item.targetStatus}` : ""}
-        </p>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 md:justify-end">
-        {isNew ? <Badge variant="accent">new</Badge> : null}
-        {item.state === "lost" ? (
-          <Badge variant="nofollow">lost{item.lastSeen ? ` · ${item.lastSeen}` : ""}</Badge>
-        ) : (
-          <Badge variant={relVariant(item)}>{relLabel(item.rel)}</Badge>
-        )}
-        <Badge>{SOURCE_LABEL[item.discoveredVia] ?? item.discoveredVia}</Badge>
-        {item.flags
-          .filter((flag) => flag !== "sitewide" || item.sitewide)
-          .slice(0, 2)
-          .map((flag) => (
-            <Badge
-              key={flag}
-              variant={
-                flag === "high-authority"
-                  ? "follow"
-                  : flag === "broken-target" || flag === "spam-risk"
-                    ? "nofollow"
-                    : "default"
-              }
-            >
-              {FLAG_LABEL[flag] ?? flag}
-            </Badge>
-          ))}
-      </div>
-    </article>
-  );
-}
-
-function IssueCard({ issue }: { issue: Issue }) {
-  const tone =
-    issue.severity === "high"
-      ? "border-nofollow/40 bg-nofollow/10"
-      : issue.severity === "medium"
-        ? "border-border-strong bg-surface-2"
-        : "border-border bg-surface";
-  return (
-    <div className={cn("rounded-lg border p-4", tone)}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-2">
-          <AlertTriangle
-            className={cn(
-              "mt-0.5 size-4 shrink-0",
-              issue.severity === "high" ? "text-nofollow" : "text-muted",
-            )}
-          />
-          <p className="text-sm font-medium text-fg">{issue.title}</p>
-        </div>
-        <Badge variant={issue.severity === "high" ? "nofollow" : "default"}>{issue.count}</Badge>
-      </div>
-      <p className="mt-2 text-sm leading-relaxed text-muted">{issue.detail}</p>
-      {issue.samples.length > 0 ? (
-        <ul className="mt-3 flex flex-col gap-1">
-          {issue.samples.map((sample) => (
-            <li key={sample} className="truncate font-mono text-xs text-subtle">
-              {sample}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </div>
-  );
-}
-
-function DiffStrip({
-  diff,
-  ratingDelta,
-  visibilityDelta,
-  persisted,
-}: {
-  diff: ScanDiff;
-  ratingDelta?: number;
-  visibilityDelta?: number;
-  persisted?: boolean;
-}) {
-  const positive = diff.backlinkDelta >= 0;
-  return (
-    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl border border-border bg-surface-2 px-5 py-3 text-sm">
-      <span className="flex items-center gap-2 text-muted">
-        {positive ? (
-          <TrendingUp className="size-4 text-follow" />
-        ) : (
-          <TrendingDown className="size-4 text-nofollow" />
-        )}
-        Zmiana od {formatDate(diff.previousAt)}
-      </span>
-      <span className="font-mono text-xs text-fg-soft">
-        links {diff.backlinkDelta >= 0 ? "+" : ""}
-        {diff.backlinkDelta}
-      </span>
-      <span className="font-mono text-xs text-fg-soft">
-        domeny {diff.domainDelta >= 0 ? "+" : ""}
-        {diff.domainDelta}
-      </span>
-      <span className="font-mono text-xs text-follow">nowe {diff.newLinks}</span>
-      <span className="font-mono text-xs text-nofollow">lost {diff.lostLinks}</span>
-      <span className="font-mono text-xs text-muted">
-        kondycja {diff.healthDelta >= 0 ? "+" : ""}
-        {diff.healthDelta}
-      </span>
-      {ratingDelta !== undefined ? (
-        <span className="font-mono text-xs text-muted">
-          DR {ratingDelta >= 0 ? "+" : ""}
-          {ratingDelta}
-        </span>
-      ) : null}
-      {visibilityDelta !== undefined ? (
-        <span className="font-mono text-xs text-muted">
-          SERP {visibilityDelta >= 0 ? "+" : ""}
-          {visibilityDelta}
-        </span>
-      ) : null}
-      {persisted ? <Badge>historia w bazie</Badge> : null}
-    </div>
-  );
-}
-
-function GrowthChart({ stats }: { stats: CountStat[] }) {
-  const max = Math.max(...stats.map((s) => s.count), 1);
-  return (
-    <div className="rounded-lg border border-border bg-surface p-4">
-      <p className="text-xs font-medium tracking-wide text-muted uppercase">
-        Referring domain growth (first seen in the archive)
-      </p>
-      {stats.length === 0 ? (
-        <p className="mt-3 text-sm text-subtle">No domain-age data yet.</p>
-      ) : (
-        <div className="mt-4 flex h-32 items-end gap-1.5">
-          {stats.map((stat) => (
-            <div key={stat.key} className="flex flex-1 flex-col items-center gap-1">
-              <span className="font-mono text-[10px] tabular-nums text-subtle">{stat.count}</span>
-              <span
-                className="w-full rounded-t bg-fg-soft/70"
-                style={{ height: `${Math.max(4, (stat.count / max) * 100)}%` }}
-              />
-              <span className="font-mono text-[10px] text-subtle">
-                {stat.key === "nieznany" ? "?" : stat.key.slice(2)}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function TrendChart({ points }: { points: TrendPoint[] }) {
-  if (points.length < 2) return null;
-  const max = Math.max(...points.map((p) => p.referringDomains), 1);
-  const maxDr = Math.max(...points.map((p) => p.domainRating), 1);
-  const first = points[0]!;
-  const last = points[points.length - 1]!;
-  return (
-    <div className="rounded-lg border border-border bg-surface p-4">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p className="text-xs font-medium tracking-wide text-muted uppercase">
-          Profile trend ({points.length} scans)
-        </p>
-        <p className="font-mono text-xs text-muted">
-          domains {first.referringDomains} → {last.referringDomains} · DR {first.domainRating} →{" "}
-          {last.domainRating}
-        </p>
-      </div>
-      <div className="mt-4 flex h-28 items-end gap-1">
-        {points.map((point) => (
-          <div
-            key={point.at}
-            className="group relative flex flex-1 flex-col justify-end gap-0.5"
-            title={`${new Date(point.at).toLocaleDateString()} · ${point.referringDomains} referring domains · DR ${point.domainRating}`}
-          >
-            <span
-              className="w-full rounded-t bg-fg-soft/70"
-              style={{ height: `${Math.max(4, (point.referringDomains / max) * 78)}%` }}
-            />
-            <span
-              className="w-full rounded-t bg-follow/60"
-              style={{ height: `${Math.max(2, (point.domainRating / maxDr) * 22)}%` }}
-            />
-          </div>
-        ))}
-      </div>
-      <p className="mt-2 text-xs text-subtle">
-        Top bars: referring domains. Bottom: Domain Rating. History is stored server-side, so the
-        trend follows you to another device.
-      </p>
-    </div>
-  );
-}
-
-function LinkGapPanel({ host }: { host: string }) {
-  const runGap = useServerFn(scanLinkGap);
-  const [value, setValue] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [gap, setGap] = useState<LinkGapReport | null>(null);
-
-  async function run() {
-    const competitors = value
-      .split(/[\s,;]+/)
-      .map((item) => item.trim())
-      .filter(Boolean)
-      .slice(0, 5);
-    if (competitors.length === 0) {
-      setError("Enter 1–5 competitor domains, separated by commas.");
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await runGap({ data: { url: host, competitors } });
-      if (!result.ok) {
-        setGap(null);
-        setError(result.error);
-        return;
-      }
-      setGap(result.report);
-    } catch (err) {
-      setGap(null);
-      setError(err instanceof Error ? err.message : "The analysis failed.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="rounded-xl border border-border bg-surface p-5">
-        <div className="flex items-center gap-2">
-          <Swords className="size-4 text-fg-soft" />
-          <p className="text-sm font-medium text-fg">Link gap vs competitors</p>
-        </div>
-        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted">
-          Give us up to five competitor domains. We run a quick scan on each and show the domains that
-          link to them but not to you, most frequent first. That is a ready-made target list for
-          outreachu.
-        </p>
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-          <Input
-            value={value}
-            onChange={(event) => setValue(event.target.value)}
-            placeholder="rival.com, other.com"
-            disabled={loading}
-          />
-          <Button onClick={() => void run()} disabled={loading} className="sm:w-52">
-            {loading ? <Radar className="animate-spin" /> : <Users />}
-            {loading ? "Analysing…" : "Compare profiles"}
-          </Button>
-        </div>
-        {error ? (
-          <p className="mt-3 text-sm text-danger" role="alert">
-            {error}
-          </p>
-        ) : null}
-      </div>
-
-      {gap ? (
-        <>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {gap.competitors.map((competitor) => (
-              <div key={competitor.host} className="rounded-lg border border-border bg-surface p-4">
-                <p className="truncate font-mono text-sm text-fg">{competitor.host}</p>
-                {competitor.error ? (
-                  <p className="mt-2 text-xs text-nofollow">{competitor.error}</p>
-                ) : (
-                  <p className="mt-2 font-mono text-xs text-muted">
-                    DR {competitor.domainRating} · {competitor.referringDomains} domen ·{" "}
-                    {competitor.backlinks} links
-                  </p>
-                )}
-              </div>
-            ))}
-            <div className="rounded-lg border border-border bg-surface-2 p-4">
-              <p className="text-xs text-muted uppercase">Shared domains</p>
-              <p className="mt-2 font-mono text-2xl tabular-nums text-fg">{gap.shared.length}</p>
-              <p className="mt-1 text-xs text-subtle">{gap.unique.length} domen tylko u Ciebie</p>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-border bg-surface px-4 md:px-5">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border py-4">
-              <p className="text-sm text-muted">{gap.gap.length} domen do zdobycia</p>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={gap.gap.length === 0}
-                onClick={() =>
-                  download(`rankproof-luka-${gap.target}.csv`, gapCsv(gap), "text/csv")
-                }
-              >
-                <Download />
-                Eksport CSV
-              </Button>
-            </div>
-            {gap.gap.length === 0 ? (
-              <p className="py-10 text-center text-sm text-muted">
-                No domains found that link to the competitors while skipping you.
-              </p>
-            ) : (
-              gap.gap.slice(0, 80).map((row) => (
-                <article
-                  key={row.domain}
-                  className="flex flex-wrap items-center justify-between gap-3 border-b border-border py-3 last:border-b-0"
-                >
-                  <div className="min-w-0">
-                    <a
-                      href={row.sampleUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 font-mono text-sm text-fg hover:text-fg-soft"
-                    >
-                      {row.domain}
-                      <ArrowUpRight className="size-3.5 text-subtle" />
-                    </a>
-                    <p className="mt-1 text-xs text-subtle">
-                      links to: {row.competitors.join(", ")}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={row.dofollow ? "follow" : "default"}>
-                      {row.dofollow ? "dofollow" : "nofollow"}
-                    </Badge>
-                    <Badge variant={row.competitors.length > 1 ? "accent" : "default"}>
-                      {row.competitors.length} z {gap.competitors.length}
-                    </Badge>
-                    <span className="font-mono text-xs tabular-nums text-muted">
-                      priority {row.priority} · DS {row.domainScore}
-                    </span>
-                  </div>
-                </article>
-              ))
-            )}
-          </div>
-        </>
-      ) : null}
-    </div>
-  );
-}
 
 /* ------------------------------------------------------------------ */
 /* Main view                                                        */
@@ -747,6 +127,29 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
 
   const health = analytics.health;
 
+  const tabs = useMemo<TabItem[]>(
+    () => [
+      ["overview", "Overview", 0],
+      ["plan", "Action plan", report.plan.items.length],
+      ["performance", "Search Console", report.searchConsole?.striking.length ?? 0],
+      ["structure", "Structure", report.siteAudit?.issues.length ?? 0],
+      ["serp", "SERP", report.serp.queries.length],
+      ["keywords", "Keywords", report.keywords.length],
+      ["links", "Backlinks", stats.backlinks],
+      ["domains", "Domains", stats.referringDomains],
+      ["pages", "Target pages", analytics.targetPages.length],
+      ["anchors", "Anchors", analytics.anchors.length],
+      ["toxic", "Risk", report.toxic.disavowCount + report.toxic.watchCount],
+      ["outbound", "Outbound", stats.outboundDomains],
+      ["gap", "Link gap", 0],
+      ["prospects", "Prospects", stats.prospects],
+      ["mentions", "Mentions", stats.mentions],
+      ["issues", "Issues", analytics.issues.length],
+      ["sources", "Sources", report.sources.length],
+    ],
+    [analytics, report, stats],
+  );
+
   return (
     <section className="flex flex-col gap-6">
       {/* Report header */}
@@ -766,13 +169,13 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
 
             <div className="mt-3 flex flex-wrap gap-2">
               {target.robotsNoindex ? <Badge variant="nofollow">noindex</Badge> : null}
-              {target.parked ? <Badge variant="nofollow">zaparkowana</Badge> : null}
+              {target.parked ? <Badge variant="nofollow">parked</Badge> : null}
               {target.usedArchive ? <Badge>kopia archiwalna</Badge> : null}
               {target.redirectHost ? (
                 <Badge variant="nofollow">→ {target.redirectHost}</Badge>
               ) : null}
               {target.subdomains.length > 0 ? (
-                <Badge>{target.subdomains.length} subdomen</Badge>
+                <Badge>{target.subdomains.length} subdomains</Badge>
               ) : null}
               {target.indexedPages > 0 ? (
                 <Badge>{target.indexedPages} known URLs</Badge>
@@ -970,47 +373,7 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
         />
       </div>
 
-      {/* Tabs */}
-      <div className="flex flex-wrap gap-2">
-        {(
-          [
-            ["overview", "Overview", 0],
-            ["plan", "Action plan", report.plan.items.length],
-            ["performance", "Search Console", report.searchConsole?.striking.length ?? 0],
-            ["structure", "Structure", report.siteAudit?.issues.length ?? 0],
-            ["serp", "SERP", report.serp.queries.length],
-            ["keywords", "Keywords", report.keywords.length],
-            ["links", "Backlinks", stats.backlinks],
-            ["domains", "Domains", stats.referringDomains],
-            ["pages", "Target pages", analytics.targetPages.length],
-            ["anchors", "Anchors", analytics.anchors.length],
-            ["toxic", "Risk", report.toxic.disavowCount + report.toxic.watchCount],
-            ["outbound", "Outbound", stats.outboundDomains],
-            ["gap", "Link gap", 0],
-            ["prospects", "Prospects", stats.prospects],
-            ["mentions", "Mentions", stats.mentions],
-            ["issues", "Issues", analytics.issues.length],
-            ["sources", "Sources", report.sources.length],
-          ] as const
-        ).map(([id, label, count]) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => setTab(id)}
-            className={cn(
-              "h-11 rounded-full border px-4 text-sm font-medium transition-colors duration-[var(--motion-quick)]",
-              tab === id
-                ? "border-fg-soft bg-fg text-accent-fg"
-                : "border-border bg-surface text-muted hover:text-fg",
-            )}
-          >
-            {label}
-            {count > 0 ? (
-              <span className="ml-2 font-mono text-xs tabular-nums opacity-70">{count}</span>
-            ) : null}
-          </button>
-        ))}
-      </div>
+      <TabNav tabs={tabs} active={tab} onChange={setTab} />
 
       {tab === "overview" ? (
         <div className="flex flex-col gap-4">
@@ -1273,7 +636,7 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
                   {domain.lostLinks > 0 ? (
                     <Badge variant="nofollow">lost {domain.lostLinks}</Badge>
                   ) : null}
-                  {domain.reciprocal ? <Badge>wzajemny</Badge> : null}
+                  {domain.reciprocal ? <Badge>reciprocal</Badge> : null}
                   {domain.spamScore >= 55 ? (
                     <Badge variant="nofollow">spam {domain.spamScore}</Badge>
                   ) : null}
@@ -1350,7 +713,7 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
                 <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs text-muted">
                   <span title="URL Rating">UR {page.urlRating}</span>
                   <span>{page.links} links</span>
-                  <span>{page.domains} domen</span>
+                  <span>{page.domains} domains</span>
                   <span>{page.dofollow} dofollow</span>
                 </div>
                 <div className="flex flex-wrap gap-2 md:justify-end">
@@ -1396,7 +759,7 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
                   {item.status && item.status >= 400 ? (
                     <Badge variant="nofollow">HTTP {item.status}</Badge>
                   ) : null}
-                  {item.reciprocal ? <Badge variant="accent">wzajemny</Badge> : null}
+                  {item.reciprocal ? <Badge variant="accent">reciprocal</Badge> : null}
                   <span className="font-mono text-xs tabular-nums text-muted">
                     {item.links} links
                   </span>
@@ -1477,7 +840,7 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
                       ? "error"
                       : source.status === "skipped"
                         ? "skipped"
-                        : "pusto"}
+                        : "empty"}
                 </Badge>
               </div>
               <p className="mt-2 font-mono text-2xl tabular-nums text-fg">{source.found}</p>
@@ -1504,80 +867,3 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
   );
 }
 
-export function ScanSkeleton() {
-  return (
-    <div className="flex flex-col gap-6" aria-live="polite" aria-busy="true">
-      <div className="h-40 animate-pulse rounded-xl bg-surface-2" />
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="h-24 animate-pulse rounded-lg bg-surface-2" />
-        ))}
-      </div>
-      <div className="flex items-start gap-3 text-sm text-muted">
-        <Radar className="mt-0.5 size-4 shrink-0 animate-spin" />
-        <p className="leading-relaxed">
-          Reading the page, sitemap and archive, extracting keywords from titles and H1s, asking
-          Bing and DuckDuckGo for positions, then reaching out to Wikipedia, GitHub, Reddit and the
-          remaining sources. Every candidate is opened as HTML — anchor, section, meta robots and
-          target status included…
-        </p>
-      </div>
-      <div className="h-72 animate-pulse rounded-xl bg-surface-2" />
-    </div>
-  );
-}
-
-export function EmptyGuide() {
-  const items = [
-    {
-      icon: BookOpenText,
-      title: "The target's graph, not guesswork",
-      body: "We start from the live site, its sitemap, subdomains and Internet Archive copies. From the highest-value pages (services, portfolio, case studies, blog) we build a graph of partners — the richest source of genuine backlinks.",
-    },
-    {
-      icon: Network,
-      title: "Thirteen open sources",
-      body: "Wikipedia and Wikimedia, GitHub, Hacker News, Reddit, Stack Exchange, Bluesky, Bing, DuckDuckGo, Mojeek, Google News, GDELT, urlscan.io and Common Crawl. Each result is a candidate, not a finished link.",
-    },
-    {
-      icon: ShieldCheck,
-      title: "Verification in three waves",
-      body: "We open the candidate page and look for an a href pointing at the target. We check rel, meta robots, the document section (content, footer, menu), language and the status of the target URL. If a domain does link, we go deeper into its pages.",
-    },
-    {
-      icon: Sparkles,
-      title: "SERP and keywords, not just a link list",
-      body: "From titles, H1s and exact-match anchors we build a keyword list, check the top 10 in Bing and DuckDuckGo, compute visibility, and point out pages that already rank but do not link to you.",
-    },
-  ];
-  return (
-    <section className="grid gap-3 md:grid-cols-2">
-      {items.map((item) => (
-        <div key={item.title} className="rounded-xl border border-border bg-surface p-5">
-          <item.icon className="size-5 text-fg-soft" />
-          <h3 className="mt-4 text-sm font-medium text-fg">{item.title}</h3>
-          <p className="mt-2 text-sm leading-relaxed text-muted">{item.body}</p>
-        </div>
-      ))}
-      <div className="rounded-xl border border-border bg-surface-2 p-5 md:col-span-2">
-        <div className="flex items-start gap-3">
-          <ShieldOff className="mt-0.5 size-4 shrink-0 text-muted" />
-          <p className="text-sm leading-relaxed text-muted">
-            This is not a full index of the web. RankProof goes deep into one site&rsquo;s graph and
-            verifies every link in the source HTML, instead of pretending to billions of URLs from a
-            paid database. For a small site the result may be short — and then it is honest.
-          </p>
-        </div>
-      </div>
-      <div className="rounded-xl border border-border bg-surface p-5 md:col-span-2">
-        <div className="flex items-start gap-3">
-          <Newspaper className="mt-0.5 size-4 shrink-0 text-fg-soft" />
-          <p className="text-sm leading-relaxed text-muted">
-            Results export to CSV (links and domains separately) or to JSON with the full report —
-            domain scores, flags and profile analytics included.
-          </p>
-        </div>
-      </div>
-    </section>
-  );
-}

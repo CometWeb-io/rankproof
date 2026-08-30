@@ -2,9 +2,9 @@ import type { SerpEngine, SerpMarket, SerpDevice } from "./types.ts";
 
 /**
  * Market parameters for each search engine. Without them every measurement runs
- * z serwera aplikacji, czyli z przypadkowego kraju — a pozycje w Polsce i w
- * the United States can differ by several places. This is the most common cause
- * of strange readings in free rank-tracking tools.
+ * from wherever the app server happens to sit — and positions in Poland and the
+ * United States can differ by several places. This is the most common cause of
+ * strange readings in free rank-tracking tools.
  */
 export const MARKETS: Record<
   SerpMarket,

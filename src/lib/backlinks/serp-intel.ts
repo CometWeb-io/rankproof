@@ -108,7 +108,7 @@ export function classifyIntent(keyword: string, brandTokens: string[] = []): Key
 }
 
 /* ------------------------------------------------------------------ */
-/* Konkurenci w SERP-ie                                                */
+/* SERP competitors                                                    */
 /* ------------------------------------------------------------------ */
 
 type CompetitorAcc = {

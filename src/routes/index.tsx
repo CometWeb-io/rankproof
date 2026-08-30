@@ -77,7 +77,18 @@ function Home() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-4 py-6 md:px-6 md:py-10">
+    <>
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:rounded-md focus:border focus:border-border focus:bg-surface focus:px-4 focus:py-2 focus:text-sm focus:text-fg"
+      >
+        Skip to main content
+      </a>
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-4 py-6 md:px-6 md:py-10"
+      >
       <header className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2.5">
           <span className="flex size-9 items-center justify-center rounded-md border border-border bg-surface">
@@ -137,14 +148,15 @@ function Home() {
                 key={id}
                 type="button"
                 disabled={loading}
+                aria-pressed={market === id}
+                aria-label={`Market: ${MARKETS[id].label}`}
                 onClick={() => setMarket(id)}
                 className={cn(
-                  "h-9 rounded-full border px-3 text-xs transition-colors",
+                  "h-11 min-w-[44px] rounded-full border px-3 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-bg",
                   market === id
                     ? "border-fg-soft bg-fg text-accent-fg"
                     : "border-border bg-surface-2 text-muted hover:text-fg",
                 )}
-                title={MARKETS[id].label}
               >
                 {id.toUpperCase()}
               </button>
@@ -155,9 +167,10 @@ function Home() {
                 key={id}
                 type="button"
                 disabled={loading}
+                aria-pressed={device === id}
                 onClick={() => setDevice(id)}
                 className={cn(
-                  "h-9 rounded-full border px-3 text-xs transition-colors",
+                  "h-11 min-w-[44px] rounded-full border px-3 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-bg",
                   device === id
                     ? "border-fg-soft bg-fg text-accent-fg"
                     : "border-border bg-surface-2 text-muted hover:text-fg",
@@ -232,5 +245,6 @@ function Home() {
         it is not an equivalent of commercial metrics.
       </footer>
     </main>
+    </>
   );
 }

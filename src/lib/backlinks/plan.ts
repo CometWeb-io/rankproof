@@ -61,7 +61,7 @@ export type PlanInput = {
  * Turns the whole report into one ordered task list. Priority is impact
  * weighted against effort, so cheap and effective work rises to the top
  * (recovering a lost link, an unlinked mention, a keyword just outside the top 3),
- * a nie te najbardziej efektowne.
+ * not the flashiest-looking tasks.
  */
 export function buildActionPlan(input: PlanInput): ActionPlan {
   const items: ActionItem[] = [];

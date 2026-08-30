@@ -380,7 +380,7 @@ export type RankMove = {
   engine: SerpEngine;
   previous: number | null;
   current: number | null;
-  /** Dodatnie = awans (np. z 8 na 3 daje +5). */
+  /** Positive = rank gain (e.g. 8 → 3 gives +5). */
   change: number | null;
   state: RankMoveState;
 };

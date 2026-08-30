@@ -266,7 +266,7 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
     const hydrated = items
       .map((item) => hydrate(item, host, tokens))
       .filter((item): item is Backlink => item !== null)
-      // Link z tej samej witryny nie jest linkiem zwrotnym.
+      // A link from the same site is not a reciprocal backlink.
       .filter((item) => !isTargetHost(item.sourceHost, host));
     mergeBacklinks(backlinks, hydrated);
   };
@@ -292,7 +292,7 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
   pushCandidates(candidates, seR.value);
   pushCandidates(candidates, newsR.value?.candidates);
 
-  /* --- Faza 3: weryfikacja HTML (fale) + SERP ------------------------- */
+  /* --- Phase 3: HTML verification (waves) + SERP ---------------------- */
   const seen = new Set<string>();
   const edges: DomainEdge[] = [];
   const unlinkedPages: string[] = [];
@@ -395,7 +395,7 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
     }
   }
 
-  /* --- Faza 5: wzbogacenie i ocena ------------------------------------- */
+  /* --- Phase 5: enrichment and scoring ---------------------------------- */
   let enriched = markSitewide([...backlinks, ...lostLinks]);
 
   const wikiDomains = new Set(

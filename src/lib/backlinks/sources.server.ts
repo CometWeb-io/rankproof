@@ -880,7 +880,7 @@ export async function scanGithub(
 }
 
 /* ------------------------------------------------------------------ */
-/* Infrastruktura celu: subdomeny, sitemapy, archiwum, Common Crawl    */
+/* Target infrastructure: subdomains, sitemaps, archive, Common Crawl  */
 /* ------------------------------------------------------------------ */
 
 /** Subdomains from Certificate Transparency — they widen the graph of own pages. */
@@ -959,7 +959,7 @@ export async function scanCommonCrawl(host: string, signal?: AbortSignal): Promi
     signal,
   );
   const api = collections?.[0]?.["cdx-api"];
-  if (!api) throw new Error("Brak indeksu Common Crawl");
+  if (!api) throw new Error("Common Crawl index unavailable");
   const { status, text } = await fetchText(
     `${api}?url=${encodeURIComponent(`${host}/*`)}&output=json&limit=120&filter=status:200`,
     { timeoutMs: 12_000, maxBytes: 400_000, ua: API_UA, signal },

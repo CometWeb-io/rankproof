@@ -1,6 +1,6 @@
 # RankProof
 
-> **Status:** hardening RC (truth & reliability). Treat as **beta/RC**, not a mature 8.x product.
+> **Status:** stable release (8.1.0). Open-source search visibility and backlink auditor.
 >
 > **Naming:** RankProof (ex-SerpRadar). Package/CLI: `rankproof`.
 
@@ -175,7 +175,7 @@ The CLI, the HTTP API and `npm run dev` / `build` / `preview` all read `.env` on
 └────────────────────┘
 ```
 
-Details: [`docs/architecture.md`](docs/architecture.md). Metric methodology and its honest limits: [`docs/metrics.md`](docs/metrics.md).
+Details: [`docs/architecture.md`](docs/architecture.md). Metric methodology and its honest limits: [`docs/metrics.md`](docs/metrics.md). Production deployment: [`docs/production-ops.md`](docs/production-ops.md).
 
 ---
 
@@ -204,6 +204,7 @@ The scanner fetches URLs supplied by whoever uses it, so every request is checke
 ```bash
 npm run check           # typecheck + lint + tests
 npm test                # project tests only
+npm run test:e2e        # Playwright UI smoke (requires build)
 npm run build           # production build
 npm run cli -- doctor   # are the engines and parsers still working?
 ```
