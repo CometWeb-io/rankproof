@@ -6,7 +6,7 @@
 
 Search visibility and backlink auditing **with no paid APIs, no keys and no seat-based limits**. Point it at a domain and get verified backlinks, keyword positions, internal-structure analysis, risk assessment and a prioritised action plan.
 
-[![CI](https://github.com/MaciejZet/rankproof/actions/workflows/ci.yml/badge.svg)](https://github.com/MaciejZet/rankproof/actions/workflows/ci.yml)
+[![CI](https://github.com/CometWeb-io/rankproof/actions/workflows/ci.yml/badge.svg)](https://github.com/CometWeb-io/rankproof/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
@@ -83,7 +83,7 @@ Both APIs are free. Setup: [`docs/search-console.md`](docs/search-console.md).
 Requires **Node 22+**.
 
 ```bash
-git clone https://github.com/MaciejZet/rankproof.git
+git clone https://github.com/CometWeb-io/rankproof.git
 cd rankproof
 npm install
 npm run dev

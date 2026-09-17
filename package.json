@@ -16,13 +16,13 @@
     "open-source-seo",
     "disavow"
   ],
-  "homepage": "https://github.com/MaciejZet/rankproof#readme",
+  "homepage": "https://github.com/CometWeb-io/rankproof#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/MaciejZet/rankproof.git"
+    "url": "git+https://github.com/CometWeb-io/rankproof.git"
   },
   "bugs": {
-    "url": "https://github.com/MaciejZet/rankproof/issues"
+    "url": "https://github.com/CometWeb-io/rankproof/issues"
   },
   "engines": {
     "node": ">=22"
