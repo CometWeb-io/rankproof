@@ -135,7 +135,7 @@ truthfulness, and the packaging a stranger's first clone runs into.
   banner used to break, and a stale hard-coded test count.
 - Code of Conduct reports went to `conduct@rankproof.dev` — a domain nobody
   here owns, with neither MX nor A records, so every report bounced. All
-  contact now goes to `maciej@cometweb.io`.
+  contact moved to the CometWeb mailbox; see `SECURITY.md` for the current address.
 
 ## [8.1.0-rc.0] — 2026-08-25
 

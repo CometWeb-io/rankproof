@@ -25,7 +25,7 @@ Unacceptable behaviour:
 
 Project maintainers are responsible for clarifying these standards and will take fair corrective action against behaviour they consider inappropriate — from removing a comment to a temporary or permanent ban.
 
-Reports: `maciej@cometweb.io`. Every report is reviewed, and the reporter's identity is kept confidential.
+Reports: `hello@cometweb.io`. Every report is reviewed, and the reporter's identity is kept confidential.
 
 ## Attribution
 
