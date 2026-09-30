@@ -34,6 +34,7 @@
     "dist",
     "bin",
     "scripts/load-dotenv.mjs",
+    "scripts/node-version.mjs",
     "scripts/serve-api.mjs",
     "!src/lib/backlinks/**/*.test.ts",
     "!src/lib/backlinks/fixtures",

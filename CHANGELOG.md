@@ -130,6 +130,8 @@ truthfulness, and the packaging a stranger's first clone runs into.
   (`prepack` builds it). A clone still runs the TypeScript sources directly, and
   sources win when present so a stale `dist/` cannot shadow what you are editing.
   CI installs the real tarball into a path with a space and runs it.
+- The CLI imports `scripts/node-version.mjs` before any command runs. That file
+  is now in the published `files` list, so an installed package can start.
 - The tarball is 153 kB across 52 files with **no runtime dependencies**, down
   from shipping all of `src/` — React routes, styles and tests included — plus
   51 dependencies the CLI never imports. Every one of them is consumed by the

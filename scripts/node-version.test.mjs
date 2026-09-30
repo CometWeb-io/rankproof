@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import {
   doctorExitCode,
@@ -31,4 +34,18 @@ test("nodeVersionError names the floor clearly", () => {
 test("doctorExitCode matches HTTP /doctor (503 when unhealthy)", () => {
   assert.equal(doctorExitCode(true), 0);
   assert.equal(doctorExitCode(false), 1);
+});
+
+test("CLI script imports are listed in the published package files", () => {
+  const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+  const bin = readFileSync(join(root, "bin/rankproof.mjs"), "utf8");
+  const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+  const imported = [...bin.matchAll(/["']\.\.\/(scripts\/[^"']+)["']/g)].map((match) => match[1]);
+  assert.ok(imported.includes("scripts/node-version.mjs"));
+  for (const relativePath of imported) {
+    assert.ok(
+      pkg.files.includes(relativePath),
+      `${relativePath} is imported by bin/rankproof.mjs but missing from package.json files`,
+    );
+  }
 });
