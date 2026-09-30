@@ -11,12 +11,7 @@ import {
 import { hostFromUrl, isTargetHost, normalizeUrl, pathOf } from "./parse.ts";
 import { Budget, fetchUsefulHtml, fetchText, mapLimit } from "./net.server.ts";
 import { isAllowed, robotsFor } from "./robots.server.ts";
-import type {
-  Backlink,
-  InternalPage,
-  SiteAudit,
-  SiteIssue,
-} from "./types.ts";
+import type { Backlink, InternalPage, SiteAudit, SiteIssue } from "./types.ts";
 
 /**
  * Audit of the site itself.
@@ -236,15 +231,7 @@ function failedAudit(message: string): SiteAudit {
     redirectedInternal: 0,
     noindexPages: 0,
     pages: [],
-    issues: [
-      issue(
-        "audit-failed",
-        "high",
-        "Site audit failed",
-        message.slice(0, 400),
-        [],
-      ),
-    ],
+    issues: [issue("audit-failed", "high", "Site audit failed", message.slice(0, 400), [])],
     score: 0,
   };
 }
@@ -279,7 +266,12 @@ export async function runSiteAudit(
 
     const reachable = new Set(pages.map((page) => page.url));
     const inventory = new Set<string>();
-    for (const url of await loadSitemapInventory(startUrl, host, budget, Math.max(limit * 3, 200))) {
+    for (const url of await loadSitemapInventory(
+      startUrl,
+      host,
+      budget,
+      Math.max(limit * 3, 200),
+    )) {
       inventory.add(url);
     }
     for (const raw of options.knownUrls ?? []) {
@@ -424,7 +416,9 @@ export async function runSiteAudit(
 
     // Money pages: strong externally, weak internally.
     const underlinked = internalPages
-      .filter((page) => page.backlinks >= 2 && page.inboundLinks <= 1 && !page.noindex && page.depth >= 0)
+      .filter(
+        (page) => page.backlinks >= 2 && page.inboundLinks <= 1 && !page.noindex && page.depth >= 0,
+      )
       .sort((a, b) => b.backlinks - a.backlinks);
     if (underlinked.length > 0) {
       issues.push(
@@ -433,7 +427,9 @@ export async function runSiteAudit(
           "high",
           `${underlinked.length} pages with backlinks are barely linked internally`,
           "Other sites consider these pages worth linking to, but your own site hardly does. Adding internal links from related content is the cheapest ranking gain available.",
-          underlinked.map((page) => `${page.path} (${page.backlinks} backlinks, ${page.inboundLinks} internal)`),
+          underlinked.map(
+            (page) => `${page.path} (${page.backlinks} backlinks, ${page.inboundLinks} internal)`,
+          ),
         ),
       );
     }
@@ -445,8 +441,9 @@ export async function runSiteAudit(
         : 0;
     const avgInbound =
       crawled > 0
-        ? Math.round((pages.reduce((sum, page) => sum + (inbound.get(page.url) ?? 0), 0) / crawled) * 10) /
-          10
+        ? Math.round(
+            (pages.reduce((sum, page) => sum + (inbound.get(page.url) ?? 0), 0) / crawled) * 10,
+          ) / 10
         : 0;
 
     // Score: start from full marks, subtract for each structural problem.

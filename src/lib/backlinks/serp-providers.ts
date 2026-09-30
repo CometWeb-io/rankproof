@@ -7,8 +7,11 @@
  * self-hosted OpenSERP-compatible JSON endpoint.
  */
 
+import { lookup } from "node:dns/promises";
+
 import type { SerpEngine } from "./types.ts";
 import type { OrganicHit } from "./serp.ts";
+import { guardUrl, guardUrlWithDns, type Resolver } from "./ssrf.ts";
 
 export type ProviderKind = "builtin-scrape" | "owner-api" | "http-json" | "unimplemented";
 
@@ -75,6 +78,34 @@ export function isEngineConfigured(engine: SerpEngine): boolean {
 }
 
 /**
+ * Reject provider URLs that point at localhost, metadata, or other non-public
+ * targets — same policy as crawl (`guardUrl` / `guardUrlWithDns`).
+ */
+export async function assertProviderUrlAllowed(raw: string, resolve?: Resolver): Promise<void> {
+  const staticVerdict = guardUrl(raw);
+  if (!staticVerdict.allowed) {
+    throw new Error(`Google provider URL blocked: ${staticVerdict.reason}`);
+  }
+
+  // Prefer DNS validation when a resolver is available (tests inject one;
+  // production uses node:dns). Literal IPs already passed through guardUrl.
+  const hostname = new URL(raw).hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  const isLiteral = /^[\d.]+$/.test(hostname) || hostname.includes(":");
+  if (isLiteral) return;
+
+  const resolver =
+    resolve ??
+    (async (host: string) => {
+      const records = await lookup(host, { all: true, verbatim: true });
+      return records.map((record) => record.address);
+    });
+  const verdict = await guardUrlWithDns(raw, resolver);
+  if (!verdict.allowed) {
+    throw new Error(`Google provider URL blocked: ${verdict.reason}`);
+  }
+}
+
+/**
  * Fetch organic hits from an OpenSERP-style provider.
  * Expected shapes (first match wins):
  * - `{ organic: [{ link|url, title, snippet|description }] }`
@@ -91,6 +122,8 @@ export async function fetchGoogleOrganicViaProvider(
     fetchImpl?: typeof fetch;
     timeoutMs?: number;
     signal?: AbortSignal;
+    /** Test-only DNS resolver; production uses node:dns. */
+    resolve?: Resolver;
   },
 ): Promise<{ hits: OrganicHit[]; html: string }> {
   const base = options.baseUrl.replace(/\/$/, "");
@@ -100,6 +133,10 @@ export async function fetchGoogleOrganicViaProvider(
   if (options.market) url.searchParams.set("gl", options.market);
   if (options.device) url.searchParams.set("device", options.device);
   if (page > 0) url.searchParams.set("start", String(page * 10));
+
+  // Fail closed before any network I/O — env-configured provider URLs are as
+  // dangerous as crawl targets when they point at metadata or loopback.
+  await assertProviderUrlAllowed(url.href, options.resolve);
 
   const fetchImpl = options.fetchImpl ?? fetch;
   // Node's fetch has no default timeout: without this, one stalled provider

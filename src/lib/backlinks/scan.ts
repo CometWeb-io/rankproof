@@ -109,10 +109,7 @@ export const checkSerpKeywords = createServerFn({ method: "POST" })
     let previous: { keyword: string; engine: string; position: number | null }[] | undefined;
     try {
       const { parseTarget } = await import("./parse.ts");
-      previous = await loadPreviousPositions(
-        parseTarget(data.url).host,
-        new Date().toISOString(),
-      );
+      previous = await loadPreviousPositions(parseTarget(data.url).host, new Date().toISOString());
     } catch {
       previous = undefined;
     }

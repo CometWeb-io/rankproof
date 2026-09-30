@@ -143,7 +143,12 @@ export async function verifyPages(pages: Candidate[], opts: VerifyOptions): Prom
   await mapLimit(unique, opts.concurrency ?? 8, async (page) => {
     if (opts.budget.left() < 2500) return;
     try {
-      const res = await fetchUsefulHtml(page.url, opts.budget.timeout(7000), opts.budget.signal, opts.budget);
+      const res = await fetchUsefulHtml(
+        page.url,
+        opts.budget.timeout(7000),
+        opts.budget.signal,
+        opts.budget,
+      );
       checked += 1;
       if (res.status >= 400 || !res.text) return;
 

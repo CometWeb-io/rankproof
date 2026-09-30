@@ -12,9 +12,12 @@ import type {
 /* Referring domain segmentation                                      */
 /* ------------------------------------------------------------------ */
 
-const MEDIA = /(gazeta|wyborcza|onet|wp\.pl|interia|rp\.pl|money|forbes|businessinsider|newsweek|reuters|bbc|guardian|nytimes|press|news|dziennik|radio|tvn|polsatnews)/i;
-const FORUM = /(reddit|forum|quora|stackexchange|stackoverflow|discourse|wykop|elektroda|4programmers)/i;
-const SOCIAL = /(facebook|twitter|^x\.com|instagram|linkedin|youtube|tiktok|pinterest|bsky|mastodon|medium|substack)/i;
+const MEDIA =
+  /(gazeta|wyborcza|onet|wp\.pl|interia|rp\.pl|money|forbes|businessinsider|newsweek|reuters|bbc|guardian|nytimes|press|news|dziennik|radio|tvn|polsatnews)/i;
+const FORUM =
+  /(reddit|forum|quora|stackexchange|stackoverflow|discourse|wykop|elektroda|4programmers)/i;
+const SOCIAL =
+  /(facebook|twitter|^x\.com|instagram|linkedin|youtube|tiktok|pinterest|bsky|mastodon|medium|substack)/i;
 const CODE = /(github|gitlab|bitbucket|npmjs|pypi|sourceforge|codeberg|dev\.to)/i;
 const SHOP = /(allegro|amazon|ebay|shop|sklep|store|ceneo|olx|etsy)/i;
 const DIRECTORY = /(katalog|directory|listing|wizytowk|firmy|panorama|yellowpages|spis|baza-firm)/i;
@@ -70,13 +73,11 @@ const SEGMENT_ORDER: DomainSegment[] = [
  * The profile broken down by site type. A profile made entirely of directories
  * or entirely of social media looks artificial — this breakdown shows it at once.
  */
-export function buildSegments(
-  domains: ReferringDomain[],
-  backlinks: Backlink[],
-): SegmentStat[] {
+export function buildSegments(domains: ReferringDomain[], backlinks: Backlink[]): SegmentStat[] {
   const titleByDomain = new Map<string, string>();
   for (const link of backlinks) {
-    if (!titleByDomain.has(link.sourceDomain)) titleByDomain.set(link.sourceDomain, link.sourceTitle);
+    if (!titleByDomain.has(link.sourceDomain))
+      titleByDomain.set(link.sourceDomain, link.sourceTitle);
   }
 
   const acc = new Map<DomainSegment, { domains: number; links: number; score: number }>();
@@ -116,10 +117,7 @@ export function buildSegments(
  * The trend compares the last 12 months with the 12 before; a sudden jump often
  * signals bought links, and a fall to zero signals abandoned marketing.
  */
-export function buildVelocity(
-  domains: ReferringDomain[],
-  trend: TrendPoint[] = [],
-): LinkVelocity {
+export function buildVelocity(domains: ReferringDomain[], trend: TrendPoint[] = []): LinkVelocity {
   const now = Date.now();
   const year = 365 * 24 * 3600 * 1000;
   let last12 = 0;
@@ -137,7 +135,10 @@ export function buildVelocity(
   }
 
   const lostLinks = domains.reduce((sum, domain) => sum + domain.lostLinks, 0);
-  const totalLinks = Math.max(1, domains.reduce((sum, domain) => sum + domain.links, 0));
+  const totalLinks = Math.max(
+    1,
+    domains.reduce((sum, domain) => sum + domain.links, 0),
+  );
   const lostRatio = Math.round((lostLinks / (totalLinks + lostLinks)) * 100);
 
   if (dated < 3) {

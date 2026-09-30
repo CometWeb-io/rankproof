@@ -1,12 +1,6 @@
 import { tokenize } from "./topic.ts";
 import { adjustedCtr, classifyIntent, keywordDifficulty } from "./serp-intel.ts";
-import type {
-  AnchorStat,
-  KeywordSource,
-  KeywordStat,
-  SerpEngine,
-  SerpQuery,
-} from "./types.ts";
+import type { AnchorStat, KeywordSource, KeywordStat, SerpEngine, SerpQuery } from "./types.ts";
 
 export type KeywordSeed = {
   keyword: string;
@@ -99,7 +93,9 @@ export function collectKeywords(input: {
     .slice(0, 6)
     .forEach(([phrase, count]) => pushSeed(out, phrase, "content", 30 + Math.min(20, count * 4)));
 
-  for (const anchor of (input.anchors ?? []).filter((a) => a.type === "exact-match" || a.type === "long-tail")) {
+  for (const anchor of (input.anchors ?? []).filter(
+    (a) => a.type === "exact-match" || a.type === "long-tail",
+  )) {
     pushSeed(out, anchor.text, "anchor", 40 + Math.min(30, anchor.domains * 6));
   }
 
@@ -110,7 +106,9 @@ export function pickSerpKeywords(seeds: KeywordSeed[], limit = 5): string[] {
   const out: string[] = [];
   for (const seed of seeds) {
     if (out.length >= limit) break;
-    if (out.some((k) => k === seed.keyword || k.includes(seed.keyword) || seed.keyword.includes(k))) {
+    if (
+      out.some((k) => k === seed.keyword || k.includes(seed.keyword) || seed.keyword.includes(k))
+    ) {
       continue;
     }
     out.push(seed.keyword);
@@ -212,10 +210,8 @@ export function buildKeywordStats(
     if (bestPosition === 1) opportunity = Math.min(opportunity, 18);
 
     // Difficulty is taken from the richest SERP we managed to fetch.
-    const richest = related
-      .slice()
-      .sort((a, b) => b.results.length - a.results.length)[0];
-    const difficulty = richest ? (richest.difficulty || keywordDifficulty(richest)) : 0;
+    const richest = related.slice().sort((a, b) => b.results.length - a.results.length)[0];
+    const difficulty = richest ? richest.difficulty || keywordDifficulty(richest) : 0;
     const trafficShare = richest ? adjustedCtr(bestPosition, richest.features) : 0;
 
     // An easy keyword with existing links is a real opportunity; a hard one less so.

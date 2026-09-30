@@ -518,7 +518,9 @@ test("extractHeadings and schema types from HTML", async () => {
     "https://example.com/produkt",
   );
   assert.equal(
-    extractDescription(`<meta content="Order-independent description text here." name="description">`),
+    extractDescription(
+      `<meta content="Order-independent description text here." name="description">`,
+    ),
     "Order-independent description text here.",
   );
 });
@@ -526,9 +528,8 @@ test("extractHeadings and schema types from HTML", async () => {
 /* --------------------------------- keywords / serp ------------------------ */
 
 test("collectKeywords takes titles, H1s and exact-match anchors", async () => {
-  const { collectKeywords, pickSerpKeywords, visibilityScore, buildKeywordStats } = await import(
-    "./keywords.ts"
-  );
+  const { collectKeywords, pickSerpKeywords, visibilityScore, buildKeywordStats } =
+    await import("./keywords.ts");
   const seeds = collectKeywords({
     title: "Fotografia produktowa | Studio Cel",
     h1: ["Packshot i zdjęcia produktów"],
@@ -640,7 +641,8 @@ test("collectKeywords takes titles, H1s and exact-match anchors", async () => {
 });
 
 test("SERP parsers extract organic positions and the target", async () => {
-  const { parseBingOrganic, parseDdgOrganic, toSerpHits, targetPosition } = await import("./serp.ts");
+  const { parseBingOrganic, parseDdgOrganic, toSerpHits, targetPosition } =
+    await import("./serp.ts");
   const bing = `<ol><li class="b_algo"><h2><a href="https://konkurent.pl/a">Konkurent</a></h2><p>opis</p></li>
 <li class="b_algo"><h2><a href="https://cel.pl/oferta">Studio Cel</a></h2><cite>cel.pl</cite></li></ol>`;
   const bingHits = parseBingOrganic(bing);
@@ -662,8 +664,6 @@ test("scoreBacklink rewards a SERP co-ranker", async () => {
   const corank = scoreBacklink(link({ flags: ["serp-coranker"] }));
   assert.ok(corank > base);
 });
-
-
 
 /* ------------------------------- SERP 5.0 -------------------------------- */
 
@@ -715,13 +715,19 @@ test("keyword difficulty rises with the strength of the top domains", async () =
   const easy = keywordDifficulty(
     query({
       keyword: "packshot butelek szklanych kraków",
-      results: [hit(1, "https://maly-blog.pl/a", false, 20), hit(2, "https://inny.pl/b", false, 25)],
+      results: [
+        hit(1, "https://maly-blog.pl/a", false, 20),
+        hit(2, "https://inny.pl/b", false, 25),
+      ],
     }),
   );
   const hard = keywordDifficulty(
     query({
       keyword: "buty",
-      results: [hit(1, "https://wikipedia.org/a", false, 95), hit(2, "https://allegro.pl/b", false, 90)],
+      results: [
+        hit(1, "https://wikipedia.org/a", false, 95),
+        hit(2, "https://allegro.pl/b", false, 90),
+      ],
     }),
   );
   assert.ok(hard > easy, `${hard} should exceed ${easy}`);
@@ -798,7 +804,9 @@ test("the Brave parser and related searches work on raw HTML", async () => {
   assert.ok(hits.length >= 2);
   assert.equal(hits[0]!.position, 1);
 
-  const questions = parsePeopleAlsoAsk("<div>Jak zrobić dobry packshot w domu?</div><li>Ile kosztuje sesja produktowa?</li>");
+  const questions = parsePeopleAlsoAsk(
+    "<div>Jak zrobić dobry packshot w domu?</div><li>Ile kosztuje sesja produktowa?</li>",
+  );
   assert.ok(questions.length >= 2);
 
   const merged = mergePages([hits, hits]);
@@ -907,7 +915,11 @@ test("clustering merges keywords sharing a SERP and separates unrelated topics",
   assert.ok(main, "keywords sharing a SERP form a cluster");
   assert.equal(main!.keywords.length, 2);
   assert.equal(main!.strategy, "one-page");
-  assert.ok(clusters.some((cluster) => cluster.keywords.includes("kurs excela") && cluster.keywords.length === 1));
+  assert.ok(
+    clusters.some(
+      (cluster) => cluster.keywords.includes("kurs excela") && cluster.keywords.length === 1,
+    ),
+  );
 });
 
 test("content gaps surface competitor terms missing from our page", async () => {
@@ -926,7 +938,12 @@ test("content gaps surface competitor terms missing from our page", async () => 
 test("featured-snippet opportunities only consider top-10 keywords", async () => {
   const { featuredOpportunities } = await import("./serp-cluster.ts");
   const found = featuredOpportunities([
-    query({ keyword: "blisko", targetPosition: 4, features: ["featured", "paa"], questions: ["Jak?"] }),
+    query({
+      keyword: "blisko",
+      targetPosition: 4,
+      features: ["featured", "paa"],
+      questions: ["Jak?"],
+    }),
     query({ keyword: "daleko", targetPosition: null, features: ["featured"] }),
   ]);
   assert.ok(found.length >= 1);
@@ -958,11 +975,17 @@ test("segmentation recognises site type from the domain", async () => {
   assert.equal(classifySegment("katalog-firm.pl"), "directory");
 
   const segments = buildSegments(
-    [refDomain({ domain: "github.com", tld: "com" }), refDomain({ domain: "uw.edu.pl", tld: "edu.pl" })],
+    [
+      refDomain({ domain: "github.com", tld: "com" }),
+      refDomain({ domain: "uw.edu.pl", tld: "edu.pl" }),
+    ],
     [],
   );
   assert.equal(segments.length, 2);
-  assert.equal(segments.reduce((sum, segment) => sum + segment.domains, 0), 2);
+  assert.equal(
+    segments.reduce((sum, segment) => sum + segment.domains, 0),
+    2,
+  );
 });
 
 test("link velocity recognises growth and missing data", async () => {
@@ -1045,7 +1068,11 @@ test("the action plan puts cheap, effective tasks at the top", async () => {
   // outrank expensive outreach.
   const ids = plan.items.map((item) => item.id);
   assert.ok(ids.indexOf("unlinked-mentions") < ids.indexOf("striking-distance"));
-  assert.ok(plan.items.every((item, index, list) => index === 0 || list[index - 1]!.priority >= item.priority));
+  assert.ok(
+    plan.items.every(
+      (item, index, list) => index === 0 || list[index - 1]!.priority >= item.priority,
+    ),
+  );
 });
 
 /* --------------- market, brand, footprint and the index ------------------ */
@@ -1143,7 +1170,10 @@ test("the visibility index sums to 100 and names the weakest component", async (
 
   const max = card.parts.reduce((sum, part) => sum + part.max, 0);
   assert.equal(max, 100, "the components must sum to 100 points");
-  assert.equal(card.index, card.parts.reduce((sum, part) => sum + part.score, 0));
+  assert.equal(
+    card.index,
+    card.parts.reduce((sum, part) => sum + part.score, 0),
+  );
   assert.ok(card.parts.every((part) => part.score <= part.max));
   // On-page 30/100 is the weakest part of this profile.
   assert.equal(card.weakest, "On-page and structure");
@@ -1157,7 +1187,11 @@ test("configuration reads ENV but defends against nonsense values", async () => 
     await import("./config.ts");
 
   assert.deepEqual(parseEngines("bing, brave", []), ["bing", "brave"]);
-  assert.deepEqual(parseEngines("nieistniejacy", ["bing"]), ["bing"], "an unknown engine does not wipe the defaults");
+  assert.deepEqual(
+    parseEngines("nieistniejacy", ["bing"]),
+    ["bing"],
+    "an unknown engine does not wipe the defaults",
+  );
   assert.deepEqual(parseEngines("bing,bing", []), ["bing"], "duplicates are removed");
   assert.equal(parseMarket("DE", "pl"), "de");
   assert.equal(parseMarket("xx", "pl"), "pl");
@@ -1172,7 +1206,11 @@ test("configuration reads ENV but defends against nonsense values", async () => 
     process.env.RANKPROOF_PERSIST_HISTORY = "0";
     const runtime = config();
     assert.equal(runtime.hostConcurrency, 8, "concurrency is capped");
-    assert.equal(runtime.scanBudgetMs, DEFAULT_CONFIG.scanBudgetMs, "junk falls back to the default");
+    assert.equal(
+      runtime.scanBudgetMs,
+      DEFAULT_CONFIG.scanBudgetMs,
+      "junk falls back to the default",
+    );
     assert.equal(runtime.persistHistory, false);
   } finally {
     process.env = previous;
@@ -1205,11 +1243,41 @@ test("the CLI argument parser understands shorthands, values and errors", async 
   assert.match(parseArgs(["gap", "example.com"]).error ?? "", /competitor/);
   assert.match(parseArgs(["scan"]).error ?? "", /Provide a domain/);
   assert.match(parseArgs(["scan", "a.pl", "--format", "xml"]).error ?? "", /Unknown format/);
-  assert.match(parseArgs(["serp", "a.pl", "-k", "x", "-f", "html"]).error ?? "", /only available for/);
+  assert.match(
+    parseArgs(["serp", "a.pl", "-k", "x", "-f", "html"]).error ?? "",
+    /only available for/,
+  );
   assert.match(parseArgs(["scan", "a.pl", "--turbo"]).error ?? "", /Unknown option/);
+
+  // Invalid market / device must error with the allow-list — never silent fallback.
+  assert.match(parseArgs(["scan", "a.pl", "--market", "xx"]).error ?? "", /Unknown market.*pl.*us/);
+  assert.match(
+    parseArgs(["scan", "a.pl", "--device", "tablet"]).error ?? "",
+    /Unknown device.*desktop.*mobile/,
+  );
+  assert.match(parseArgs(["scan", "a.pl", "--depth", "15"]).error ?? "", /Unknown depth.*10.*20/);
+
+  // scan honours --depth the same way serp does.
+  assert.equal(parseArgs(["scan", "example.com", "--depth", "20"]).depth, 20);
+  assert.equal(parseArgs(["scan", "example.com", "--depth", "20"]).error, undefined);
 
   assert.equal(parseArgs([]).command, "help");
   assert.equal(parseArgs(["--version"]).command, "version");
+});
+
+test("CLI scan depth is forwarded into runScan options", async () => {
+  const { parseArgs } = await import("./cli.ts");
+  const options = parseArgs(["scan", "example.com", "--depth", "20", "--no-audit"]);
+  assert.equal(options.depth, 20);
+  // Mimic bin/rankproof.mjs: scan passes options.depth through ScanOptions.
+  const scanOptions = {
+    market: options.market,
+    device: options.device,
+    engines: options.engines.length > 0 ? options.engines : undefined,
+    depth: options.depth,
+    skipSiteAudit: options.skipAudit,
+  };
+  assert.equal(scanOptions.depth, 20);
 });
 
 /* ------------------------- SSRF and network safety ----------------------- */
@@ -1217,7 +1285,14 @@ test("the CLI argument parser understands shorthands, values and errors", async 
 test("private and metadata addresses are recognised", async () => {
   const { isPrivateAddress, guardUrl } = await import("./ssrf.ts");
 
-  for (const address of ["127.0.0.1", "10.1.2.3", "192.168.0.5", "172.16.9.9", "169.254.169.254", "0.0.0.0"]) {
+  for (const address of [
+    "127.0.0.1",
+    "10.1.2.3",
+    "192.168.0.5",
+    "172.16.9.9",
+    "169.254.169.254",
+    "0.0.0.0",
+  ]) {
     assert.equal(isPrivateAddress(address), true, `${address} must be private`);
   }
   for (const address of ["8.8.8.8", "1.1.1.1", "93.184.216.34"]) {
@@ -1337,7 +1412,9 @@ test("robots groups match on the agent token, not on any substring of it", async
 
   // "roof" and "pro" are substrings of "rankproof" but address other crawlers.
   for (const other of ["roof", "pro", "a"]) {
-    const txt = [`User-agent: ${other}`, "Disallow: /", "", "User-agent: *", "Disallow:"].join("\n");
+    const txt = [`User-agent: ${other}`, "Disallow: /", "", "User-agent: *", "Disallow:"].join(
+      "\n",
+    );
     const rules = parseRobots(txt, "rankproof");
     assert.equal(isAllowed(rules, "/page"), true, `a group for "${other}" must not bind us`);
   }
@@ -1347,7 +1424,6 @@ test("robots groups match on the agent token, not on any substring of it", async
   assert.equal(isAllowed(ours, "/private/x"), false);
   assert.equal(isAllowed(ours, "/public"), true);
 });
-
 
 test("robots.txt rules are parsed and applied per agent", async () => {
   const { parseRobots, isAllowed } = await import("./robots.server.ts");
@@ -1364,7 +1440,11 @@ test("robots.txt rules are parsed and applied per agent", async () => {
 
   const generic = parseRobots(text, "some-other-bot");
   assert.equal(isAllowed(generic, "/admin/panel"), false);
-  assert.equal(isAllowed(generic, "/private/secret"), true, "the wildcard group has no /private rule");
+  assert.equal(
+    isAllowed(generic, "/private/secret"),
+    true,
+    "the wildcard group has no /private rule",
+  );
   assert.equal(generic.crawlDelay, 2);
 
   // Wildcards and end anchors.
@@ -1386,8 +1466,14 @@ async function fixture(name: string): Promise<string> {
 }
 
 test("every SERP parser still understands its engine's markup", async () => {
-  const { parseBingOrganic, parseDdgOrganic, parseMojeekOrganic, parseBraveOrganic, toSerpHits, targetPosition } =
-    await import("./serp.ts");
+  const {
+    parseBingOrganic,
+    parseDdgOrganic,
+    parseMojeekOrganic,
+    parseBraveOrganic,
+    toSerpHits,
+    targetPosition,
+  } = await import("./serp.ts");
 
   const cases = [
     { file: "bing.html", parse: parseBingOrganic, expected: 3, target: 3 },
@@ -1401,7 +1487,10 @@ test("every SERP parser still understands its engine's markup", async () => {
     const hits = item.parse(html);
     assert.equal(hits.length, item.expected, `${item.file}: expected ${item.expected} results`);
     assert.equal(hits[0]!.position, 1);
-    assert.ok(hits.every((hit) => hit.url.startsWith("https://")), `${item.file}: every URL absolute`);
+    assert.ok(
+      hits.every((hit) => hit.url.startsWith("https://")),
+      `${item.file}: every URL absolute`,
+    );
     const serpHits = toSerpHits(hits, "target-site.com");
     assert.equal(targetPosition(serpHits), item.target, `${item.file}: target position`);
   }
@@ -1427,7 +1516,7 @@ test("DuckDuckGo results wrapped in a protocol-relative redirect survive", async
   const target = "https://example.org/guide";
   const html =
     `<a class="result__a" href="//duckduckgo.com/l/?uddg=${encodeURIComponent(target)}&rut=x">` +
-    "A guide</a><a class=\"result__snippet\">Snippet text.</a>";
+    'A guide</a><a class="result__snippet">Snippet text.</a>';
 
   const hits = parseDdgOrganic(html);
   assert.equal(hits.length, 1);
@@ -1440,9 +1529,9 @@ test("Mojeek never invents results from navigation when the markup changes", asy
   // Markup with no result titles at all — only chrome. A parser that scrapes
   // any anchor would report these as organic hits at positions 1..n.
   const chrome =
-    "<html><body><nav><a href=\"https://www.mojeek.com/about\">About</a>" +
-    "<a href=\"https://www.mojeek.com/preferences\">Settings</a>" +
-    "<a href=\"https://blog.mojeek.com/\">Blog</a></nav>" +
+    '<html><body><nav><a href="https://www.mojeek.com/about">About</a>' +
+    '<a href="https://www.mojeek.com/preferences">Settings</a>' +
+    '<a href="https://blog.mojeek.com/">Blog</a></nav>' +
     `<div>${"x".repeat(25_000)}</div></body></html>`;
 
   assert.deepEqual(parseMojeekOrganic(chrome), []);
@@ -1772,7 +1861,13 @@ test("orphan candidates come from inventory, not from the crawl graph alone", as
 
   try {
     clearRobotsCache();
-    const audit = await runSiteAudit("https://example.net/", "example.net", new Budget(15_000), [], 20);
+    const audit = await runSiteAudit(
+      "https://example.net/",
+      "example.net",
+      new Budget(15_000),
+      [],
+      20,
+    );
     assert.equal(audit.status, "ok");
     assert.ok(audit.orphans >= 1, `expected sitemap orphan, got ${audit.orphans}`);
     assert.ok(audit.issues.some((item) => item.id === "orphan-pages"));
@@ -1812,7 +1907,10 @@ test("crawling respects robots.txt disallow rules", async () => {
       !fetched.some((url) => url.includes("/private/")),
       `disallowed path was fetched: ${fetched.join(", ")}`,
     );
-    assert.ok(fetched.some((url) => url.includes("/public")), "allowed paths are still crawled");
+    assert.ok(
+      fetched.some((url) => url.includes("/public")),
+      "allowed paths are still crawled",
+    );
   } finally {
     globalThis.fetch = originalFetch;
     clearRobotsCache();
@@ -1866,6 +1964,7 @@ test("Google provider adapter parses OpenSERP-style JSON", async () => {
   const { fetchGoogleOrganicViaProvider } = await import("./serp-providers.ts");
   const { hits } = await fetchGoogleOrganicViaProvider("seo tools", {
     baseUrl: "https://provider.test",
+    resolve: async () => ["93.184.216.34"],
     fetchImpl: (async () =>
       new Response(
         JSON.stringify({
@@ -1880,4 +1979,52 @@ test("Google provider adapter parses OpenSERP-style JSON", async () => {
   assert.equal(hits.length, 2);
   assert.equal(hits[0]!.url, "https://a.example/x");
   assert.equal(hits[1]!.position, 2);
+});
+
+test("Google provider URL is refused for loopback and metadata before fetch", async () => {
+  const { assertProviderUrlAllowed, fetchGoogleOrganicViaProvider } =
+    await import("./serp-providers.ts");
+  const { guardUrl } = await import("./ssrf.ts");
+
+  // Guard path used by the provider: literals blocked, public https accepted.
+  assert.equal(guardUrl("http://127.0.0.1/google/search").allowed, false);
+  assert.equal(guardUrl("http://169.254.169.254/latest/meta-data/").allowed, false);
+  assert.equal(guardUrl("https://example.com/google/search").allowed, true);
+
+  await assert.rejects(
+    () => assertProviderUrlAllowed("http://127.0.0.1:8787"),
+    /blocked|not publicly routable|local/i,
+  );
+  await assert.rejects(
+    () => assertProviderUrlAllowed("http://169.254.169.254/"),
+    /blocked|not publicly routable|local/i,
+  );
+  await assertProviderUrlAllowed("https://example.com/", async () => ["93.184.216.34"]);
+
+  let fetched = false;
+  await assert.rejects(
+    () =>
+      fetchGoogleOrganicViaProvider("q", {
+        baseUrl: "http://127.0.0.1:9",
+        fetchImpl: (async () => {
+          fetched = true;
+          return new Response("{}", { status: 200 });
+        }) as typeof fetch,
+      }),
+    /blocked|not publicly routable|local/i,
+  );
+  assert.equal(fetched, false, "must not call fetch for a blocked provider URL");
+
+  await assert.rejects(
+    () =>
+      fetchGoogleOrganicViaProvider("q", {
+        baseUrl: "http://169.254.169.254",
+        fetchImpl: (async () => {
+          fetched = true;
+          return new Response("{}", { status: 200 });
+        }) as typeof fetch,
+      }),
+    /blocked|not publicly routable|local/i,
+  );
+  assert.equal(fetched, false);
 });

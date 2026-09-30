@@ -157,8 +157,7 @@ export function stripTags(html: string): string {
  */
 export function parseTagAttrs(attrText: string): Record<string, string> {
   const out: Record<string, string> = {};
-  const re =
-    /([^\s=/>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'`=<>]+)))?/gi;
+  const re = /([^\s=/>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'`=<>]+)))?/gi;
   let match: RegExpExecArray | null;
   while ((match = re.exec(attrText))) {
     const name = (match[1] ?? "").toLowerCase();
@@ -790,4 +789,3 @@ export function countLinks(
   }
   return { internal, external };
 }
-

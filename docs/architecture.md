@@ -41,11 +41,11 @@ When an engine changes its HTML, one parser breaks rather than the whole scan â€
 
 The same engine serves three interfaces:
 
-| Entry point | File | Use |
-| --- | --- | --- |
-| Web app | `src/routes/index.tsx` + `scan.ts` (server functions) | interactive audit |
-| CLI | `bin/rankproof.mjs` + `cli.ts` (argument parser) | automation, CI, cron |
-| HTTP API | `scripts/serve-api.mjs` | integrations, self-hosting |
+| Entry point | File                                                  | Use                        |
+| ----------- | ----------------------------------------------------- | -------------------------- |
+| Web app     | `src/routes/index.tsx` + `scan.ts` (server functions) | interactive audit          |
+| CLI         | `bin/rankproof.mjs` + `cli.ts` (argument parser)      | automation, CI, cron       |
+| HTTP API    | `scripts/serve-api.mjs`                               | integrations, self-hosting |
 
 The CLI argument parser is a separate, pure module â€” tested without running a scan.
 

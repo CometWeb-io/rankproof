@@ -50,7 +50,9 @@ export function SerpTab({ report }: { report: ScanReport }) {
           </p>
         </div>
         <div className="rounded-lg border border-border bg-surface p-4">
-          <p className="text-xs font-medium tracking-wide text-muted uppercase">Keyword difficulty</p>
+          <p className="text-xs font-medium tracking-wide text-muted uppercase">
+            Keyword difficulty
+          </p>
           <p className="mt-2 font-mono text-3xl tabular-nums text-fg">{avgDifficulty}</p>
           <div className="mt-2">
             <Meter value={avgDifficulty} tone={difficultyTone(avgDifficulty)} />
@@ -87,7 +89,9 @@ export function SerpTab({ report }: { report: ScanReport }) {
           variant="outline"
           size="sm"
           disabled={serp.queries.length === 0}
-          onClick={() => download(`rankproof-${report.target.host}-serp.csv`, serpCsv(report), "text/csv")}
+          onClick={() =>
+            download(`rankproof-${report.target.host}-serp.csv`, serpCsv(report), "text/csv")
+          }
         >
           <Download aria-hidden />
           SERP CSV
@@ -99,7 +103,9 @@ export function SerpTab({ report }: { report: ScanReport }) {
           No organic results could be fetched. Enter your own keywords below, or scan again.
         </p>
       ) : (
-        serp.queries.map((query) => <SerpQueryCard key={`${query.engine}-${query.keyword}`} query={query} />)
+        serp.queries.map((query) => (
+          <SerpQueryCard key={`${query.engine}-${query.keyword}`} query={query} />
+        ))
       )}
 
       <SerpExtrasPanel snapshot={serp} />

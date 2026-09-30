@@ -74,7 +74,9 @@ export function parseBingOrganic(html: string): OrganicHit[] {
   const out: OrganicHit[] = [];
   const blocks = html.split(/<li class="b_algo"/i).slice(1);
   for (const block of blocks.slice(0, 24)) {
-    const anchor = block.match(/<h2[^>]*>[\s\S]{0,400}?<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i);
+    const anchor = block.match(
+      /<h2[^>]*>[\s\S]{0,400}?<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i,
+    );
     const title = stripTags(anchor?.[2] ?? "");
     let href = anchor?.[1] ?? "";
     if (!href || /bing\.com\/ck\//i.test(href)) {
@@ -105,7 +107,9 @@ export function parseDdgOrganic(html: string): OrganicHit[] {
     const href = match[1] ?? "";
     const title = stripTags(match[2] ?? "");
     const after = html.slice(match.index, match.index + 900);
-    const snippet = stripTags(after.match(/class="[^"]*result__snippet[^"]*"[^>]*>([\s\S]*?)<\/a>/i)?.[1] ?? "");
+    const snippet = stripTags(
+      after.match(/class="[^"]*result__snippet[^"]*"[^>]*>([\s\S]*?)<\/a>/i)?.[1] ?? "",
+    );
     pushHit(out, href, title, snippet);
   }
   return out;
@@ -119,7 +123,9 @@ export function parseMojeekOrganic(html: string): OrganicHit[] {
   for (const block of blocks.slice(0, 24)) {
     const anchor = block.match(/href="(https?:\/\/[^"]+)"[^>]*>([\s\S]{0,200}?)<\/a>/i);
     if (!anchor) continue;
-    const snippet = stripTags(block.match(/class="[^"]*s[nt]p[^"]*"[^>]*>([\s\S]{0,300})/i)?.[1] ?? "");
+    const snippet = stripTags(
+      block.match(/class="[^"]*s[nt]p[^"]*"[^>]*>([\s\S]{0,300})/i)?.[1] ?? "",
+    );
     pushHit(out, anchor[1] ?? "", stripTags(anchor[2] ?? ""), snippet);
   }
   // Deliberately no generic "any anchor" fallback. When the result markup
@@ -165,11 +171,15 @@ export function parseRelatedSearches(html: string, engine: SerpEngine): string[]
 
   if (engine === "bing") {
     const section = html.match(/id="brsv3"[\s\S]{0,6000}/i)?.[0] ?? html;
-    for (const m of section.matchAll(/<a[^>]+href="\/search\?q=([^"&]+)[^"]*"[^>]*>([\s\S]{0,120}?)<\/a>/gi)) {
+    for (const m of section.matchAll(
+      /<a[^>]+href="\/search\?q=([^"&]+)[^"]*"[^>]*>([\s\S]{0,120}?)<\/a>/gi,
+    )) {
       push(m[2] || decodeURIComponent(m[1] ?? ""));
     }
   } else if (engine === "duckduckgo") {
-    for (const m of html.matchAll(/class="[^"]*related-searches?[^"]*"[\s\S]{0,200}?>([^<]{3,70})</gi)) {
+    for (const m of html.matchAll(
+      /class="[^"]*related-searches?[^"]*"[\s\S]{0,200}?>([^<]{3,70})</gi,
+    )) {
       push(m[1] ?? "");
     }
   } else if (engine === "brave") {
@@ -190,7 +200,9 @@ export function parsePeopleAlsoAsk(html: string): string[] {
   const QUESTION =
     /(?:^|>)\s*((?:jak|co|czy|ile|gdzie|kiedy|dlaczego|który|która|ktore|które|what|how|why|when|where|which|who|is|are|does|do)\b[^<>?]{6,110}\?)/gi;
   for (const m of html.matchAll(QUESTION)) {
-    const value = stripTags(decodeText(m[1] ?? "")).replace(/\s+/g, " ").trim();
+    const value = stripTags(decodeText(m[1] ?? ""))
+      .replace(/\s+/g, " ")
+      .trim();
     if (value.length < 10 || value.length > 120) continue;
     const key = value.toLowerCase();
     if (out.some((item) => item.toLowerCase() === key)) continue;

@@ -17,7 +17,6 @@ export type ScanRow = {
   domains: string[] | null;
 };
 
-
 function toIso(value: string | Date): string {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }

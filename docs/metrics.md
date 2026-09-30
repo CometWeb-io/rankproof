@@ -118,14 +118,14 @@ Unlike everything above, these are **not estimates** — they come from the sear
 
 `scorecard.ts` → `buildScorecard()`
 
-| Component | Points | Source |
-| --- | --- | --- |
-| Link strength | 25 | DR + number of referring domains |
-| Profile quality | 15 | profile health + anchor audit |
-| SERP visibility | 25 | visibility + modelled traffic |
-| On-page and structure | 10 | landing-page audit + internal structure |
-| Safety | 15 | toxicity + footprint (subtracted) |
-| Momentum and brand | 10 | link velocity + brand SERP control |
+| Component             | Points | Source                                  |
+| --------------------- | ------ | --------------------------------------- |
+| Link strength         | 25     | DR + number of referring domains        |
+| Profile quality       | 15     | profile health + anchor audit           |
+| SERP visibility       | 25     | visibility + modelled traffic           |
+| On-page and structure | 10     | landing-page audit + internal structure |
+| Safety                | 15     | toxicity + footprint (subtracted)       |
+| Momentum and brand    | 10     | link velocity + brand SERP control      |
 
 Grades: A ≥80, B ≥65, C ≥48, D ≥32, E below.
 

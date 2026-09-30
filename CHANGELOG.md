@@ -36,6 +36,9 @@ truthfulness, and the packaging a stranger's first clone runs into.
   NAT64 and 6to4, plus `ff00::/8`, `100::/64`, `2001:db8::/32` and `2001::/23`.
   Regression tests cover the URL-normalised spelling, which is the one that
   actually arrives.
+- `RANKPROOF_GOOGLE_PROVIDER_URL` (and the legacy OpenVis / SerpRadar aliases)
+  goes through the same guard before fetch. Loopback, link-local and metadata
+  addresses are refused, including after DNS resolution.
 - `GET /doctor` is rate-limited like the POST endpoints; it runs five sequential
   engine probes and previously skipped the limiter entirely. `GET /health` stays
   free as a liveness probe.
@@ -51,6 +54,15 @@ truthfulness, and the packaging a stranger's first clone runs into.
 
 ### Fixed
 
+- Unknown `--market`, `--device` and `--depth` values error with the allow-list
+  instead of falling back. `scan --depth` is the depth the scan uses (10 or 20).
+- The CLI exits before `--experimental-strip-types` when Node is older than 22,
+  with a message that names the floor. `doctor` stays non-zero when unhealthy,
+  matching HTTP 503.
+- Install docs no longer tell people to `npm install rankproof` while the
+  registry 404s. Clone and `npm ci` is the path that works.
+- Dependency overrides clear the high advisories on `fast-uri`, `js-yaml` and
+  `brace-expansion`. CI runs `prettier --check`.
 - **`.env` was never read.** README and `.env.example` both told people to create
   one; nothing loaded it, so every variable was silently ignored. The CLI, the
   HTTP API and `dev`/`build`/`preview` now load it via `util.parseEnv` — no new
@@ -71,7 +83,7 @@ truthfulness, and the packaging a stranger's first clone runs into.
   `anomaly-modal` puzzle with HTTP 202 and Mojeek a JavaScript challenge with
   HTTP 200; neither says "captcha", so `doctor` told users to file an issue
   against a working parser. Both now read as `blocked`.
-- Conversely, a SERP that merely *mentions* "captcha" or "unusual traffic" in a
+- Conversely, a SERP that merely _mentions_ "captcha" or "unusual traffic" in a
   snippet is no longer reported as blocked — parsed results settle it first.
 - `doctor --format json` returned before the exit code was set, so the CI canary
   the docs promise always exited 0.

@@ -71,7 +71,8 @@ export function domainToxicity(input: ToxicInput): { score: number; reasons: str
   }
 
   const footerOnly =
-    links.length > 0 && links.every((link) => link.placement === "footer" || link.placement === "sidebar");
+    links.length > 0 &&
+    links.every((link) => link.placement === "footer" || link.placement === "sidebar");
   if (footerOnly) {
     score += 10;
     reasons.push("tylko stopka lub sidebar");
@@ -173,7 +174,7 @@ export function disavowFile(
 const ANCHOR_TARGET: Record<AnchorType, { min: number; max: number; hint: string }> = {
   brand: { min: 30, max: 70, hint: "Brand anchors should dominate — that is how people link." },
   url: { min: 10, max: 40, hint: "Bare URLs are the natural result of citation." },
-  generic: { min: 5, max: 30, hint: "\"here\", \"more\" — natural noise." },
+  generic: { min: 5, max: 30, hint: '"here", "more" — natural noise.' },
   "long-tail": { min: 5, max: 30, hint: "Sentences and longer phrases from the content." },
   "exact-match": {
     min: 0,
@@ -205,7 +206,11 @@ export function buildAnchorAudit(
 
   const overOptimized = anchors
     .filter((anchor) => anchor.type === "exact-match" && anchor.share > 8)
-    .map((anchor) => ({ text: anchor.text, share: Math.round(anchor.share), domains: anchor.domains }))
+    .map((anchor) => ({
+      text: anchor.text,
+      share: Math.round(anchor.share),
+      domains: anchor.domains,
+    }))
     .slice(0, 8);
 
   const total = anchors.reduce((sum, anchor) => sum + anchor.count, 0);

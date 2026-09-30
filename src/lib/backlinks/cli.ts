@@ -1,4 +1,4 @@
-import { parseDevice, parseEngines, parseMarket } from "./config.ts";
+import { parseEngines } from "./config.ts";
 import type { SerpDevice, SerpEngine, SerpMarket } from "./types.ts";
 
 export type CliCommand = "scan" | "serp" | "ideas" | "gap" | "doctor" | "help" | "version";
@@ -24,6 +24,9 @@ export type CliOptions = {
 
 const COMMANDS: CliCommand[] = ["scan", "serp", "ideas", "gap", "doctor", "help", "version"];
 const FORMATS: CliFormat[] = ["text", "json", "csv", "html", "disavow"];
+const MARKETS: SerpMarket[] = ["pl", "us", "gb", "de", "fr", "es"];
+const DEVICES: SerpDevice[] = ["desktop", "mobile"];
+const DEPTHS = [10, 20] as const;
 
 function splitList(value: string): string[] {
   return value
@@ -107,21 +110,40 @@ export function parseArgs(argv: string[]): CliOptions {
         options.competitors.push(...splitList(next()));
         break;
       case "m":
-      case "market":
-        options.market = parseMarket(next(), options.market);
+      case "market": {
+        const value = next().trim().toLowerCase();
+        if (!MARKETS.includes(value as SerpMarket)) {
+          options.error = `Unknown market: ${value || "(empty)"}. Available: ${MARKETS.join(", ")}.`;
+        } else {
+          options.market = value as SerpMarket;
+        }
         break;
+      }
       case "d":
-      case "device":
-        options.device = parseDevice(next(), options.device);
+      case "device": {
+        const value = next().trim().toLowerCase();
+        if (!DEVICES.includes(value as SerpDevice)) {
+          options.error = `Unknown device: ${value || "(empty)"}. Available: ${DEVICES.join(", ")}.`;
+        } else {
+          options.device = value as SerpDevice;
+        }
         break;
+      }
       case "e":
       case "engine":
       case "engines":
         options.engines = parseEngines(next(), options.engines);
         break;
-      case "depth":
-        options.depth = Number(next()) >= 20 ? 20 : 10;
+      case "depth": {
+        const raw = next().trim();
+        const value = Number(raw);
+        if (!DEPTHS.includes(value as (typeof DEPTHS)[number])) {
+          options.error = `Unknown depth: ${raw || "(empty)"}. Available: ${DEPTHS.join(", ")}.`;
+        } else {
+          options.depth = value;
+        }
         break;
+      }
       case "f":
       case "format": {
         const value = next().toLowerCase();
@@ -175,13 +197,22 @@ function validate(options: CliOptions): CliOptions {
     return { ...options, error: "Provide a domain, e.g. `rankproof scan example.com`." };
   }
   if (options.command === "serp" && options.keywords.length === 0) {
-    return { ...options, error: "The `serp` command requires keywords: --keywords \"first,second\"." };
+    return {
+      ...options,
+      error: 'The `serp` command requires keywords: --keywords "first,second".',
+    };
   }
   if (options.command === "ideas" && options.keywords.length === 0) {
-    return { ...options, error: "The `ideas` command requires seed keywords: --keywords \"keyword\"." };
+    return {
+      ...options,
+      error: 'The `ideas` command requires seed keywords: --keywords "keyword".',
+    };
   }
   if (options.command === "gap" && options.competitors.length === 0) {
-    return { ...options, error: "The `gap` command requires competitors: --competitors \"a.com,b.com\"." };
+    return {
+      ...options,
+      error: 'The `gap` command requires competitors: --competitors "a.com,b.com".',
+    };
   }
   if (options.command !== "scan" && (options.format === "html" || options.format === "disavow")) {
     return {

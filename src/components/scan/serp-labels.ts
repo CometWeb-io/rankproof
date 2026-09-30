@@ -1,4 +1,10 @@
-import type { KeywordIdea, KeywordIntent, KeywordStat, SerpEngine, SerpProspect } from "@/lib/backlinks/types";
+import type {
+  KeywordIdea,
+  KeywordIntent,
+  KeywordStat,
+  SerpEngine,
+  SerpProspect,
+} from "@/lib/backlinks/types";
 
 export const REASON_LABEL: Record<SerpProspect["reason"], string> = {
   "serp-coranker": "co-ranks, does not link",

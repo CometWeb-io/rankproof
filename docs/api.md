@@ -45,13 +45,13 @@ curl -X POST http://127.0.0.1:8787/scan \
   -d '{"url":"example.com","market":"us","device":"desktop"}'
 ```
 
-| Field | Type | Required |
-| --- | --- | --- |
-| `url` | string | yes |
-| `market` | `pl` `us` `gb` `de` `fr` `es` | no |
-| `device` | `desktop` `mobile` | no |
-| `engines` | string[] | no |
-| `skipSiteAudit` | boolean | no |
+| Field           | Type                          | Required |
+| --------------- | ----------------------------- | -------- |
+| `url`           | string                        | yes      |
+| `market`        | `pl` `us` `gb` `de` `fr` `es` | no       |
+| `device`        | `desktop` `mobile`            | no       |
+| `engines`       | string[]                      | no       |
+| `skipSiteAudit` | boolean                       | no       |
 
 Response: `{ "ok": true, "report": ScanReport }` or `{ "ok": false, "error": "…" }`.
 
@@ -61,16 +61,16 @@ The most important fields:
 
 ```jsonc
 {
-  "target":     { "host": "…", "domainRating": 0 },
-  "scorecard":  { "index": 0, "grade": "C", "parts": [] },
-  "stats":      { "backlinks": 0, "referringDomains": 0, "serpVisibility": 0 },
-  "backlinks":  [],
-  "serp":       { "queries": [], "competitors": [], "clusters": [], "moves": [] },
-  "toxic":      { "domains": [], "disavowCount": 0 },
-  "plan":       { "items": [], "quickWins": 0 },
-  "brandSerp":  null,
-  "siteAudit":  { "score": 0, "orphans": 0, "issues": [] },
-  "searchConsole": null
+  "target": { "host": "…", "domainRating": 0 },
+  "scorecard": { "index": 0, "grade": "C", "parts": [] },
+  "stats": { "backlinks": 0, "referringDomains": 0, "serpVisibility": 0 },
+  "backlinks": [],
+  "serp": { "queries": [], "competitors": [], "clusters": [], "moves": [] },
+  "toxic": { "domains": [], "disavowCount": 0 },
+  "plan": { "items": [], "quickWins": 0 },
+  "brandSerp": null,
+  "siteAudit": { "score": 0, "orphans": 0, "issues": [] },
+  "searchConsole": null,
 }
 ```
 
@@ -96,9 +96,9 @@ It scans the competitors as well, so a response can take several minutes. Set a 
 
 ## Response codes
 
-| Code | Meaning |
-| --- | --- |
-| `200` | Success |
-| `400` | Invalid input, or the scan failed |
+| Code  | Meaning                                                                    |
+| ----- | -------------------------------------------------------------------------- |
+| `200` | Success                                                                    |
+| `400` | Invalid input, or the scan failed                                          |
 | `405` | Wrong method (`/health` and `/doctor` accept GET; everything else is POST) |
-| `429` | Rate limit exceeded |
+| `429` | Rate limit exceeded                                                        |

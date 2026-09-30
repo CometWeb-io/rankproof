@@ -34,11 +34,7 @@ export function acceptLanguage(market: SerpMarket): string {
 }
 
 /** Appends country, language and device parameters to a SERP URL. */
-export function marketParams(
-  engine: SerpEngine,
-  market: SerpMarket,
-  device: SerpDevice,
-): string {
+export function marketParams(engine: SerpEngine, market: SerpMarket, device: SerpDevice): string {
   const config = MARKETS[market];
   const parts: string[] = [];
 

@@ -134,8 +134,9 @@ export function ToxicTab({ report }: { report: ScanReport }) {
           <p className="text-sm font-medium text-fg">Anchor distribution vs. a natural profile</p>
         </div>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted">
-          A natural link profile rests on brand names and bare URLs. An excess of exact-match anchors is
-          the most common cause of an algorithmic filter — diversity {anchorAudit.diversity}/100.
+          A natural link profile rests on brand names and bare URLs. An excess of exact-match
+          anchors is the most common cause of an algorithmic filter — diversity{" "}
+          {anchorAudit.diversity}/100.
         </p>
         <ul className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {anchorAudit.risks.map((risk) => (
@@ -143,7 +144,13 @@ export function ToxicTab({ report }: { report: ScanReport }) {
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm text-fg-soft">{ANCHOR_LABEL[risk.type]}</span>
                 <Badge
-                  variant={risk.verdict === "high" ? "nofollow" : risk.verdict === "ok" ? "follow" : "default"}
+                  variant={
+                    risk.verdict === "high"
+                      ? "nofollow"
+                      : risk.verdict === "ok"
+                        ? "follow"
+                        : "default"
+                  }
                 >
                   {risk.share}%
                 </Badge>
@@ -151,7 +158,9 @@ export function ToxicTab({ report }: { report: ScanReport }) {
               <div className="mt-2">
                 <Meter
                   value={risk.share}
-                  tone={risk.verdict === "high" ? "risk" : risk.verdict === "ok" ? "good" : "default"}
+                  tone={
+                    risk.verdict === "high" ? "risk" : risk.verdict === "ok" ? "good" : "default"
+                  }
                 />
               </div>
               <p className="mt-2 text-xs text-subtle">
@@ -209,7 +218,8 @@ export function ToxicTab({ report }: { report: ScanReport }) {
                 </Badge>
                 {row.sitewide ? <Badge>sitewide</Badge> : null}
                 <span className="font-mono text-xs tabular-nums text-muted">
-                  tox {row.toxicity} · spam {row.spamScore} · DS {row.domainScore} · {row.links} links
+                  tox {row.toxicity} · spam {row.spamScore} · DS {row.domainScore} · {row.links}{" "}
+                  links
                 </span>
               </div>
             </article>

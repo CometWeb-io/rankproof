@@ -21,20 +21,27 @@ curl -s http://127.0.0.1:8787/doctor | jq .
 
 ## npm install
 
-The package ships a compiled CLI (`dist/`) via `prepack`. Publish from a clean tree:
+RankProof is **not published to the npm registry yet**. Install from a clone (or a
+GitHub release tarball) until a separate publish gate lands:
+
+```bash
+git clone https://github.com/CometWeb-io/rankproof.git
+cd rankproof
+npm ci
+npm run build:cli   # optional: emit dist/ for packaged CLI
+node bin/rankproof.mjs doctor
+```
+
+The package ships a compiled CLI (`dist/`) via `prepack` when maintainers do
+publish. Until then, `npm install rankproof` will 404.
+
+When publishing becomes intentional:
 
 ```bash
 npm run check
 npm run build:cli
 npm pack --dry-run   # inspect tarball contents
 npm publish --tag next   # or --tag latest after GA validation
-```
-
-Consumers install with:
-
-```bash
-npm install rankproof
-rankproof scan example.com --format json
 ```
 
 CI verifies the packed tarball installs into a path containing a space and runs `rankproof version`.
@@ -59,13 +66,13 @@ Set `DATABASE_URL` for persistent scan history across restarts. Without it, embe
 
 ### Required environment
 
-| Variable | Production value |
-| --- | --- |
-| `PUBLIC_ORIGIN` | Your public URL (if using auth callbacks) |
-| `BETTER_AUTH_SECRET` | Random 32+ byte secret when auth is enabled |
-| `BETTER_AUTH_URL` | Public origin, e.g. `https://rankproof.example.com` |
-| `DATABASE_URL` | Postgres connection string |
-| `RANKPROOF_USER_AGENT` | Include a contact URL site owners can reach |
+| Variable               | Production value                                    |
+| ---------------------- | --------------------------------------------------- |
+| `PUBLIC_ORIGIN`        | Your public URL (if using auth callbacks)           |
+| `BETTER_AUTH_SECRET`   | Random 32+ byte secret when auth is enabled         |
+| `BETTER_AUTH_URL`      | Public origin, e.g. `https://rankproof.example.com` |
+| `DATABASE_URL`         | Postgres connection string                          |
+| `RANKPROOF_USER_AGENT` | Include a contact URL site owners can reach         |
 
 Never expose `GOOGLE_OAUTH_*` or `BING_WEBMASTER_API_KEY` without treating the host as production.
 
@@ -108,12 +115,12 @@ See [`providers.md`](providers.md).
 
 ## Monitoring signals
 
-| Signal | Meaning |
-| --- | --- |
-| `doctor` exit 1 | All engines blocked or parsers broken — investigate fixtures |
-| Rising CAPTCHA rate in scan notes | Reduce concurrency or enable disk cache |
-| Scan duration p95 over budget | Raise `RANKPROOF_SCAN_BUDGET_MS` or reduce keyword depth |
-| Empty backlink lists on known sites | Source API change — check `sources` tab and GitHub issues |
+| Signal                              | Meaning                                                      |
+| ----------------------------------- | ------------------------------------------------------------ |
+| `doctor` exit 1                     | All engines blocked or parsers broken — investigate fixtures |
+| Rising CAPTCHA rate in scan notes   | Reduce concurrency or enable disk cache                      |
+| Scan duration p95 over budget       | Raise `RANKPROOF_SCAN_BUDGET_MS` or reduce keyword depth     |
+| Empty backlink lists on known sites | Source API change — check `sources` tab and GitHub issues    |
 
 ## Security reminders
 

@@ -5,16 +5,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ENGINE_OPTIONS } from "@/components/scan/serp-labels";
-import {
-  RankMovesPanel,
-  SerpCompetitorsPanel,
-  SerpQueryCard,
-} from "@/components/scan/serp-panels";
+import { RankMovesPanel, SerpCompetitorsPanel, SerpQueryCard } from "@/components/scan/serp-panels";
 import { posLabel } from "@/components/scan/serp-utils";
 import { cn } from "@/lib/utils";
 import { checkSerpKeywords } from "@/lib/backlinks/scan";
 import { MARKETS } from "@/lib/backlinks/market";
-import type { KeywordStat, SerpDevice, SerpEngine, SerpMarket, SerpSnapshot } from "@/lib/backlinks/types";
+import type {
+  KeywordStat,
+  SerpDevice,
+  SerpEngine,
+  SerpMarket,
+  SerpSnapshot,
+} from "@/lib/backlinks/types";
 
 export function CustomKeywordPanel({ host }: { host: string }) {
   const run = useServerFn(checkSerpKeywords);
@@ -30,9 +32,7 @@ export function CustomKeywordPanel({ host }: { host: string }) {
 
   function toggleEngine(engine: SerpEngine) {
     setEngines((current) =>
-      current.includes(engine)
-        ? current.filter((item) => item !== engine)
-        : [...current, engine],
+      current.includes(engine) ? current.filter((item) => item !== engine) : [...current, engine],
     );
   }
 
@@ -80,8 +80,8 @@ export function CustomKeywordPanel({ host }: { host: string }) {
         <p className="text-sm font-medium text-fg">Check your own keywords</p>
       </div>
       <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted">
-        Up to 10 keywords, four independent engines, a choice of market and device, optionally top 20
-        instead of top 10 — no paid API keys.
+        Up to 10 keywords, four independent engines, a choice of market and device, optionally top
+        20 instead of top 10 — no paid API keys.
       </p>
       <div className="mt-4 flex flex-col gap-3 sm:flex-row">
         <Input
@@ -178,8 +178,8 @@ export function CustomKeywordPanel({ host }: { host: string }) {
       {snapshot ? (
         <div className="mt-5 flex flex-col gap-3">
           <p className="font-mono text-xs text-muted">
-            visibility {snapshot.visibility}/100 · top 10: {snapshot.top10} · top 3: {snapshot.top3} ·
-            traffic {snapshot.trafficScore} · avg {snapshot.avgPosition || "—"}
+            visibility {snapshot.visibility}/100 · top 10: {snapshot.top10} · top 3: {snapshot.top3}{" "}
+            · traffic {snapshot.trafficScore} · avg {snapshot.avgPosition || "—"}
           </p>
           {keywords.map((row) => (
             <div

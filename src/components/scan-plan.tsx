@@ -133,14 +133,28 @@ export function PlanTab({ report }: { report: ScanReport }) {
               <li key={segment.segment} className="rounded-lg border border-border p-3">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-sm text-fg-soft">{SEGMENT_LABEL[segment.segment]}</span>
-                  <Badge variant={segment.verdict === "high" ? "nofollow" : segment.verdict === "ok" ? "follow" : "default"}>
+                  <Badge
+                    variant={
+                      segment.verdict === "high"
+                        ? "nofollow"
+                        : segment.verdict === "ok"
+                          ? "follow"
+                          : "default"
+                    }
+                  >
                     {segment.share}%
                   </Badge>
                 </div>
                 <div className="mt-2">
                   <Meter
                     value={segment.share}
-                    tone={segment.verdict === "high" ? "risk" : segment.verdict === "ok" ? "good" : "default"}
+                    tone={
+                      segment.verdict === "high"
+                        ? "risk"
+                        : segment.verdict === "ok"
+                          ? "good"
+                          : "default"
+                    }
                   />
                 </div>
                 <p className="mt-2 font-mono text-xs text-subtle">
@@ -173,7 +187,9 @@ export function PlanTab({ report }: { report: ScanReport }) {
           size="sm"
           className="ml-auto"
           disabled={plan.items.length === 0}
-          onClick={() => download(`rankproof-${report.target.host}-plan.csv`, planCsv(report), "text/csv")}
+          onClick={() =>
+            download(`rankproof-${report.target.host}-plan.csv`, planCsv(report), "text/csv")
+          }
         >
           <Download />
           Plan CSV
@@ -249,14 +265,19 @@ function ClustersPanel({ report }: { report: ScanReport }) {
         <div>
           <p className="text-sm font-medium text-fg">Keyword clusters</p>
           <p className="mt-1 max-w-2xl text-xs text-muted">
-            Keywords the search engine answers with the same pages — one piece of content can serve the whole cluster.
+            Keywords the search engine answers with the same pages — one piece of content can serve
+            the whole cluster.
           </p>
         </div>
         <Button
           variant="outline"
           size="sm"
           onClick={() =>
-            download(`rankproof-${report.target.host}-clusters.csv`, clustersCsv(report), "text/csv")
+            download(
+              `rankproof-${report.target.host}-clusters.csv`,
+              clustersCsv(report),
+              "text/csv",
+            )
           }
         >
           <Download />
@@ -278,7 +299,10 @@ function ClustersPanel({ report }: { report: ScanReport }) {
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {cluster.keywords.map((keyword) => (
-              <span key={keyword} className="rounded-full border border-border px-2.5 py-0.5 text-xs text-muted">
+              <span
+                key={keyword}
+                className="rounded-full border border-border px-2.5 py-0.5 text-xs text-muted"
+              >
                 {keyword}
               </span>
             ))}

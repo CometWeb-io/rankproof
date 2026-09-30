@@ -11,7 +11,15 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 
+import { doctorExitCode, nodeVersionError } from "../scripts/node-version.mjs";
+
 const STRIP = "--experimental-strip-types";
+
+const versionError = nodeVersionError(process.version);
+if (versionError) {
+  console.error(versionError);
+  process.exit(1);
+}
 
 /**
  * Where the engine lives.
@@ -105,6 +113,7 @@ async function runScanCommand(options, log) {
     market: options.market,
     device: options.device,
     engines: options.engines.length > 0 ? options.engines : undefined,
+    depth: options.depth,
     skipSiteAudit: options.skipAudit,
   });
   if (!result.ok) throw new Error(result.error);
@@ -176,20 +185,16 @@ async function runDoctorCommand(options, log) {
   const { runDoctor } = await import(engine("doctor.server"));
   log("Probing engines…");
   const diagnosis = await runDoctor();
-  // The non-zero exit is the point of `doctor` in CI, so it has to be set
-  // before the JSON path returns — not only on the text path below.
-  if (!diagnosis.healthy) process.exitCode = 1;
+  // Non-zero when no engine works — same contract as HTTP GET /doctor → 503
+  // and docs/production-ops.md (cron canary). Set before any return path.
+  process.exitCode = doctorExitCode(diagnosis.healthy);
   if (options.format === "json") return JSON.stringify(diagnosis, null, 2);
 
   const lines = ["RankProof doctor", ""];
   lines.push("ENGINES");
   for (const engine of diagnosis.engines) {
     const mark =
-      engine.status === "ok"
-        ? "ok  "
-        : engine.status === "not-configured"
-          ? "skip"
-          : "FAIL";
+      engine.status === "ok" ? "ok  " : engine.status === "not-configured" ? "skip" : "FAIL";
     lines.push(
       `  ${mark} ${engine.engine.padEnd(12)} ${String(engine.hits).padStart(2)} results  ${String(engine.ms).padStart(5)} ms  ${engine.status}`,
     );
@@ -223,7 +228,9 @@ function renderScanText(report) {
   lines.push(`RankProof — ${report.target.host}`);
   lines.push(`${report.target.title ?? ""}`.trim());
   lines.push("");
-  lines.push(`VISIBILITY INDEX  ${scorecard.index}/100 (${scorecard.grade})  ${bar(scorecard.index)}`);
+  lines.push(
+    `VISIBILITY INDEX  ${scorecard.index}/100 (${scorecard.grade})  ${bar(scorecard.index)}`,
+  );
   for (const part of scorecard.parts) {
     lines.push(
       `  ${part.label.padEnd(20)} ${String(part.score).padStart(3)}/${String(part.max).padEnd(3)} ${bar(part.score, part.max, 14)}`,
@@ -237,7 +244,9 @@ function renderScanText(report) {
   lines.push(
     `  lost ${stats.lostLinks} · broken ${stats.brokenLinks} · to disavow ${toxic.disavowCount} · footprint ${report.footprint.score}/100 (${report.footprint.verdict})`,
   );
-  lines.push(`  velocity: ${report.velocity.perMonth} new domains/month (${report.velocity.verdict})`);
+  lines.push(
+    `  velocity: ${report.velocity.perMonth} new domains/month (${report.velocity.verdict})`,
+  );
   lines.push("");
   lines.push("SERP");
   lines.push(
@@ -270,7 +279,10 @@ function renderScanText(report) {
   if (report.searchConsole?.connected) {
     const totals = report.searchConsole.providers
       .filter((provider) => provider.connected)
-      .map((provider) => `${provider.source}: ${provider.totals.clicks} clicks / ${provider.totals.impressions} impressions`)
+      .map(
+        (provider) =>
+          `${provider.source}: ${provider.totals.clicks} clicks / ${provider.totals.impressions} impressions`,
+      )
       .join(" · ");
     lines.push("");
     lines.push("MEASURED PERFORMANCE");
@@ -284,13 +296,17 @@ function renderScanText(report) {
     lines.push("");
     lines.push("MEASUREMENT WARNINGS");
     for (const item of unhealthy) {
-      lines.push(`  ${item.engine}: ${item.status} — visibility is based on fewer engines than intended`);
+      lines.push(
+        `  ${item.engine}: ${item.status} — visibility is based on fewer engines than intended`,
+      );
     }
   }
   lines.push("");
   lines.push(`ACTION PLAN (${plan.items.length} tasks, ${plan.quickWins} quick wins)`);
   for (const [index, item] of plan.items.slice(0, 10).entries()) {
-    lines.push(`  ${index + 1}. [${String(item.priority).padStart(3)}] ${item.title}  (${item.effort})`);
+    lines.push(
+      `  ${index + 1}. [${String(item.priority).padStart(3)}] ${item.title}  (${item.effort})`,
+    );
     lines.push(`      ${item.detail}`);
   }
   lines.push("");
@@ -305,7 +321,9 @@ function renderSerpText(snapshot, keywords) {
   lines.push(
     `Visibility ${snapshot.visibility}/100 · top3 ${snapshot.top3} · top10 ${snapshot.top10} · traffic ~${snapshot.trafficScore}`,
   );
-  lines.push(`Market ${snapshot.market}/${snapshot.device} · engines: ${snapshot.engines.join(", ")}`);
+  lines.push(
+    `Market ${snapshot.market}/${snapshot.device} · engines: ${snapshot.engines.join(", ")}`,
+  );
   lines.push("");
   for (const row of keywords) {
     const positions = row.engines
@@ -319,7 +337,9 @@ function renderSerpText(snapshot, keywords) {
     lines.push("");
     lines.push("CANNIBALISATION");
     for (const item of snapshot.cannibalization) {
-      lines.push(`  "${item.keyword}" (${item.engine}): ${item.urls.map((u) => `#${u.position}`).join(", ")}`);
+      lines.push(
+        `  "${item.keyword}" (${item.engine}): ${item.urls.map((u) => `#${u.position}`).join(", ")}`,
+      );
     }
   }
   return lines.join("\n");

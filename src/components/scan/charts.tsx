@@ -10,7 +10,11 @@ export function GrowthChart({ stats }: { stats: CountStat[] }) {
       {stats.length === 0 ? (
         <p className="mt-3 text-sm text-subtle">No domain-age data yet.</p>
       ) : (
-        <div className="mt-4 flex h-32 items-end gap-1.5" role="img" aria-label="Domain growth chart">
+        <div
+          className="mt-4 flex h-32 items-end gap-1.5"
+          role="img"
+          aria-label="Domain growth chart"
+        >
           {stats.map((stat) => (
             <div key={stat.key} className="flex flex-1 flex-col items-center gap-1">
               <span className="font-mono text-[10px] tabular-nums text-subtle">{stat.count}</span>

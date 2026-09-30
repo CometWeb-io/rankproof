@@ -54,8 +54,7 @@ export function buildFootprint(
   const withSubnet = [...subnets.values()].reduce((sum, count) => sum + count, 0);
   const topSubnet = Math.max(0, ...subnets.values());
   const topSubnetShare = withSubnet > 0 ? Math.round((topSubnet / withSubnet) * 100) : 0;
-  const subnetDiversity =
-    withSubnet > 0 ? Math.round((subnets.size / withSubnet) * 100) : 100;
+  const subnetDiversity = withSubnet > 0 ? Math.round((subnets.size / withSubnet) * 100) : 100;
 
   const sitewide = domains.filter((domain) => domain.sitewide).length;
   const sitewideShare = Math.round((sitewide / domains.length) * 100);
@@ -102,7 +101,8 @@ export function buildFootprint(
     sitewideShare,
     exactAnchorShare,
     singlePageDomains,
-    reasons: reasons.length > 0 ? reasons : ["No typical patterns of an artificial profile detected."],
+    reasons:
+      reasons.length > 0 ? reasons : ["No typical patterns of an artificial profile detected."],
     verdict: rounded >= 55 ? "high" : rounded >= 30 ? "medium" : "low",
   };
 }
@@ -234,9 +234,7 @@ export function buildScorecard(input: ScorecardInput): Scorecard {
   const grade: Scorecard["grade"] =
     index >= 80 ? "A" : index >= 65 ? "B" : index >= 48 ? "C" : index >= 32 ? "D" : "E";
 
-  const weakest = parts
-    .slice()
-    .sort((a, b) => a.score / a.max - b.score / b.max)[0]?.label ?? "";
+  const weakest = parts.slice().sort((a, b) => a.score / a.max - b.score / b.max)[0]?.label ?? "";
 
   return { index: Math.round(index), grade, parts, weakest };
 }

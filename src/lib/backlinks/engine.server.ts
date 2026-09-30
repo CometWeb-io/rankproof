@@ -78,7 +78,6 @@ import type {
 
 export const REPORT_VERSION = 5;
 
-
 const MAX_MENTIONS = 120;
 const MAX_DEEP = 28;
 const MAX_THIRD = 14;
@@ -184,6 +183,8 @@ export type ScanOptions = {
   device?: SerpDevice;
   /** Override configured SERP engines for this run. */
   engines?: SerpEngine[];
+  /** SERP depth override (10 or 20). CLI `--depth` maps here. */
+  depth?: number;
   /** Skips the internal crawl — useful in CI and for quick lookups. */
   skipSiteAudit?: boolean;
 };
@@ -319,12 +320,18 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
   const serpT = light
     ? skip([] as SerpQuery[])
     : timed(() =>
-        runSerpQueries(host, serpKeywords, budget, options.engines?.length ? options.engines : runtime.engines, {
-          depth: runtime.serpDepth,
-          maxKeywords: 6,
-          market: options.market ?? runtime.market,
-          device: options.device ?? runtime.device,
-        }),
+        runSerpQueries(
+          host,
+          serpKeywords,
+          budget,
+          options.engines?.length ? options.engines : runtime.engines,
+          {
+            depth: options.depth ?? runtime.serpDepth,
+            maxKeywords: 6,
+            market: options.market ?? runtime.market,
+            device: options.device ?? runtime.device,
+          },
+        ),
       );
 
   const wave1P = verifyPages(candidates, {
@@ -665,10 +672,7 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
   // Real clicks and impressions, but only when the operator connected an account.
   const searchConsole = light
     ? null
-    : buildSearchConsoleInsights(
-        await fetchSearchConsoleData(host).catch(() => []),
-        serpQueries,
-      );
+    : buildSearchConsoleInsights(await fetchSearchConsoleData(host).catch(() => []), serpQueries);
 
   const scorecard = buildScorecard({
     analytics,
@@ -839,8 +843,7 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
       brandControl: brandSerp?.control ?? 0,
       siteHealth: siteAudit?.score ?? 0,
       internalPages: siteAudit?.crawled ?? 0,
-      realClicks:
-        searchConsole?.providers.reduce((sum, item) => sum + item.totals.clicks, 0) ?? 0,
+      realClicks: searchConsole?.providers.reduce((sum, item) => sum + item.totals.clicks, 0) ?? 0,
       linkVelocity: velocity.perMonth,
       actions: plan.items.length,
       toxicDomains: toxic.disavowCount,

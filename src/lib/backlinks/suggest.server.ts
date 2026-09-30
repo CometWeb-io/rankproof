@@ -121,7 +121,10 @@ export async function suggestKeywords(
   seeds: string[],
   options: { brandTokens?: string[]; limit?: number; budgetMs?: number } = {},
 ): Promise<SuggestResult> {
-  const clean = [...new Set(seeds.map((s) => cleanIdea(s)).filter((s) => s.length >= 2))].slice(0, 5);
+  const clean = [...new Set(seeds.map((s) => cleanIdea(s)).filter((s) => s.length >= 2))].slice(
+    0,
+    5,
+  );
   if (clean.length === 0) return { ok: false, error: "Enter at least one seed keyword." };
 
   const started = Date.now();

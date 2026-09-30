@@ -26,15 +26,10 @@ const EFFORT_WEIGHT: Record<ActionEffort, number> = {
   high: 0.55,
 };
 
-function action(
-  item: Omit<ActionItem, "priority"> & { priority?: number },
-): ActionItem {
+function action(item: Omit<ActionItem, "priority"> & { priority?: number }): ActionItem {
   return {
     ...item,
-    priority: Math.max(
-      1,
-      Math.min(100, Math.round(item.impact * EFFORT_WEIGHT[item.effort])),
-    ),
+    priority: Math.max(1, Math.min(100, Math.round(item.impact * EFFORT_WEIGHT[item.effort]))),
   };
 }
 
@@ -152,7 +147,9 @@ export function buildActionPlan(input: PlanInput): ActionPlan {
     );
   }
 
-  const downMoves = input.serp.moves.filter((move) => move.state === "down" || move.state === "lost");
+  const downMoves = input.serp.moves.filter(
+    (move) => move.state === "down" || move.state === "lost",
+  );
   if (downMoves.length > 0) {
     items.push(
       action({
@@ -230,9 +227,10 @@ export function buildActionPlan(input: PlanInput): ActionPlan {
           "Someone links to a URL that returns an error. A 301 redirect to the current page recovers that value in minutes.",
         impact: 80,
         effort: "low",
-        samples: input.analytics.issues
-          .find((issue) => issue.id.includes("broken"))
-          ?.samples.slice(0, 4) ?? [],
+        samples:
+          input.analytics.issues
+            .find((issue) => issue.id.includes("broken"))
+            ?.samples.slice(0, 4) ?? [],
       }),
     );
   }
@@ -246,7 +244,10 @@ export function buildActionPlan(input: PlanInput): ActionPlan {
         detail: input.velocity.hint,
         impact: 62,
         effort: "high",
-        samples: [`${input.velocity.perMonth} new domains/month`, `change ${input.velocity.trend}%`],
+        samples: [
+          `${input.velocity.perMonth} new domains/month`,
+          `change ${input.velocity.trend}%`,
+        ],
       }),
     );
   }
@@ -298,7 +299,9 @@ export function buildActionPlan(input: PlanInput): ActionPlan {
           "A natural profile stays below 12%. Build the next links on your brand name, bare URLs and longer phrases from the content until the share drops.",
         impact: 70,
         effort: "medium",
-        samples: input.anchorAudit.overOptimized.slice(0, 4).map((row) => `${row.text} (${row.share}%)`),
+        samples: input.anchorAudit.overOptimized
+          .slice(0, 4)
+          .map((row) => `${row.text} (${row.share}%)`),
       }),
     );
   }
@@ -335,7 +338,9 @@ export function buildActionPlan(input: PlanInput): ActionPlan {
           effort: "low",
           samples: gsc.ctrAnomalies
             .slice(0, 5)
-            .map((row) => `${row.query} (#${row.position}, CTR ${row.ctr}% vs ${row.expectedCtr}%)`),
+            .map(
+              (row) => `${row.query} (#${row.position}, CTR ${row.ctr}% vs ${row.expectedCtr}%)`,
+            ),
         }),
       );
     }

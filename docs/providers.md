@@ -2,14 +2,14 @@
 
 RankProof ships four built-in HTML scrapers and an optional Google organic adapter.
 
-| Engine | Mode | Default | Notes |
-|---|---|---|---|
-| Bing | scrape | on | Primary free SERP |
-| DuckDuckGo | scrape | on | HTML endpoint |
-| Mojeek | scrape | on | Independent index |
-| Brave | scrape | off | Often challenged |
-| Google organic | http-json | off | Needs self-hosted provider |
-| Google (owned site) | Search Console API | opt-in | Not a SERP engine — see `search-console.md` |
+| Engine              | Mode               | Default | Notes                                       |
+| ------------------- | ------------------ | ------- | ------------------------------------------- |
+| Bing                | scrape             | on      | Primary free SERP                           |
+| DuckDuckGo          | scrape             | on      | HTML endpoint                               |
+| Mojeek              | scrape             | on      | Independent index                           |
+| Brave               | scrape             | off     | Often challenged                            |
+| Google organic      | http-json          | off     | Needs self-hosted provider                  |
+| Google (owned site) | Search Console API | opt-in  | Not a SERP engine — see `search-console.md` |
 
 ## Google organic provider
 

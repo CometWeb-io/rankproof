@@ -2,7 +2,7 @@
 
 ## Reporting a vulnerability
 
-**Do not open a public issue** for a security flaw. Email `hello@cometweb.io` or use GitHub's private vulnerability reporting (*Security* tab → *Report a vulnerability*).
+**Do not open a public issue** for a security flaw. Email `hello@cometweb.io` or use GitHub's private vulnerability reporting (_Security_ tab → _Report a vulnerability_).
 
 We respond within 5 working days. If the issue is real, we agree a disclosure timeline together with the reporter.
 

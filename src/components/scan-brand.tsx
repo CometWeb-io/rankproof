@@ -69,7 +69,13 @@ export function ScorecardPanel({ card }: { card: Scorecard }) {
               <Meter
                 value={part.score}
                 max={part.max}
-                tone={part.score / part.max > 0.66 ? "good" : part.score / part.max < 0.34 ? "risk" : "default"}
+                tone={
+                  part.score / part.max > 0.66
+                    ? "good"
+                    : part.score / part.max < 0.34
+                      ? "risk"
+                      : "default"
+                }
               />
             </div>
             <p className="mt-2 text-xs text-subtle">{part.hint}</p>
@@ -102,7 +108,9 @@ export function BrandSerpPanel({ brand }: { brand: BrandSerp }) {
           <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted">{brand.hint}</p>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <Badge variant={brand.control >= 60 ? "follow" : brand.risky > 0 ? "nofollow" : "default"}>
+          <Badge
+            variant={brand.control >= 60 ? "follow" : brand.risky > 0 ? "nofollow" : "default"}
+          >
             control {brand.control}%
           </Badge>
           <span className="font-mono text-xs text-muted">
@@ -149,10 +157,26 @@ export function BrandSerpPanel({ brand }: { brand: BrandSerp }) {
 /** Patterns of an artificially built link profile. */
 export function FootprintPanel({ footprint }: { footprint: FootprintRisk }) {
   const metrics = [
-    { label: "Largest /24 subnet", value: footprint.topSubnetShare, risky: footprint.topSubnetShare >= 30 },
-    { label: "Sitewide domains", value: footprint.sitewideShare, risky: footprint.sitewideShare >= 25 },
-    { label: "Exact-match anchors", value: footprint.exactAnchorShare, risky: footprint.exactAnchorShare > 12 },
-    { label: "Subnet diversity", value: footprint.subnetDiversity, risky: footprint.subnetDiversity < 50 },
+    {
+      label: "Largest /24 subnet",
+      value: footprint.topSubnetShare,
+      risky: footprint.topSubnetShare >= 30,
+    },
+    {
+      label: "Sitewide domains",
+      value: footprint.sitewideShare,
+      risky: footprint.sitewideShare >= 25,
+    },
+    {
+      label: "Exact-match anchors",
+      value: footprint.exactAnchorShare,
+      risky: footprint.exactAnchorShare > 12,
+    },
+    {
+      label: "Subnet diversity",
+      value: footprint.subnetDiversity,
+      risky: footprint.subnetDiversity < 50,
+    },
   ];
 
   return (
@@ -178,8 +202,8 @@ export function FootprintPanel({ footprint }: { footprint: FootprintRisk }) {
         </div>
       </div>
       <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted">
-        A natural profile is dispersed: different servers, different anchors, links inside content. A
-        repeating pattern signals that the links come from a single source.
+        A natural profile is dispersed: different servers, different anchors, links inside content.
+        A repeating pattern signals that the links come from a single source.
       </p>
       <ul className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {metrics.map((metric) => (
