@@ -1,4 +1,12 @@
-import { BookOpenText, Network, Newspaper, Radar, ShieldCheck, ShieldOff, Sparkles } from "lucide-react";
+import {
+  BookOpenText,
+  Network,
+  Newspaper,
+  Radar,
+  ShieldCheck,
+  ShieldOff,
+  Sparkles,
+} from "lucide-react";
 
 export function ScanSkeleton() {
   return (

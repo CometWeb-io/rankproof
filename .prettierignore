@@ -1,0 +1,13 @@
+# Generated / vendored — do not auto-format.
+node_modules
+dist
+.output
+.nitro
+.vercel
+.rankproof
+coverage
+package-lock.json
+src/routeTree.gen.ts
+
+# Golden SERP HTML fixtures — whitespace is part of the capture.
+src/lib/backlinks/fixtures/**

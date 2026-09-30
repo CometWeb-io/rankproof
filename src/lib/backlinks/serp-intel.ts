@@ -55,7 +55,9 @@ export function adjustedCtr(position: number | null, features: SerpFeature[]): n
  * Heuristic from scraped competitor `domainScore` + SERP features — not
  * Semrush/Ahrefs KD. Prefer this label in UI over "Keyword Difficulty".
  */
-export function keywordDifficulty(query: Pick<SerpQuery, "results" | "features" | "keyword">): number {
+export function keywordDifficulty(
+  query: Pick<SerpQuery, "results" | "features" | "keyword">,
+): number {
   const top = query.results.filter((hit) => !hit.isTarget).slice(0, 10);
   if (top.length === 0) return 20;
   const weights = top.map((hit, index) => ({
@@ -87,10 +89,14 @@ export const serpCompetitionEstimate = keywordDifficulty;
 /* ------------------------------------------------------------------ */
 
 // Intent patterns cover English and Polish; add your market's phrasing here.
-const TRANSACTIONAL = /\b(kup|kupno|zamow|zamów|cena|ceny|cennik|sklep|promocja|tanio|rabat|buy|price|pricing|order|shop|deal|discount|za darmo|free trial)\b/i;
-const COMMERCIAL = /\b(najlepsz\w*|ranking|porownanie|porównanie|opinie|recenzja|test|alternatyw\w*|vs|best|top \d+|review|compare|alternative)\b/i;
-const INFORMATIONAL = /\b(jak|co to|czym jest|dlaczego|poradnik|instrukcja|przyklad|przykład|definicja|how|what|why|guide|tutorial|examples?)\b/i;
-const LOCAL = /\b(w |we |near me|niedaleko|w poblizu|w pobliżu|warszaw\w*|krakow\w*|kraków\w*|wroclaw\w*|wrocław\w*|poznan\w*|poznań\w*|gdansk\w*|gdańsk\w*|lodz\w*|łódź\w*|katowic\w*)\b/i;
+const TRANSACTIONAL =
+  /\b(kup|kupno|zamow|zamów|cena|ceny|cennik|sklep|promocja|tanio|rabat|buy|price|pricing|order|shop|deal|discount|za darmo|free trial)\b/i;
+const COMMERCIAL =
+  /\b(najlepsz\w*|ranking|porownanie|porównanie|opinie|recenzja|test|alternatyw\w*|vs|best|top \d+|review|compare|alternative)\b/i;
+const INFORMATIONAL =
+  /\b(jak|co to|czym jest|dlaczego|poradnik|instrukcja|przyklad|przykład|definicja|how|what|why|guide|tutorial|examples?)\b/i;
+const LOCAL =
+  /\b(w |we |near me|niedaleko|w poblizu|w pobliżu|warszaw\w*|krakow\w*|kraków\w*|wroclaw\w*|wrocław\w*|poznan\w*|poznań\w*|gdansk\w*|gdańsk\w*|lodz\w*|łódź\w*|katowic\w*)\b/i;
 
 /** Identifies keyword intent — brand wins over everything else. */
 export function classifyIntent(keyword: string, brandTokens: string[] = []): KeywordIntent {
@@ -307,7 +313,9 @@ export function buildRankMoves(queries: SerpQuery[], previous: PositionRow[]): R
 
   const rank = (state: RankMove["state"]) =>
     state === "lost" ? 0 : state === "down" ? 1 : state === "up" ? 2 : state === "new" ? 3 : 4;
-  return out.sort((a, b) => rank(a.state) - rank(b.state) || Math.abs(b.change ?? 0) - Math.abs(a.change ?? 0));
+  return out.sort(
+    (a, b) => rank(a.state) - rank(b.state) || Math.abs(b.change ?? 0) - Math.abs(a.change ?? 0),
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -340,7 +348,10 @@ export function serpAggregates(queries: SerpQuery[]): {
 }
 
 /** Collects unique related searches and questions across all SERPs. */
-export function collectSerpExtras(queries: SerpQuery[]): { related: string[]; questions: string[] } {
+export function collectSerpExtras(queries: SerpQuery[]): {
+  related: string[];
+  questions: string[];
+} {
   const related = new Set<string>();
   const questions = new Set<string>();
   for (const query of queries) {

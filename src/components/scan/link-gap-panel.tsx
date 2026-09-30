@@ -51,8 +51,8 @@ export function LinkGapPanel({ host }: { host: string }) {
           <p className="text-sm font-medium text-fg">Link gap vs competitors</p>
         </div>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted">
-          Enter up to five competitor domains. We run a quick scan on each and show domains that link
-          to them but not to you, ordered by frequency — a ready-made outreach target list.
+          Enter up to five competitor domains. We run a quick scan on each and show domains that
+          link to them but not to you, ordered by frequency — a ready-made outreach target list.
         </p>
         <div className="mt-4 flex flex-col gap-3 sm:flex-row">
           <Input
@@ -93,7 +93,9 @@ export function LinkGapPanel({ host }: { host: string }) {
             <div className="rounded-lg border border-border bg-surface-2 p-4">
               <p className="text-xs text-muted uppercase">Shared domains</p>
               <p className="mt-2 font-mono text-2xl tabular-nums text-fg">{gap.shared.length}</p>
-              <p className="mt-1 text-xs text-subtle">{gap.unique.length} domains link only to you</p>
+              <p className="mt-1 text-xs text-subtle">
+                {gap.unique.length} domains link only to you
+              </p>
             </div>
           </div>
 
@@ -104,9 +106,7 @@ export function LinkGapPanel({ host }: { host: string }) {
                 variant="outline"
                 size="sm"
                 disabled={gap.gap.length === 0}
-                onClick={() =>
-                  download(`rankproof-gap-${gap.target}.csv`, gapCsv(gap), "text/csv")
-                }
+                onClick={() => download(`rankproof-gap-${gap.target}.csv`, gapCsv(gap), "text/csv")}
               >
                 <Download aria-hidden />
                 Export CSV

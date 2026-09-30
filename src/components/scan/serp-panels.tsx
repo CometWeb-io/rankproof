@@ -9,8 +9,10 @@ import { download, rankMovesCsv } from "@/lib/backlinks/export";
 import type { RankMove, SerpQuery, SerpSnapshot } from "@/lib/backlinks/types";
 
 function MoveIcon({ state }: { state: RankMove["state"] }) {
-  if (state === "up" || state === "new") return <ArrowUpRight className="size-3.5 text-follow" aria-hidden />;
-  if (state === "down" || state === "lost") return <ArrowDownRight className="size-3.5 text-nofollow" aria-hidden />;
+  if (state === "up" || state === "new")
+    return <ArrowUpRight className="size-3.5 text-follow" aria-hidden />;
+  if (state === "down" || state === "lost")
+    return <ArrowDownRight className="size-3.5 text-nofollow" aria-hidden />;
   return <Minus className="size-3.5 text-subtle" aria-hidden />;
 }
 
@@ -76,14 +78,18 @@ export function CannibalizationPanel({ snapshot }: { snapshot: SerpSnapshot }) {
         <p className="text-sm font-medium text-fg">Possible keyword overlap</p>
       </div>
       <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted">
-        Two of your own URLs appear for the same query. Prefer one URL and consolidate the other with
-        redirects or internal links.
+        Two of your own URLs appear for the same query. Prefer one URL and consolidate the other
+        with redirects or internal links.
       </p>
       <ul className="mt-3 flex flex-col gap-2">
         {snapshot.cannibalization.map((item) => (
-          <li key={`${item.engine}-${item.keyword}`} className="rounded-lg border border-border bg-surface p-3">
+          <li
+            key={`${item.engine}-${item.keyword}`}
+            className="rounded-lg border border-border bg-surface p-3"
+          >
             <p className="text-sm font-medium text-fg">
-              &ldquo;{item.keyword}&rdquo; <span className="font-mono text-xs text-muted">{item.engine}</span>
+              &ldquo;{item.keyword}&rdquo;{" "}
+              <span className="font-mono text-xs text-muted">{item.engine}</span>
             </p>
             <ul className="mt-1 flex flex-col gap-1">
               {item.urls.map((url) => (
@@ -131,8 +137,8 @@ export function SerpCompetitorsPanel({ snapshot, host }: { snapshot: SerpSnapsho
               <ArrowUpRight className="size-3.5 shrink-0 text-subtle" aria-hidden />
             </a>
             <p className="mt-1 font-mono text-xs text-muted">
-              {row.keywords} keywords · coverage {row.overlap}% · best {posLabel(row.bestPosition)} · avg{" "}
-              {row.avgPosition}
+              {row.keywords} keywords · coverage {row.overlap}% · best {posLabel(row.bestPosition)}{" "}
+              · avg {row.avgPosition}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 md:justify-end">
@@ -155,7 +161,10 @@ export function SerpExtrasPanel({ snapshot }: { snapshot: SerpSnapshot }) {
           <p className="text-sm font-medium text-fg">Related searches</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {snapshot.related.slice(0, 18).map((item) => (
-              <span key={item} className="rounded-full border border-border px-3 py-1 text-xs text-muted">
+              <span
+                key={item}
+                className="rounded-full border border-border px-3 py-1 text-xs text-muted"
+              >
                 {item}
               </span>
             ))}
@@ -241,7 +250,9 @@ export function SerpQueryCard({ query }: { query: SerpQuery }) {
               <p className="mt-1 truncate font-mono text-xs text-muted">
                 {hit.domain} · DS {hit.domainScore} · CTR ~{hit.ctr}%
               </p>
-              {hit.snippet ? <p className="mt-1 line-clamp-2 text-xs text-subtle">{hit.snippet}</p> : null}
+              {hit.snippet ? (
+                <p className="mt-1 line-clamp-2 text-xs text-subtle">{hit.snippet}</p>
+              ) : null}
             </div>
             {hit.isTarget ? <Badge variant="follow">Your URL</Badge> : null}
           </article>

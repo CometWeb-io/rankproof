@@ -10,7 +10,11 @@ import {
   parseMojeekOrganic,
   parseRelatedSearches,
 } from "./serp.ts";
-import { BUILTIN_SCRAPE_ENGINES, googleProviderBaseUrl, isEngineConfigured } from "./serp-providers.ts";
+import {
+  BUILTIN_SCRAPE_ENGINES,
+  googleProviderBaseUrl,
+  isEngineConfigured,
+} from "./serp-providers.ts";
 import type { SerpEngine, SerpStatus } from "./types.ts";
 
 /**
@@ -77,7 +81,11 @@ function statusFromHttp(status: number): SerpStatus | null {
   return null;
 }
 
-async function probeEngine(engine: SerpEngine, query: string, budget: Budget): Promise<EngineDiagnosis> {
+async function probeEngine(
+  engine: SerpEngine,
+  query: string,
+  budget: Budget,
+): Promise<EngineDiagnosis> {
   const started = Date.now();
   if (engine === "google") {
     if (!isEngineConfigured("google")) {
@@ -155,9 +163,7 @@ async function probeEngine(engine: SerpEngine, query: string, budget: Budget): P
       related: httpMapped ? 0 : parseRelatedSearches(text, engine).length,
       bytes: text.length,
       ms: Date.now() - started,
-      hint: httpMapped
-        ? `HTTP ${status}. ${HINTS[serpStatus]}`
-        : HINTS[serpStatus],
+      hint: httpMapped ? `HTTP ${status}. ${HINTS[serpStatus]}` : HINTS[serpStatus],
     };
   } catch (error) {
     return {

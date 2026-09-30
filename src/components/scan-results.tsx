@@ -37,20 +37,21 @@ import {
   reportJson,
   targetPagesCsv,
 } from "@/lib/backlinks/export";
-import { KeywordsTab, OnPagePanel, ProspectsTab, SerpOverviewHint, SerpTab } from "@/components/scan-serp";
+import {
+  KeywordsTab,
+  OnPagePanel,
+  ProspectsTab,
+  SerpOverviewHint,
+  SerpTab,
+} from "@/components/scan-serp";
 import { ToxicTab } from "@/components/scan-toxic";
 import { PlanTab } from "@/components/scan-plan";
 import { BrandSerpPanel, FootprintPanel, ScorecardPanel } from "@/components/scan-brand";
-import {
-  EngineHealthPanel,
-  SearchConsolePanel,
-  SiteAuditPanel,
-} from "@/components/scan-insights";
+import { EngineHealthPanel, SearchConsolePanel, SiteAuditPanel } from "@/components/scan-insights";
 import type { ScanDiff } from "@/lib/backlinks/history";
 import type { ScanReport } from "@/lib/backlinks/types";
 
 export { EmptyGuide, ScanSkeleton } from "@/components/scan/empty-states";
-
 
 /* ------------------------------------------------------------------ */
 /* Main view                                                        */
@@ -177,9 +178,7 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
               {target.subdomains.length > 0 ? (
                 <Badge>{target.subdomains.length} subdomains</Badge>
               ) : null}
-              {target.indexedPages > 0 ? (
-                <Badge>{target.indexedPages} known URLs</Badge>
-              ) : null}
+              {target.indexedPages > 0 ? <Badge>{target.indexedPages} known URLs</Badge> : null}
             </div>
 
             <p className="mt-3 text-xs text-subtle">
@@ -229,11 +228,7 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
               size="sm"
               disabled={analytics.targetPages.length === 0}
               onClick={() =>
-                download(
-                  `rankproof-${target.host}-pages.csv`,
-                  targetPagesCsv(report),
-                  "text/csv",
-                )
+                download(`rankproof-${target.host}-pages.csv`, targetPagesCsv(report), "text/csv")
               }
             >
               <Download />
@@ -426,10 +421,7 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
             />
             <DistributionList title="Top-level domains" stats={analytics.tlds} />
             <DistributionList title="Source page languages" stats={analytics.languages} />
-            <DistributionList
-              title="Most linked pages"
-              stats={analytics.topTargetPages}
-            />
+            <DistributionList title="Most linked pages" stats={analytics.topTargetPages} />
           </div>
 
           {report.brandSerp ? <BrandSerpPanel brand={report.brandSerp} /> : null}
@@ -441,9 +433,7 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
 
           {report.notes.length > 0 ? (
             <div className="rounded-xl border border-border bg-surface-2 p-5">
-              <p className="text-xs font-medium tracking-wide text-muted uppercase">
-                Scan notes
-              </p>
+              <p className="text-xs font-medium tracking-wide text-muted uppercase">Scan notes</p>
               <ul className="mt-2 flex flex-col gap-1 text-sm text-muted">
                 {report.notes.map((note) => (
                   <li key={note}>· {note}</li>
@@ -552,9 +542,9 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
           {filtered.length === 0 ? (
             <div className="py-12 text-center">
               <p className="mx-auto max-w-lg text-sm text-muted">
-                No links match this filter. That does not mean the site has no profile — open sources cover
-                a fraction of the web, and every record shown here was confirmed in the source
-                page&rsquo;s HTML.
+                No links match this filter. That does not mean the site has no profile — open
+                sources cover a fraction of the web, and every record shown here was confirmed in
+                the source page&rsquo;s HTML.
               </p>
             </div>
           ) : (
@@ -687,9 +677,7 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
             The target&rsquo;s strongest pages — URL Rating computed from the link profile
           </div>
           {analytics.targetPages.length === 0 ? (
-            <p className="py-12 text-center text-sm text-muted">
-              No linked pages in this scan.
-            </p>
+            <p className="py-12 text-center text-sm text-muted">No linked pages in this scan.</p>
           ) : (
             analytics.targetPages.map((page) => (
               <article
@@ -866,4 +854,3 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
     </section>
   );
 }
-

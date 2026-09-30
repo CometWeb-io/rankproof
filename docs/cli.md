@@ -62,28 +62,28 @@ Exits with code `1` when no engine returns results — useful as a CI canary, be
 
 ## Options
 
-| Option | Short | Values | Default |
-| --- | --- | --- | --- |
-| `--keywords` | `-k` | comma-separated list | — |
-| `--competitors` | `-c` | comma-separated list (max 5) | — |
-| `--market` | `-m` | `pl` `us` `gb` `de` `fr` `es` | `pl` |
-| `--device` | `-d` | `desktop` `mobile` | `desktop` |
-| `--engines` | `-e` | `bing` `duckduckgo` `mojeek` `brave` `google` | from configuration |
-| `--depth` | | `10` `20` | `10` |
-| `--format` | `-f` | `text` `json` `csv` `html` `disavow` | `text` |
-| `--out` | `-o` | file path | stdout |
-| `--quiet` | `-q` | — | off |
-| `--no-audit` | | — | off |
+| Option          | Short | Values                                        | Default            |
+| --------------- | ----- | --------------------------------------------- | ------------------ |
+| `--keywords`    | `-k`  | comma-separated list                          | —                  |
+| `--competitors` | `-c`  | comma-separated list (max 5)                  | —                  |
+| `--market`      | `-m`  | `pl` `us` `gb` `de` `fr` `es`                 | `pl`               |
+| `--device`      | `-d`  | `desktop` `mobile`                            | `desktop`          |
+| `--engines`     | `-e`  | `bing` `duckduckgo` `mojeek` `brave` `google` | from configuration |
+| `--depth`       |       | `10` `20`                                     | `10`               |
+| `--format`      | `-f`  | `text` `json` `csv` `html` `disavow`          | `text`             |
+| `--out`         | `-o`  | file path                                     | stdout             |
+| `--quiet`       | `-q`  | —                                             | off                |
+| `--no-audit`    |       | —                                             | off                |
 
 Progress messages go to **stderr**, results to **stdout**. `npm run` prints its own banner to stdout, so redirect from the binary rather than through npm — `node bin/rankproof.mjs scan example.com --format json > report.json` — or use `--out report.json`, which npm cannot pollute.
 
 ## Exit codes
 
-| Code | Meaning |
-| --- | --- |
-| `0` | Success |
-| `1` | Runtime failure (the scan did not complete) |
-| `2` | Invalid arguments |
+| Code | Meaning                                     |
+| ---- | ------------------------------------------- |
+| `0`  | Success                                     |
+| `1`  | Runtime failure (the scan did not complete) |
+| `2`  | Invalid arguments                           |
 
 ## Keeping it working
 

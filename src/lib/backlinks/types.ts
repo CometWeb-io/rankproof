@@ -26,13 +26,7 @@ export type LinkPlacement = "content" | "navigation" | "footer" | "sidebar" | "c
 
 /** Anchor type — the basis of the profile naturalness audit. */
 export type AnchorType =
-  | "brand"
-  | "exact-match"
-  | "url"
-  | "generic"
-  | "image"
-  | "empty"
-  | "long-tail";
+  "brand" | "exact-match" | "url" | "generic" | "image" | "empty" | "long-tail";
 
 export type LinkFlag =
   | "broken-target"
@@ -302,12 +296,7 @@ export type SerpFeature =
 
 /** Keyword intent — it decides whether the keyword is worth fighting for. */
 export type KeywordIntent =
-  | "brand"
-  | "informational"
-  | "commercial"
-  | "transactional"
-  | "navigational"
-  | "local";
+  "brand" | "informational" | "commercial" | "transactional" | "navigational" | "local";
 
 export type SerpHit = {
   position: number;
@@ -959,9 +948,7 @@ export type ScanDelta = {
 export type GapResult = { ok: true; report: LinkGapReport } | { ok: false; error: string };
 
 export type SerpCheckResult =
-  | { ok: true; snapshot: SerpSnapshot; keywords: KeywordStat[] }
-  | { ok: false; error: string };
+  { ok: true; snapshot: SerpSnapshot; keywords: KeywordStat[] } | { ok: false; error: string };
 
 export type SuggestResult =
-  | { ok: true; ideas: KeywordIdea[]; seeds: string[]; ms: number }
-  | { ok: false; error: string };
+  { ok: true; ideas: KeywordIdea[]; seeds: string[]; ms: number } | { ok: false; error: string };

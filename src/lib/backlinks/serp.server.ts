@@ -33,7 +33,12 @@ import {
   serpAggregates,
   type PositionRow,
 } from "./serp-intel.ts";
-import { buildKeywordStats, pickSerpKeywords, visibilityScore, type KeywordSeed } from "./keywords.ts";
+import {
+  buildKeywordStats,
+  pickSerpKeywords,
+  visibilityScore,
+  type KeywordSeed,
+} from "./keywords.ts";
 import { domainScore } from "./score.ts";
 import type {
   AnchorStat,
@@ -401,8 +406,10 @@ function prospectPriority(input: {
   position: number | null;
 }): number {
   let score = input.domainScore * 0.6;
-  if (input.reason === "lost-link") score += 28; // the cheapest recovery
-  else if (input.reason === "unlinked-mention") score += 22; // they already know the brand
+  if (input.reason === "lost-link")
+    score += 28; // the cheapest recovery
+  else if (input.reason === "unlinked-mention")
+    score += 22; // they already know the brand
   else score += 8;
   if (input.position !== null) score += Math.max(0, 12 - input.position);
   return Math.max(1, Math.min(100, Math.round(score)));
@@ -533,7 +540,10 @@ export async function runKeywordSerp(
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Invalid address." };
   }
-  const unique = [...new Set(keywords.map((k) => k.trim()).filter((k) => k.length >= 2))].slice(0, 10);
+  const unique = [...new Set(keywords.map((k) => k.trim()).filter((k) => k.length >= 2))].slice(
+    0,
+    10,
+  );
   if (unique.length === 0) return { ok: false, error: "Enter at least one keyword." };
 
   const engines =

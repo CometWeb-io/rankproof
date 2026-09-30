@@ -12,7 +12,10 @@ export function OnPagePanel({ audit }: { audit: OnPageAudit }) {
     },
     {
       label: "Meta description",
-      ok: Boolean(audit.description) && audit.descriptionLength >= 70 && audit.descriptionLength <= 160,
+      ok:
+        Boolean(audit.description) &&
+        audit.descriptionLength >= 70 &&
+        audit.descriptionLength <= 160,
       hint: audit.description ? `${audit.descriptionLength} characters` : "missing",
     },
     {
@@ -50,14 +53,19 @@ export function OnPagePanel({ audit }: { audit: OnPageAudit }) {
         </p>
       </div>
       <div className="mt-3">
-        <Meter value={audit.score} tone={audit.score >= 70 ? "good" : audit.score < 40 ? "risk" : "default"} />
+        <Meter
+          value={audit.score}
+          tone={audit.score >= 70 ? "good" : audit.score < 40 ? "risk" : "default"}
+        />
       </div>
       <ul className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {checks.map((check) => (
           <li key={check.label} className="rounded-lg border border-border p-3">
             <div className="flex items-center justify-between gap-2">
               <span className="text-sm text-fg-soft">{check.label}</span>
-              <Badge variant={check.ok ? "follow" : "nofollow"}>{check.ok ? "OK" : "needs work"}</Badge>
+              <Badge variant={check.ok ? "follow" : "nofollow"}>
+                {check.ok ? "OK" : "needs work"}
+              </Badge>
             </div>
             <p className="mt-1 truncate text-xs text-subtle" title={check.hint}>
               {check.hint}
@@ -66,7 +74,8 @@ export function OnPagePanel({ audit }: { audit: OnPageAudit }) {
         ))}
       </ul>
       <p className="mt-3 font-mono text-xs text-subtle">
-        {audit.wordCount} words · {audit.internalLinks} internal links · {audit.externalLinks} outbound
+        {audit.wordCount} words · {audit.internalLinks} internal links · {audit.externalLinks}{" "}
+        outbound
         {audit.ogImage ? " · OG image" : ""}
       </p>
     </div>

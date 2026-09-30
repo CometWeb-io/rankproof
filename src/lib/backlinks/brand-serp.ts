@@ -1,10 +1,14 @@
 import { isTargetHost, registrableDomain, stripWww } from "./parse.ts";
 import type { BrandSerp, BrandSerpResult, SerpQuery } from "./types.ts";
 
-const PROFILE = /(facebook|linkedin|instagram|twitter|^x\.com|youtube|tiktok|pinterest|crunchbase|github|behance|goldenline)/i;
-const REVIEW = /(opinie|opinions|reviews?|trustpilot|ceneo|google\.com\/maps|gowork|glassdoor|yelp|tripadvisor)/i;
-const DIRECTORY = /(katalog|panorama|firmy|baza|aleo|rejestr|krs|bizin|yellowpages|directory|listing)/i;
-const MEDIA = /(gazeta|onet|wp\.pl|interia|forbes|businessinsider|rp\.pl|money|news|press|dziennik)/i;
+const PROFILE =
+  /(facebook|linkedin|instagram|twitter|^x\.com|youtube|tiktok|pinterest|crunchbase|github|behance|goldenline)/i;
+const REVIEW =
+  /(opinie|opinions|reviews?|trustpilot|ceneo|google\.com\/maps|gowork|glassdoor|yelp|tripadvisor)/i;
+const DIRECTORY =
+  /(katalog|panorama|firmy|baza|aleo|rejestr|krs|bizin|yellowpages|directory|listing)/i;
+const MEDIA =
+  /(gazeta|onet|wp\.pl|interia|forbes|businessinsider|rp\.pl|money|news|press|dziennik)/i;
 
 /** Signals of content that may damage reputation on the brand SERP. */
 const NEGATIVE =
@@ -48,9 +52,7 @@ export function buildBrandSerp(
     const mentionsBrand = brand.some((token) => hit.title.toLowerCase().includes(token));
     const kind = classifyKind(domain, hit.title);
     const owned =
-      hit.isTarget ||
-      isTargetHost(hit.host, options.host) ||
-      (kind === "profile" && mentionsBrand);
+      hit.isTarget || isTargetHost(hit.host, options.host) || (kind === "profile" && mentionsBrand);
     return {
       url: hit.url,
       domain,
@@ -65,10 +67,7 @@ export function buildBrandSerp(
   const owned = results.filter((row) => row.owned).length;
   const risky = results.filter((row) => row.risky).length;
   // Higher positions weigh more — the first result shapes the first impression.
-  const weighted = results.reduce(
-    (sum, row) => sum + (row.owned ? 11 - row.position : 0),
-    0,
-  );
+  const weighted = results.reduce((sum, row) => sum + (row.owned ? 11 - row.position : 0), 0);
   const maxWeighted = results.reduce((sum, row) => sum + (11 - row.position), 0) || 1;
   const control = Math.round((weighted / maxWeighted) * 100);
 
@@ -76,12 +75,14 @@ export function buildBrandSerp(
   if (risky > 0) {
     hint = `Your brand SERP contains ${risky} results with negative sentiment. Build and rank your own pages (profiles, press material) to push them below the first ten.`;
   } else if (control >= 60) {
-    hint = "You control most of the first ten results for your own brand — that is a good position.";
+    hint =
+      "You control most of the first ten results for your own brand — that is a good position.";
   } else if (owned <= 2) {
     hint =
       "Beyond the home page almost nothing here is yours. Fill in social profiles and business listings to take more slots.";
   } else {
-    hint = "Some results belong to third parties — adding your own pages and profiles is worthwhile.";
+    hint =
+      "Some results belong to third parties — adding your own pages and profiles is worthwhile.";
   }
 
   return {

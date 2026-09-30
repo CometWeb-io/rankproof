@@ -124,7 +124,10 @@ async function start() {
       return;
     }
     if (req.method !== "POST") {
-      send(405, { ok: false, error: "Only POST requests are supported (except /health and /doctor)." });
+      send(405, {
+        ok: false,
+        error: "Only POST requests are supported (except /health and /doctor).",
+      });
       return;
     }
     if (!allow(req.socket.remoteAddress ?? "unknown")) {

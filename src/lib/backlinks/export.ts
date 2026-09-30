@@ -145,8 +145,7 @@ export function keywordsCsv(report: ScanReport): string {
     "opportunity",
   ];
   const rows = report.keywords.map((row) => {
-    const pos = (engine: string) =>
-      row.engines.find((e) => e.engine === engine)?.position ?? "";
+    const pos = (engine: string) => row.engines.find((e) => e.engine === engine)?.position ?? "";
     return [
       row.keyword,
       row.source,
@@ -240,7 +239,6 @@ export function prospectsCsv(report: ScanReport): string {
   );
   return [header.join(","), ...rows].join("\n");
 }
-
 
 export function gapCsv(report: LinkGapReport): string {
   const header = ["priority", "domain", "domain_score", "dofollow", "competitors", "sample_url"];
@@ -338,14 +336,7 @@ export function serpCompetitorsCsv(snapshot: SerpSnapshot): string {
 export function rankMovesCsv(moves: RankMove[]): string {
   const header = ["keyword", "engine", "previous", "current", "change", "state"];
   const rows = moves.map((row) =>
-    [
-      row.keyword,
-      row.engine,
-      row.previous ?? "",
-      row.current ?? "",
-      row.change ?? "",
-      row.state,
-    ]
+    [row.keyword, row.engine, row.previous ?? "", row.current ?? "", row.change ?? "", row.state]
       .map(csvCell)
       .join(","),
   );
@@ -427,15 +418,7 @@ export function siteAuditCsv(audit: SiteAudit): string {
 export function planCsv(report: ScanReport): string {
   const header = ["priority", "area", "task", "impact", "effort", "detail", "samples"];
   const rows = report.plan.items.map((row) =>
-    [
-      row.priority,
-      row.area,
-      row.title,
-      row.impact,
-      row.effort,
-      row.detail,
-      row.samples.join(" | "),
-    ]
+    [row.priority, row.area, row.title, row.impact, row.effort, row.detail, row.samples.join(" | ")]
       .map(csvCell)
       .join(","),
   );
@@ -533,7 +516,6 @@ export function reportHtml(report: ScanReport): string {
     ["Link velocity", `${report.velocity.perMonth}/mo`],
     ["Plan tasks", stats.actions],
   ];
-
 
   const linkRows = report.backlinks
     .slice(0, 300)

@@ -427,7 +427,6 @@ export type AnalyticsExtras = DomainExtras & {
   onPageIssues?: Issue[];
 };
 
-
 export function buildAnalytics(
   backlinks: Backlink[],
   mentions: Mention[],
@@ -504,7 +503,6 @@ export function buildAnalytics(
     extras,
   );
   const health = buildHealth(backlinks, referringDomains, anchors, issues, extras);
-
 
   return {
     referringDomains,
@@ -678,7 +676,9 @@ function buildIssues(
       detail:
         "Several referring domains share a single /24 IP range. That is the usual trace of a private blog network or a single host — worth checking by hand.",
       count: crowded.reduce((sum, [, count]) => sum + count, 0),
-      samples: crowded.slice(0, 5).map(([subnet, count]) => `${subnet} · ${plural(count, "domain")}`),
+      samples: crowded
+        .slice(0, 5)
+        .map(([subnet, count]) => `${subnet} · ${plural(count, "domain")}`),
     });
   }
 
@@ -738,7 +738,8 @@ function buildIssues(
     if (
       issues.some(
         (existing) =>
-          existing.id === issue.id || (existing.id === "target-noindex" && issue.id === "seo-noindex"),
+          existing.id === issue.id ||
+          (existing.id === "target-noindex" && issue.id === "seo-noindex"),
       )
     ) {
       continue;

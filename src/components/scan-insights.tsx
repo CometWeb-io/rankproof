@@ -1,4 +1,11 @@
-import { Activity, AlertTriangle, ArrowUpRight, Link2, MousePointerClick, Network } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  ArrowUpRight,
+  Link2,
+  MousePointerClick,
+  Network,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -106,7 +113,8 @@ export function SearchConsolePanel({
         <p className="text-sm font-medium text-fg">Search Console is not connected</p>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted">
           {insights.hint} Connecting an account replaces several estimates with measured data — real
-          clicks, impressions and Google positions. See <span className="font-mono">docs/search-console.md</span>.
+          clicks, impressions and Google positions. See{" "}
+          <span className="font-mono">docs/search-console.md</span>.
         </p>
       </div>
     );
@@ -133,7 +141,9 @@ export function SearchConsolePanel({
         <div className="rounded-lg border border-border bg-surface p-4">
           <p className="text-xs font-medium tracking-wide text-muted uppercase">CTR model check</p>
           <p className="mt-2 font-mono text-3xl tabular-nums text-fg">
-            {insights.accuracy.verdict === "unknown" ? "—" : `±${insights.accuracy.meanAbsoluteError}`}
+            {insights.accuracy.verdict === "unknown"
+              ? "—"
+              : `±${insights.accuracy.meanAbsoluteError}`}
           </p>
           <p className="mt-1 text-xs text-subtle">
             {insights.accuracy.verdict === "unknown"
@@ -151,7 +161,9 @@ export function SearchConsolePanel({
         <Button
           variant="outline"
           size="sm"
-          onClick={() => download(`rankproof-${host}-search-console.csv`, searchConsoleCsv(insights), "text/csv")}
+          onClick={() =>
+            download(`rankproof-${host}-search-console.csv`, searchConsoleCsv(insights), "text/csv")
+          }
         >
           Export CSV
         </Button>
@@ -226,7 +238,9 @@ export function SearchConsolePanel({
                 <span className="min-w-0 truncate text-sm text-fg">{row.query}</span>
                 <span className="font-mono text-xs text-muted">
                   Google #{row.google} · ours #{row.measured}
-                  <span className={cn("ml-2", Math.abs(row.gap) > 3 ? "text-nofollow" : "text-follow")}>
+                  <span
+                    className={cn("ml-2", Math.abs(row.gap) > 3 ? "text-nofollow" : "text-follow")}
+                  >
                     {row.gap > 0 ? `+${row.gap}` : row.gap}
                   </span>
                 </span>
@@ -248,7 +262,10 @@ export function SiteAuditPanel({ audit, host }: { audit: SiteAudit; host: string
           <p className="text-xs font-medium tracking-wide text-muted uppercase">Structure score</p>
           <p className="mt-2 font-mono text-3xl tabular-nums text-fg">{audit.score}</p>
           <div className="mt-2">
-            <Meter value={audit.score} tone={audit.score >= 70 ? "good" : audit.score < 45 ? "risk" : "default"} />
+            <Meter
+              value={audit.score}
+              tone={audit.score >= 70 ? "good" : audit.score < 45 ? "risk" : "default"}
+            />
           </div>
         </div>
         <div className="rounded-lg border border-border bg-surface p-4">
@@ -266,7 +283,9 @@ export function SiteAuditPanel({ audit, host }: { audit: SiteAudit; host: string
           <p className="mt-1 text-xs text-subtle">max {audit.maxDepth} clicks</p>
         </div>
         <div className="rounded-lg border border-border bg-surface p-4">
-          <p className="text-xs font-medium tracking-wide text-muted uppercase">Broken / redirects</p>
+          <p className="text-xs font-medium tracking-wide text-muted uppercase">
+            Broken / redirects
+          </p>
           <p className="mt-2 font-mono text-3xl tabular-nums text-fg">
             {audit.brokenInternal}
             <span className="text-muted"> / {audit.redirectedInternal}</span>
@@ -278,7 +297,9 @@ export function SiteAuditPanel({ audit, host }: { audit: SiteAudit; host: string
         <Button
           variant="outline"
           size="sm"
-          onClick={() => download(`rankproof-${host}-site-audit.csv`, siteAuditCsv(audit), "text/csv")}
+          onClick={() =>
+            download(`rankproof-${host}-site-audit.csv`, siteAuditCsv(audit), "text/csv")
+          }
         >
           Export CSV
         </Button>
@@ -294,7 +315,9 @@ export function SiteAuditPanel({ audit, host }: { audit: SiteAudit; host: string
             <article key={item.id} className="border-b border-border py-4 last:border-b-0">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <p className="text-sm font-medium text-fg">{item.title}</p>
-                <Badge variant={item.severity === "high" ? "nofollow" : "default"}>{item.severity}</Badge>
+                <Badge variant={item.severity === "high" ? "nofollow" : "default"}>
+                  {item.severity}
+                </Badge>
               </div>
               <p className="mt-1 max-w-3xl text-sm leading-relaxed text-muted">{item.detail}</p>
               <div className="mt-2 flex flex-wrap gap-1.5">
@@ -332,11 +355,15 @@ export function SiteAuditPanel({ audit, host }: { audit: SiteAudit; host: string
                 {page.path}
                 <ArrowUpRight className="size-3.5 shrink-0 text-subtle" />
               </a>
-              {page.title ? <p className="mt-1 truncate text-xs text-subtle">{page.title}</p> : null}
+              {page.title ? (
+                <p className="mt-1 truncate text-xs text-subtle">{page.title}</p>
+              ) : null}
             </div>
             <span className="flex shrink-0 items-center gap-2 font-mono text-xs text-muted">
               {page.noindex ? <Badge variant="nofollow">noindex</Badge> : null}
-              {page.backlinks > 0 ? <Badge variant="follow">{page.backlinks} backlinks</Badge> : null}
+              {page.backlinks > 0 ? (
+                <Badge variant="follow">{page.backlinks} backlinks</Badge>
+              ) : null}
               depth {page.depth} · in {page.inboundLinks} · out {page.outboundLinks}
             </span>
           </article>

@@ -43,15 +43,7 @@ export function TabNav({
   );
 }
 
-export function TabPanel({
-  id,
-  active,
-  children,
-}: {
-  id: Tab;
-  active: Tab;
-  children: ReactNode;
-}) {
+export function TabPanel({ id, active, children }: { id: Tab; active: Tab; children: ReactNode }) {
   if (active !== id) return null;
   return (
     <div

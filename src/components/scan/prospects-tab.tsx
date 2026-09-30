@@ -35,7 +35,11 @@ export function ProspectsTab({ report }: { report: ScanReport }) {
           size="sm"
           disabled={report.prospects.length === 0}
           onClick={() =>
-            download(`rankproof-${report.target.host}-prospects.csv`, prospectsCsv(report), "text/csv")
+            download(
+              `rankproof-${report.target.host}-prospects.csv`,
+              prospectsCsv(report),
+              "text/csv",
+            )
           }
         >
           <Download aria-hidden />
@@ -45,8 +49,8 @@ export function ProspectsTab({ report }: { report: ScanReport }) {
       <div className="rounded-xl border border-border bg-surface px-4 md:px-5">
         {report.prospects.length === 0 ? (
           <p className="py-12 text-center text-sm text-muted">
-            No opportunities in this scan. They appear when the SERP, mentions or the archive reveal pages
-            without a link.
+            No opportunities in this scan. They appear when the SERP, mentions or the archive reveal
+            pages without a link.
           </p>
         ) : (
           report.prospects.map((row) => (
@@ -69,13 +73,20 @@ export function ProspectsTab({ report }: { report: ScanReport }) {
                   {row.contactUrl ? (
                     <>
                       {" · "}
-                      <a href={row.contactUrl} target="_blank" rel="noreferrer" className="hover:text-fg">
+                      <a
+                        href={row.contactUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="hover:text-fg"
+                      >
                         contact
                       </a>
                     </>
                   ) : null}
                 </p>
-                {row.snippet ? <p className="mt-1 line-clamp-2 text-sm text-subtle">{row.snippet}</p> : null}
+                {row.snippet ? (
+                  <p className="mt-1 line-clamp-2 text-sm text-subtle">{row.snippet}</p>
+                ) : null}
               </div>
               <div className="flex flex-wrap items-center gap-2 md:justify-end">
                 <Badge

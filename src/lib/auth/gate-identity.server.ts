@@ -1,9 +1,4 @@
-import {
-  importJWK,
-  jwtVerify,
-  type JWK,
-  type JWTVerifyGetKey,
-} from "jose";
+import { importJWK, jwtVerify, type JWK, type JWTVerifyGetKey } from "jose";
 
 export const GATE_IDENTITY_HEADER = "x-rankproof-identity";
 export const GATE_JWKS_PATH = "/__gate/identity-key";
@@ -52,13 +47,9 @@ export function gateKeyResolver(
   jwksFetch: JwksFetch = defaultJwksFetch,
 ): JWTVerifyGetKey {
   return async (protectedHeader) => {
-    const kid =
-      typeof protectedHeader.kid === "string" ? protectedHeader.kid : undefined;
+    const kid = typeof protectedHeader.kid === "string" ? protectedHeader.kid : undefined;
     const findKey = (jwks: GateJwks): JWK | undefined =>
-      jwks.keys.find(
-        (k) =>
-          k.kty === "OKP" && k.crv === "Ed25519" && (!kid || k.kid === kid),
-      );
+      jwks.keys.find((k) => k.kty === "OKP" && k.crv === "Ed25519" && (!kid || k.kid === kid));
 
     let entry = jwksCache.get(url);
     if (!entry || Date.now() - entry.fetchedAt > JWKS_CACHE_TTL_MS) {
@@ -140,9 +131,7 @@ export function sessionBoundToGateIdentity(
   gateProviderId: string,
 ): boolean {
   return accounts.some(
-    (account) =>
-      account.providerId === gateProviderId &&
-      account.accountId === identitySub,
+    (account) => account.providerId === gateProviderId && account.accountId === identitySub,
   );
 }
 

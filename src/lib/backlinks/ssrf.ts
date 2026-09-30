@@ -12,8 +12,7 @@
  */
 
 export type GuardVerdict =
-  | { allowed: true; addresses: string[] }
-  | { allowed: false; reason: string };
+  { allowed: true; addresses: string[] } | { allowed: false; reason: string };
 
 const BLOCKED_HOSTNAMES = new Set([
   "localhost",
@@ -79,7 +78,11 @@ export function isPrivateIpv4(ip: string): boolean {
  * dotted-quad form therefore never fires on a real request.
  */
 export function expandIpv6(ip: string): number[] | null {
-  let value = ip.toLowerCase().replace(/^\[|\]$/g, "").split("%")[0] ?? "";
+  let value =
+    ip
+      .toLowerCase()
+      .replace(/^\[|\]$/g, "")
+      .split("%")[0] ?? "";
   if (!value) return null;
 
   // A trailing dotted quad is the low 32 bits: rewrite it as two groups.
@@ -121,10 +124,16 @@ export function expandIpv6(ip: string): number[] | null {
  */
 function embeddedIpv4(groups: number[]): string | null {
   const [a, b, c, d, e, f, g, h] = groups as [
-    number, number, number, number, number, number, number, number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
   ];
-  const quad = (high: number, low: number) =>
-    `${high >> 8}.${high & 255}.${low >> 8}.${low & 255}`;
+  const quad = (high: number, low: number) => `${high >> 8}.${high & 255}.${low >> 8}.${low & 255}`;
 
   const zeroPrefix = a === 0 && b === 0 && c === 0 && d === 0;
   // ::ffff:0:0/96 — IPv4-mapped (the common case after URL normalisation).
@@ -189,7 +198,11 @@ export function guardUrl(raw: string): GuardVerdict {
   if (BLOCKED_HOSTNAMES.has(hostname)) {
     return { allowed: false, reason: `Host ${hostname} points at a local or metadata service.` };
   }
-  if (hostname.endsWith(".local") || hostname.endsWith(".internal") || hostname.endsWith(".localhost")) {
+  if (
+    hostname.endsWith(".local") ||
+    hostname.endsWith(".internal") ||
+    hostname.endsWith(".localhost")
+  ) {
     return { allowed: false, reason: `Host ${hostname} is an internal name.` };
   }
   // A bare hostname with no dot cannot be a public site.
@@ -210,8 +223,7 @@ export function guardUrl(raw: string): GuardVerdict {
   }
 
   // Literals carry their own address; hostnames get addresses from DNS.
-  const addresses =
-    /^[\d.]+$/.test(literal) || literal.includes(":") ? [literal] : [];
+  const addresses = /^[\d.]+$/.test(literal) || literal.includes(":") ? [literal] : [];
   return { allowed: true, addresses };
 }
 

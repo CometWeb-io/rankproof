@@ -16,7 +16,10 @@ import type {
 /* ------------------------------------------------------------------ */
 
 function normalizeUrlKey(url: string): string {
-  return url.replace(/[?#].*$/, "").replace(/\/+$/, "").toLowerCase();
+  return url
+    .replace(/[?#].*$/, "")
+    .replace(/\/+$/, "")
+    .toLowerCase();
 }
 
 /** The set of top-10 URLs for a keyword (the strongest engine wins). */
@@ -166,7 +169,10 @@ export function contentGapTerms(
   }
 
   const minPages = options.minPages ?? 3;
-  const denominator = Math.max(1, new Set(queries.flatMap((q) => q.results.map((h) => normalizeUrlKey(h.url)))).size);
+  const denominator = Math.max(
+    1,
+    new Set(queries.flatMap((q) => q.results.map((h) => normalizeUrlKey(h.url)))).size,
+  );
 
   return [...counts.entries()]
     .filter(([, entry]) => entry.pages.size >= minPages)
@@ -178,8 +184,7 @@ export function contentGapTerms(
       keywords: [...entry.keywords].slice(0, 4),
     }))
     .sort(
-      (a, b) =>
-        Number(a.onTarget) - Number(b.onTarget) || b.competitorPages - a.competitorPages,
+      (a, b) => Number(a.onTarget) - Number(b.onTarget) || b.competitorPages - a.competitorPages,
     )
     .slice(0, options.limit ?? 40);
 }
@@ -189,9 +194,11 @@ export function contentGapTerms(
 /* ------------------------------------------------------------------ */
 
 const FEATURE_HINT: Partial<Record<SerpFeature, string>> = {
-  featured: "Add a concise 40–55 word answer directly under the heading — that is the format that wins a featured snippet.",
+  featured:
+    "Add a concise 40–55 word answer directly under the heading — that is the format that wins a featured snippet.",
   paa: "Build an FAQ section from the questions in the SERP, with short answers marked up as FAQPage.",
-  video: "The SERP shows video — a recording or embed improves the odds of a slot above the organic results.",
+  video:
+    "The SERP shows video — a recording or embed improves the odds of a slot above the organic results.",
   images: "Image results are present — add your own photos with descriptive alt text and captions.",
 };
 
@@ -222,8 +229,9 @@ export function featuredOpportunities(queries: SerpQuery[]): FeaturedOpportunity
     .sort((a, b) => a.position - b.position)
     .filter(
       (item, index, list) =>
-        list.findIndex((other) => other.keyword === item.keyword && other.feature === item.feature) ===
-        index,
+        list.findIndex(
+          (other) => other.keyword === item.keyword && other.feature === item.feature,
+        ) === index,
     )
     .slice(0, 20);
 }
@@ -237,7 +245,10 @@ export function positionBuckets(queries: SerpQuery[]): PositionBucket[] {
   const best = new Map<string, number | null>();
   for (const query of queries) {
     const current = best.get(query.keyword);
-    if (current === undefined || (query.targetPosition !== null && (current === null || query.targetPosition < current))) {
+    if (
+      current === undefined ||
+      (query.targetPosition !== null && (current === null || query.targetPosition < current))
+    ) {
       best.set(query.keyword, query.targetPosition);
     }
   }

@@ -5,9 +5,7 @@ test.describe("RankProof UI smoke", () => {
     await page.goto("/");
 
     await expect(page).toHaveTitle(/RankProof/i);
-    await expect(page.getByRole("heading", { level: 1 })).toContainText(
-      "What you rank for",
-    );
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("What you rank for");
     await expect(page.getByLabel("Site address")).toBeVisible();
     await expect(page.getByRole("button", { name: "Scan" })).toBeVisible();
     await expect(page.getByLabel("How RankProof works")).toBeVisible();

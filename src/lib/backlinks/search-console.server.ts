@@ -78,12 +78,7 @@ function isoDaysAgo(days: number): string {
 /** Property strings Search Console accepts, most specific first. */
 export function propertyCandidates(host: string): string[] {
   const bare = host.replace(/^www\./, "");
-  return [
-    `sc-domain:${bare}`,
-    `https://${host}/`,
-    `https://www.${bare}/`,
-    `http://${host}/`,
-  ];
+  return [`sc-domain:${bare}`, `https://${host}/`, `https://www.${bare}/`, `http://${host}/`];
 }
 
 type GscRow = {

@@ -33,17 +33,17 @@ Replace `example.com` with a public site you are authorized to audit. Scans make
 
 ![Actual local CLI help output, showing available commands without running a website scan.](docs/media/cli.gif)
 
-*Animated excerpt of actual local command output. [Static version](docs/media/cli.png).*
+_Animated excerpt of actual local command output. [Static version](docs/media/cli.png)._
 
 ## What can I inspect?
 
-| Area | Output |
-| --- | --- |
-| Search visibility | Positions, keyword ideas, SERP overlap and scan history |
-| Backlinks | Discovered links checked against source-page HTML |
-| Site structure | Internal links, redirects, canonical issues and orphan candidates |
-| Comparison | Link gaps and changes between scans |
-| Reporting | JSON, CSV and a standalone HTML report |
+| Area              | Output                                                            |
+| ----------------- | ----------------------------------------------------------------- |
+| Search visibility | Positions, keyword ideas, SERP overlap and scan history           |
+| Backlinks         | Discovered links checked against source-page HTML                 |
+| Site structure    | Internal links, redirects, canonical issues and orphan candidates |
+| Comparison        | Link gaps and changes between scans                               |
+| Reporting         | JSON, CSV and a standalone HTML report                            |
 
 Bing, DuckDuckGo and Mojeek are enabled by default; Brave is optional. **Google organic results require a separately configured provider.** Search Console supplies data for a property you control. See [providers](docs/providers.md) and [Search Console setup](docs/search-console.md).
 
@@ -58,14 +58,14 @@ Read the [metric definitions](docs/metrics.md) before comparing scores.
 
 ## Go further
 
-| Task | Guide |
-| --- | --- |
-| CLI commands and flags | [CLI reference](docs/cli.md) |
-| Run the HTTP service | [API reference](docs/api.md) |
-| Configure engines and integrations | [.env.example](.env.example) |
-| Understand discovery and verification | [Architecture](docs/architecture.md) |
-| Deploy beyond localhost | [Production operations](docs/production-ops.md) |
-| Contribute or report a vulnerability | [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) |
+| Task                                  | Guide                                                     |
+| ------------------------------------- | --------------------------------------------------------- |
+| CLI commands and flags                | [CLI reference](docs/cli.md)                              |
+| Run the HTTP service                  | [API reference](docs/api.md)                              |
+| Configure engines and integrations    | [.env.example](.env.example)                              |
+| Understand discovery and verification | [Architecture](docs/architecture.md)                      |
+| Deploy beyond localhost               | [Production operations](docs/production-ops.md)           |
+| Contribute or report a vulnerability  | [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) |
 
 ```bash
 npm run check

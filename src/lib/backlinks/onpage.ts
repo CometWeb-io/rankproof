@@ -68,7 +68,8 @@ export function auditOnPage(input: OnPageInput): OnPageAudit {
       id: "seo-title-short",
       severity: "medium",
       title: "The title is too short",
-      detail: "A healthy title runs 30–60 characters and contains the main keyword. A short one loses clicks.",
+      detail:
+        "A healthy title runs 30–60 characters and contains the main keyword. A short one loses clicks.",
       count: titleLength,
       samples: [title],
     });
@@ -77,7 +78,8 @@ export function auditOnPage(input: OnPageInput): OnPageAudit {
       id: "seo-title-long",
       severity: "low",
       title: "The title is too long",
-      detail: "Google truncates titles beyond about 60 characters. The most important keyword belongs at the start.",
+      detail:
+        "Google truncates titles beyond about 60 characters. The most important keyword belongs at the start.",
       count: titleLength,
       samples: [title],
     });
@@ -98,7 +100,8 @@ export function auditOnPage(input: OnPageInput): OnPageAudit {
       id: "seo-description-len",
       severity: "low",
       title: "Meta description out of range",
-      detail: "The optimal length is 70–160 characters. Too short does not sell; too long gets truncated.",
+      detail:
+        "The optimal length is 70–160 characters. Too short does not sell; too long gets truncated.",
       count: descriptionLength,
       samples: [description.slice(0, 80)],
     });
@@ -109,7 +112,8 @@ export function auditOnPage(input: OnPageInput): OnPageAudit {
       id: "seo-h1",
       severity: "medium",
       title: "Missing H1 heading",
-      detail: "The H1 is the main topical signal for a page. There should be exactly one, and it should contain the target keyword.",
+      detail:
+        "The H1 is the main topical signal for a page. There should be exactly one, and it should contain the target keyword.",
       count: 0,
       samples: [],
     });
@@ -129,7 +133,8 @@ export function auditOnPage(input: OnPageInput): OnPageAudit {
       id: "seo-noindex",
       severity: "high",
       title: "The page is set to noindex",
-      detail: "No backlink will improve rankings while meta robots or X-Robots-Tag blocks indexing.",
+      detail:
+        "No backlink will improve rankings while meta robots or X-Robots-Tag blocks indexing.",
       count: 1,
       samples: [input.url],
     });

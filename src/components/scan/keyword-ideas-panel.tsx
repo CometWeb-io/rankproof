@@ -55,8 +55,8 @@ export function KeywordIdeasPanel({ host, seeds }: { host: string; seeds: string
         <p className="text-sm font-medium text-fg">Keyword ideas</p>
       </div>
       <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted">
-        Autocomplete from DuckDuckGo and Bing, related searches and SERP questions. These are queries
-        people actually type — with commercial intent marked.
+        Autocomplete from DuckDuckGo and Bing, related searches and SERP questions. These are
+        queries people actually type — with commercial intent marked.
       </p>
       <div className="mt-4 flex flex-col gap-3 sm:flex-row">
         <Input
@@ -79,27 +79,31 @@ export function KeywordIdeasPanel({ host, seeds }: { host: string; seeds: string
       {ideas.length > 0 ? (
         <>
           <div className="mt-4 flex flex-wrap items-center gap-2">
-            {(["all", "transactional", "commercial", "informational", "local"] as const).map((item) => (
-              <button
-                key={item}
-                type="button"
-                aria-pressed={filter === item}
-                onClick={() => setFilter(item)}
-                className={cn(
-                  "h-11 min-w-[44px] rounded-full border px-3 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-bg",
-                  filter === item
-                    ? "border-fg-soft bg-fg text-accent-fg"
-                    : "border-border bg-surface-2 text-muted hover:text-fg",
-                )}
-              >
-                {item === "all" ? "all" : INTENT_LABEL[item]}
-              </button>
-            ))}
+            {(["all", "transactional", "commercial", "informational", "local"] as const).map(
+              (item) => (
+                <button
+                  key={item}
+                  type="button"
+                  aria-pressed={filter === item}
+                  onClick={() => setFilter(item)}
+                  className={cn(
+                    "h-11 min-w-[44px] rounded-full border px-3 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-bg",
+                    filter === item
+                      ? "border-fg-soft bg-fg text-accent-fg"
+                      : "border-border bg-surface-2 text-muted hover:text-fg",
+                  )}
+                >
+                  {item === "all" ? "all" : INTENT_LABEL[item]}
+                </button>
+              ),
+            )}
             <Button
               variant="outline"
               size="sm"
               className="ml-auto"
-              onClick={() => download(`rankproof-${host}-keyword-ideas.csv`, keywordIdeasCsv(ideas), "text/csv")}
+              onClick={() =>
+                download(`rankproof-${host}-keyword-ideas.csv`, keywordIdeasCsv(ideas), "text/csv")
+              }
             >
               <Download aria-hidden />
               Ideas CSV
@@ -116,7 +120,9 @@ export function KeywordIdeasPanel({ host, seeds }: { host: string; seeds: string
                   <Badge variant={idea.intent === "transactional" ? "follow" : "default"}>
                     {INTENT_LABEL[idea.intent]}
                   </Badge>
-                  <span className="font-mono text-xs text-subtle">{IDEA_SOURCE_LABEL[idea.source]}</span>
+                  <span className="font-mono text-xs text-subtle">
+                    {IDEA_SOURCE_LABEL[idea.source]}
+                  </span>
                   <span className="font-mono text-xs tabular-nums text-muted">{idea.score}</span>
                 </span>
               </li>

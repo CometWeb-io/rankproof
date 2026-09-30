@@ -4,13 +4,13 @@ Everything else in RankProof estimates. These two APIs do not — they report wh
 
 ## What changes once connected
 
-| Without | With |
-| --- | --- |
-| Positions scraped from Bing, DDG, Mojeek, Brave | Real Google positions alongside them, with the gap shown |
-| Traffic modelled from a CTR curve | Actual clicks and impressions |
-| "This keyword looks like an opportunity" | "This keyword earns 2,000 impressions at position 6 — reaching position 3 is worth ~180 clicks" |
-| No way to see snippet problems | CTR anomalies: ranks well, nobody clicks |
-| No decay detection | Queries losing clicks while the position holds |
+| Without                                         | With                                                                                            |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Positions scraped from Bing, DDG, Mojeek, Brave | Real Google positions alongside them, with the gap shown                                        |
+| Traffic modelled from a CTR curve               | Actual clicks and impressions                                                                   |
+| "This keyword looks like an opportunity"        | "This keyword earns 2,000 impressions at position 6 — reaching position 3 is worth ~180 clicks" |
+| No way to see snippet problems                  | CTR anomalies: ranks well, nobody clicks                                                        |
+| No decay detection                              | Queries losing clicks while the position holds                                                  |
 
 The report also states how far our CTR model sits from your measured reality, so you know how much to trust the modelled numbers on sites without a connection.
 
@@ -19,7 +19,7 @@ The report also states how far our CTR model sits from your measured reality, so
 You need OAuth credentials with the read-only Search Console scope. This is private performance data, so there is no shortcut around the site owner's own authorisation.
 
 1. In [Google Cloud Console](https://console.cloud.google.com/), create a project and enable the **Google Search Console API**.
-2. Create an **OAuth 2.0 Client ID** of type *Desktop app*.
+2. Create an **OAuth 2.0 Client ID** of type _Desktop app_.
 3. Grant your account the `https://www.googleapis.com/auth/webmasters.readonly` scope and complete the consent flow to obtain a refresh token. Any standard OAuth helper works; the token exchange is a single POST to `https://oauth2.googleapis.com/token`.
 4. Put the values in `.env`:
 

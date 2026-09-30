@@ -39,7 +39,6 @@ import { auditOnPage } from "./onpage.ts";
 import { extractHeadings } from "./html.ts";
 import type { OnPageAudit, SiteSnapshot } from "./types.ts";
 
-
 const STOPWORDS = new Set(
   "the a an and or of for from with your official website home welcome blog kontakt o mnie oferta uslug usługa strony strona internetowych internetowa tworzenie fotografia fotograf portfolio projektow projekty poradnik sesja about contact privacy cookie cookies login signup shop store news sklep firma company group sp z oo"
     .split(" ")
@@ -61,7 +60,6 @@ export type TargetIntel = {
   contentText: string;
   headings: { h1: string[]; h2: string[] };
 };
-
 
 function toIdentitySnapshot(archiveUrl: string): string {
   return archiveUrl.replace(/\/web\/(\d{8,14})\//i, "/web/$1id_/");
@@ -548,4 +546,3 @@ export async function inspectTarget(host: string, budget: Budget): Promise<Targe
     headings,
   };
 }
-
