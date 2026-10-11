@@ -2529,3 +2529,15 @@ test("crawl-delay reservation never shortens the site's requested spacing", asyn
   const second = planCrawlDelay(15_000, first!.nextAt, 20);
   assert.deepEqual(second, { waitMs: 6_000, nextAt: 41_000 });
 });
+
+test("DNS-pinned HTTP transport decodes gzip, deflate and Brotli within strict limits", async () => {
+  const { brotliCompressSync, deflateSync, gzipSync } = await import("node:zlib");
+  const { decodePinnedBody } = await import("./net.server.ts");
+  const text = "example <html>search engine results</html>";
+  const body = Buffer.from(text, "utf8");
+  assert.equal(decodePinnedBody(gzipSync(body), "gzip", 1_000).toString(), text);
+  assert.equal(decodePinnedBody(deflateSync(body), "deflate", 1_000).toString(), text);
+  assert.equal(decodePinnedBody(brotliCompressSync(body), "br", 1_000).toString(), text);
+  assert.throws(() => decodePinnedBody(gzipSync(body), "gzip", 8));
+  assert.throws(() => decodePinnedBody(body, "unknown", 1_000), /Unsupported/);
+});

@@ -3,6 +3,7 @@ import http from "node:http";
 import https from "node:https";
 import type { IncomingMessage } from "node:http";
 import { setTimeout as sleep } from "node:timers/promises";
+import { brotliDecompressSync, gunzipSync, inflateSync } from "node:zlib";
 
 import { usefulHtml } from "./html.ts";
 import { config } from "./config.ts";
@@ -159,6 +160,27 @@ function pickPinnedAddress(addresses: string[]): string {
  * HTTP(S) request that connects to a previously validated IP while preserving
  * Host / SNI for the original hostname.
  */
+/** Decode HTTP Content-Encoding in reverse order with a strict output cap.
+ * A compressed response must never be mistaken for empty HTML or expand into
+ * an unbounded zip bomb when DNS-pinned transport is used in production. */
+export function decodePinnedBody(body: Buffer, encoding: string, maxOutputBytes: number): Buffer {
+  const chain = encoding
+    .split(",")
+    .map((item) => item.trim().toLowerCase())
+    .filter((item) => item && item !== "identity");
+  if (chain.length > 2) throw new Error("Too many HTTP content encodings.");
+  let decoded = body;
+  for (const item of chain.reverse()) {
+    const options = { maxOutputLength: maxOutputBytes };
+    if (item === "gzip" || item === "x-gzip") decoded = gunzipSync(decoded, options);
+    else if (item === "deflate") decoded = inflateSync(decoded, options);
+    else if (item === "br") decoded = brotliDecompressSync(decoded, options);
+    else throw new Error(`Unsupported HTTP content encoding: ${item}`);
+    if (decoded.byteLength > maxOutputBytes) throw new Error("Decompressed response too large.");
+  }
+  return decoded;
+}
+
 function pinnedRequest(
   url: string,
   addresses: string[],
@@ -204,27 +226,35 @@ function pinnedRequest(
           chunks.push(chunk);
         });
         res.on("end", () => {
-          const headerInit: [string, string][] = [];
-          for (const [key, value] of Object.entries(res.headers)) {
-            if (value === undefined) continue;
-            if (Array.isArray(value)) {
-              for (const item of value) headerInit.push([key, item]);
-            } else {
-              headerInit.push([key, value]);
+          try {
+            const noBody = init.method === "HEAD" || [204, 205, 304].includes(res.statusCode ?? 0);
+            const encoding = String(res.headers["content-encoding"] ?? "");
+            const compressed = !noBody && encoding.trim() !== "" && encoding !== "identity";
+            const payload = noBody
+              ? null
+              : decodePinnedBody(Buffer.concat(chunks), encoding, init.maxBytes);
+            const headerInit: [string, string][] = [];
+            for (const [key, value] of Object.entries(res.headers)) {
+              if (value === undefined) continue;
+              if (compressed && (key === "content-encoding" || key === "content-length")) {
+                continue;
+              }
+              if (Array.isArray(value)) {
+                for (const item of value) headerInit.push([key, item]);
+              } else {
+                headerInit.push([key, value]);
+              }
             }
-          }
-          resolve(
-            new Response(
-              init.method === "HEAD" || [204, 205, 304].includes(res.statusCode ?? 0)
-                ? null
-                : Buffer.concat(chunks),
-              {
+            resolve(
+              new Response(payload, {
                 status: res.statusCode ?? 200,
                 statusText: res.statusMessage,
                 headers: headerInit,
-              },
-            ),
-          );
+              }),
+            );
+          } catch (error) {
+            reject(error);
+          }
         });
       },
     );

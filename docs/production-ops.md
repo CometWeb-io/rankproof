@@ -144,3 +144,7 @@ When robots.txt requests a crawl delay, RankProof reserves the actual requested 
 ### Global outbound request admission
 
 In addition to per-host request concurrency, RankProof bounds simultaneously active HTTP connections across **all** hosts in the process. `RANKPROOF_GLOBAL_HTTP_CONCURRENCY` defaults to 12 and is capped at 24. Slots are occupied through response consumption and released on cancellation. This is a local resource safeguard, not a distributed quota or a complete count of third-party requests outside the shared HTTP transport.
+
+### Pinned transport and compressed HTTP
+
+The DNS-pinned Node HTTP(S) client decodes `gzip`, `deflate` and Brotli responses with a hard cap on both received compressed bytes and the decompressed body. Unknown or oversized encodings fail rather than being interpreted as empty HTML or consuming unbounded memory. Response headers are normalized after decompression. This is necessary for parity with Node `fetch`, which decodes standard content encodings automatically.
