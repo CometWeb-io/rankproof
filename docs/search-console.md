@@ -39,7 +39,7 @@ RankProof tries the property formats Search Console accepts, most specific first
 
 ### Data window
 
-The last 28 days by default, plus the preceding 28 for comparison. Search Console lags about two days, so the window ends two days before today — asking for today returns nothing.
+The last 28 complete calendar dates by default, plus the preceding 28 for comparison. Search Console lags about two days. Property-wide totals come from a separate aggregation without query/page dimensions; the displayed keyword and page lists are limited samples, not complete property totals.
 
 ## Bing Webmaster Tools
 
@@ -58,13 +58,13 @@ This is a useful cross-check, since our scraped positions lean on Bing's index.
 ## Verifying the connection
 
 ```bash
-npm run cli -- scan example.com --format json | grep -A3 searchConsole
+RANKPROOF_CLI_OWNER_DATA=1 node bin/rankproof.mjs scan example.com --format json --out private-report.json
 ```
 
-Or open the **Search Console** tab in the web interface. If nothing is connected the tab explains what is missing instead of showing empty charts.
+The web UI and standalone HTTP API deliberately never return private Search Console or Bing Webmaster performance, even if server credentials are configured. The local CLI is the trusted opt-in entry point. A future user-authenticated web integration must verify property-level ownership first.
 
 ## Privacy
 
 Credentials are read from the environment and used only to call the two APIs. Nothing is stored: performance data lives in the report you generate and is never written to the scan history tables.
 
-If you self-host the HTTP API publicly, remember that anyone who can reach `/scan` will get results computed with **your** credentials for **your** properties only — the API cannot read anyone else's data, but it can reveal yours. Put authentication in front of it. See [`SECURITY.md`](../SECURITY.md).
+Unauthenticated web/HTTP scans exclude owner performance data by design. Do not add owner-data flags to those routes. The local CLI opt-in writes private metrics to stdout or a file: protect both. An externally reachable scanner still needs authentication, rate limiting and egress isolation to prevent abuse. See [`SECURITY.md`](../SECURITY.md).

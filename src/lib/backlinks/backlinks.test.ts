@@ -423,6 +423,7 @@ test("scoreBacklink downgrades off-topic and lost links", async () => {
 test("a database delta counts new and lost links", async () => {
   const { rowToDelta } = await import("./history-diff.ts");
   const report = {
+    scopeKey: "scope-a",
     backlinks: [link({}), link({ sourceUrl: "https://nowy.pl/a", sourceDomain: "nowy.pl" })],
     analytics: {
       referringDomains: [{ domain: "partner.pl" }, { domain: "nowy.pl" }],
@@ -433,6 +434,7 @@ test("a database delta counts new and lost links", async () => {
 
   const delta = rowToDelta(report, {
     queried_at: "2026-01-01T00:00:00.000Z",
+    scan_scope: "scope-a",
     backlinks: 1,
     referring_domains: 1,
     dofollow: 1,
@@ -445,9 +447,11 @@ test("a database delta counts new and lost links", async () => {
   });
   assert.ok(delta);
   assert.equal(delta!.newLinks, 1);
-  assert.equal(delta!.lostLinks, 1);
+  assert.equal(delta!.lostLinks, 0);
+  assert.equal(delta!.notRediscoveredLinks, 1);
   assert.deepEqual(delta!.newDomains, ["nowy.pl"]);
-  assert.deepEqual(delta!.lostDomains, ["znikla.pl"]);
+  assert.deepEqual(delta!.lostDomains, []);
+  assert.deepEqual(delta!.notRediscoveredDomains, ["znikla.pl"]);
   assert.equal(delta!.ratingDelta, 10);
   assert.equal(delta!.visibilityDelta, 0);
 });
@@ -637,7 +641,11 @@ test("collectKeywords takes titles, H1s and exact-match anchors", async () => {
   assert.equal(blockedOnly.visibility, 100, "blocked keywords must not dilute visibility");
 
   const stats = buildKeywordStats(seeds.slice(0, 3), [], []);
-  assert.ok(stats[0]!.opportunity >= 20);
+  assert.equal(
+    stats[0]!.opportunity,
+    0,
+    "unmeasured keyword sets must not be presented as actionable SEO opportunities",
+  );
 });
 
 test("SERP parsers extract organic positions and the target", async () => {
@@ -773,6 +781,7 @@ test("rank moves distinguish gains, drops, new and lost keywords", async () => {
       query({ keyword: "awans", targetPosition: 3 }),
       query({ keyword: "spadek", targetPosition: 9 }),
       query({ keyword: "nowa", targetPosition: 7 }),
+      query({ keyword: "znikla", targetPosition: null }),
     ],
     [
       { keyword: "awans", engine: "bing", position: 8 },
@@ -1973,7 +1982,7 @@ test("Google provider adapter parses OpenSERP-style JSON", async () => {
             { url: "https://b.example/y", title: "B", description: "two" },
           ],
         }),
-        { status: 200 },
+        { status: 200, headers: { "content-type": "application/json" } },
       )) as typeof fetch,
   });
   assert.equal(hits.length, 2);
@@ -2027,4 +2036,823 @@ test("Google provider URL is refused for loopback and metadata before fetch", as
     /blocked|not publicly routable|local/i,
   );
   assert.equal(fetched, false);
+});
+
+/* ----------- Evidence correctness regression tests (2026-10) ----------- */
+
+test("parseAnchors does not treat data-href or data-rel as real link attributes", () => {
+  const html =
+    '<a data-href="https://fake.example/target" data-rel="nofollow" href="https://real.example/target" rel="sponsored">Actual</a>';
+  const links = parseAnchors(html, "https://source.example/page", { withPlacement: false });
+  assert.equal(links.length, 1);
+  assert.equal(links[0]?.href, "https://real.example/target");
+  assert.equal(links[0]?.rel, "sponsored");
+});
+
+test("pageKey preserves case-sensitive paths and query values", () => {
+  assert.notEqual(pageKey("https://example.com/Products"), pageKey("https://example.com/products"));
+  assert.notEqual(
+    pageKey("https://example.com/item?sku=A"),
+    pageKey("https://example.com/item?sku=a"),
+  );
+  assert.equal(
+    pageKey("https://EXAMPLE.com/item?sku=A"),
+    pageKey("https://example.com/item?sku=A"),
+  );
+});
+
+test("SERP visibility is monotone for ranks 1..20 and beats no rank", async () => {
+  const { visibilityScore } = await import("./keywords.ts");
+  const query = (position: number | null) => ({
+    keyword: "sample keyword",
+    engine: "bing" as const,
+    targetPosition: position,
+    status: "ok" as const,
+  });
+  let previous = Infinity;
+  for (let rank = 1; rank <= 20; rank++) {
+    const current = visibilityScore([query(rank) as never]).visibility;
+    assert.ok(current >= 0 && current <= 100);
+    assert.ok(current <= previous, `rank ${rank} should not outrank rank ${rank - 1}`);
+    previous = current;
+  }
+  assert.ok(
+    visibilityScore([query(20) as never]).visibility >
+      visibilityScore([query(null) as never]).visibility,
+  );
+});
+
+test("OpenSERP v2 contract uses text/lang/region and preserves absolute rank", async () => {
+  const { fetchGoogleOrganicViaProvider } = await import("./serp-providers.ts");
+  let requested = "";
+  const out = await fetchGoogleOrganicViaProvider("audit seo", {
+    baseUrl: "https://provider.example",
+    market: "pl",
+    page: 1,
+    resolve: async () => ["93.184.216.34"],
+    fetchImpl: (async (url: string | URL | Request) => {
+      requested = String(url);
+      return new Response(
+        JSON.stringify({
+          results: [
+            { url: "https://ads.example", type: "ad", position: { absolute: 10 }, title: "Ad" },
+            {
+              url: "https://organic.example",
+              type: "organic",
+              position: { absolute: 12 },
+              title: "Organic",
+            },
+          ],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }) as typeof fetch,
+  });
+  const url = new URL(requested);
+  assert.equal(url.pathname, "/google/search");
+  assert.equal(url.searchParams.get("text"), "audit seo");
+  assert.equal(url.searchParams.get("q"), null);
+  assert.equal(url.searchParams.get("region"), "pl");
+  assert.equal(url.searchParams.get("lang"), "pl");
+  assert.equal(url.searchParams.get("start"), "10");
+  assert.equal(out.hits.length, 1);
+  assert.equal(out.hits[0]?.position, 12);
+});
+
+test("robots policy fails closed after transport errors, not open", async () => {
+  const { robotsFor, clearRobotsCache, isAllowed } = await import("./robots.server.ts");
+  const { Budget, clearNetCache } = await import("./net.server.ts");
+  const oldFetch = globalThis.fetch;
+  try {
+    clearNetCache();
+    clearRobotsCache();
+    globalThis.fetch = (async () => {
+      throw new Error("connection reset");
+    }) as typeof fetch;
+    const rules = await robotsFor("https://robots-unavailable.example", new Budget(5_000));
+    assert.equal(rules.missing, false);
+    assert.equal(isAllowed(rules, "/page"), false);
+  } finally {
+    globalThis.fetch = oldFetch;
+    clearRobotsCache();
+    clearNetCache();
+  }
+});
+
+test("network cache does not reuse responses with different byte limits", async () => {
+  const { fetchText, clearNetCache } = await import("./net.server.ts");
+  const oldFetch = globalThis.fetch;
+  let calls = 0;
+  try {
+    clearNetCache();
+    globalThis.fetch = (async () => {
+      calls++;
+      return new Response("abcdef", {
+        status: 200,
+        headers: { "content-type": "text/plain" },
+      });
+    }) as typeof fetch;
+    const url = "https://cache-test.example/article";
+    const common = { timeoutMs: 4000, skipRobots: true };
+    const large = await fetchText(url, { ...common, maxBytes: 100 });
+    const small = await fetchText(url, { ...common, maxBytes: 2 });
+    assert.equal(large.text, "abcdef");
+    assert.equal(small.text.length, 2);
+    assert.equal(calls, 2);
+  } finally {
+    globalThis.fetch = oldFetch;
+    clearNetCache();
+  }
+});
+
+test("CSV exporter neutralizes formula-leading untrusted text", async () => {
+  const { csvCell } = await import("./export.ts");
+  assert.equal(
+    csvCell('=HYPERLINK("https://example.com")'),
+    `"'=HYPERLINK(""https://example.com"")"`,
+  );
+  assert.equal(csvCell("   +SUM(1,2)"), `"'   +SUM(1,2)"`);
+  assert.equal(csvCell(-42), '"-42"');
+});
+
+test("rank opportunity is zero when SERP sources did not measure the query", async () => {
+  const { buildKeywordStats } = await import("./keywords.ts");
+  const seeds = [{ keyword: "missing keyword", source: "content" as const, weight: 70 }];
+  const q = {
+    keyword: "missing keyword",
+    engine: "bing" as const,
+    status: "blocked" as const,
+    targetPosition: null,
+    results: [],
+    features: [],
+    depth: 0,
+    difficulty: 0,
+    market: "pl" as const,
+    device: "desktop" as const,
+    related: [],
+    questions: [],
+    ms: 10,
+  };
+  const stats = buildKeywordStats(seeds, [q], [], []);
+  assert.equal(stats[0]?.opportunity, 0);
+  assert.equal(stats[0]?.bestPosition, null);
+});
+
+test("scan profile parsing is deterministic and fails safe to standard", async () => {
+  const { parseScanProfile } = await import("./config.ts");
+  assert.equal(parseScanProfile("quick"), "quick");
+  assert.equal(parseScanProfile("deep"), "deep");
+  assert.equal(parseScanProfile("standard"), "standard");
+  assert.equal(parseScanProfile("experimental"), "standard");
+  assert.equal(parseScanProfile(undefined), "standard");
+});
+
+test("archive links require independently verified live-page absence", async () => {
+  const { isConfirmedLostBacklink } = await import("./verify.server.ts");
+  const source = "https://example-news.pl/article";
+  const padding = "<main>" + "Useful source text ".repeat(35) + "</main>";
+  const withLink = padding + '<a href="https://cel.pl/offer">Still linked</a>';
+  assert.equal(isConfirmedLostBacklink(200, withLink, source, "cel.pl"), false);
+  assert.equal(isConfirmedLostBacklink(200, padding, source, "cel.pl"), true);
+  assert.equal(isConfirmedLostBacklink(403, padding, source, "cel.pl"), false);
+  assert.equal(isConfirmedLostBacklink(500, padding, source, "cel.pl"), false);
+  assert.equal(isConfirmedLostBacklink(200, "short HTML", source, "cel.pl"), false);
+});
+
+test("scope fingerprints reject different markets, sources and keywords", async () => {
+  const { scanScopeKey } = await import("./scan-coverage.ts");
+  const base = {
+    host: "example.com",
+    profile: "standard",
+    market: "pl",
+    device: "desktop",
+    serpDepth: 10,
+    keywords: ["SEO", "audit"],
+    engines: ["bing", "duckduckgo"],
+    sources: [{ id: "bing", status: "ok" }],
+    siteAudit: true,
+    backlinkCap: 400,
+    verifyCap: 64,
+  };
+  const initial = scanScopeKey(base);
+  assert.equal(initial, scanScopeKey({ ...base, keywords: ["audit", "seo", "SEO"] }));
+  assert.notEqual(initial, scanScopeKey({ ...base, market: "us" }));
+  assert.notEqual(initial, scanScopeKey({ ...base, profile: "quick" }));
+  assert.notEqual(initial, scanScopeKey({ ...base, sources: [{ id: "bing", status: "error" }] }));
+  assert.notEqual(initial, scanScopeKey({ ...base, keywords: ["different"] }));
+  assert.notEqual(initial, scanScopeKey({ ...base, truncated: true }));
+});
+
+test("database deltas refuse missing and incompatible collection scopes", async () => {
+  const { rowToDelta } = await import("./history-diff.ts");
+  const report = { scopeKey: "scope-current" } as Parameters<typeof rowToDelta>[0];
+  const previous = { scan_scope: "scope-previous" } as Parameters<typeof rowToDelta>[1];
+  assert.equal(rowToDelta(report, previous), null);
+  assert.equal(
+    rowToDelta(report, { ...previous, scan_scope: null } as Parameters<typeof rowToDelta>[1]),
+    null,
+  );
+});
+
+test("PSL isolates private-hosting tenants and wildcard exceptions", () => {
+  assert.equal(registrableDomain("blog.sklep.com.pl"), "sklep.com.pl");
+  assert.equal(registrableDomain("a.github.io"), "a.github.io");
+  assert.equal(registrableDomain("b.a.github.io"), "a.github.io");
+  assert.equal(tldOf("a.github.io"), "github.io");
+  assert.equal(registrableDomain("city.kawasaki.jp"), "city.kawasaki.jp");
+  assert.equal(tldOf("city.kawasaki.jp"), "kawasaki.jp");
+  assert.equal(registrableDomain("github.io"), "");
+  assert.equal(isTargetHost("b.github.io", "a.github.io"), false);
+  assert.equal(isTargetHost("blog.a.github.io", "a.github.io"), true);
+});
+
+test("Unicode and punycode TLDs resolve to the same registrable domain", () => {
+  assert.equal(registrableDomain("www.пример.рф"), "xn--e1afmkfd.xn--p1ai");
+  assert.equal(parseTarget("https://пример.рф/").domain, "xn--e1afmkfd.xn--p1ai");
+});
+
+test("workload profile changes resource and SERP defaults without manual caps", async () => {
+  const { config, resetConfig } = await import("./config.ts");
+  const keys = [
+    "RANKPROOF_SCAN_PROFILE",
+    "RANKPROOF_SCAN_BUDGET_MS",
+    "RANKPROOF_SERP_DEPTH",
+    "RANKPROOF_MAX_BACKLINKS",
+    "RANKPROOF_MAX_VERIFY",
+  ] as const;
+  const original = new Map(keys.map((key) => [key, process.env[key]]));
+  try {
+    for (const key of keys) delete process.env[key];
+    process.env.RANKPROOF_SCAN_PROFILE = "quick";
+    resetConfig();
+    assert.equal(config().scanBudgetMs, 20_000);
+    assert.equal(config().serpDepth, 10);
+    assert.equal(config().maxVerify, 24);
+    process.env.RANKPROOF_SCAN_PROFILE = "deep";
+    resetConfig();
+    assert.equal(config().scanBudgetMs, 180_000);
+    assert.equal(config().serpDepth, 20);
+    assert.equal(config().maxBacklinks, 1_200);
+  } finally {
+    for (const key of keys) {
+      const value = original.get(key);
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    resetConfig();
+  }
+});
+
+test("malformed DNS records fail closed instead of being pinned as hostnames", async () => {
+  const { isPrivateAddress, guardUrlWithDns } = await import("./ssrf.ts");
+  assert.equal(isPrivateAddress("internal.example"), true);
+  assert.equal(isPrivateAddress("999.999.1.1"), true);
+  assert.equal(isPrivateAddress("127.0.0.1"), true);
+  for (const address of ["internal.example", "999.999.1.1", "fe80::gggg"]) {
+    const decision = await guardUrlWithDns("https://example.com/", async () => [address]);
+    assert.equal(decision.allowed, false);
+  }
+});
+
+test("cross-origin redirects never forward caller credentials", async () => {
+  const { fetchText, clearNetCache } = await import("./net.server.ts");
+  const original = globalThis.fetch;
+  const calls: { url: string; headers: Record<string, string> }[] = [];
+  try {
+    clearNetCache();
+    globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({
+        url: String(url),
+        headers: (init?.headers ?? {}) as Record<string, string>,
+      });
+      if (calls.length === 1) {
+        return new Response(null, {
+          status: 302,
+          headers: { location: "https://redirect-source.example/new" },
+        });
+      }
+      return new Response("ok", { status: 200 });
+    }) as typeof fetch;
+    const result = await fetchText("https://source.example/start", {
+      timeoutMs: 5_000,
+      maxBytes: 100,
+      skipRobots: true,
+      cache: false,
+      headers: { authorization: "Bearer sensitive", cookie: "session=private" },
+    });
+    assert.equal(result.text, "ok");
+    assert.equal(calls.length, 2);
+    assert.equal(calls[0]?.headers.authorization, "Bearer sensitive");
+    assert.equal(calls[1]?.headers.authorization, undefined);
+    assert.equal(calls[1]?.headers.cookie, undefined);
+  } finally {
+    globalThis.fetch = original;
+    clearNetCache();
+  }
+});
+
+test("private, no-store, cookie and unknown Vary responses are not cached", async () => {
+  const { isResponseCacheable } = await import("./net.server.ts");
+  const response = (headers: Record<string, string>) => new Response("body", { headers });
+  assert.equal(isResponseCacheable(response({})), true);
+  assert.equal(isResponseCacheable(response({ "cache-control": "private, max-age=60" })), false);
+  assert.equal(isResponseCacheable(response({ "cache-control": "no-store" })), false);
+  assert.equal(isResponseCacheable(response({ "set-cookie": "token=secret" })), false);
+  assert.equal(isResponseCacheable(response({ vary: "X-Experiment" })), false);
+  assert.equal(isResponseCacheable(response({ vary: "Accept-Language" })), true);
+});
+
+test("no-store network responses never enter the in-memory cache", async () => {
+  const { fetchText, clearNetCache } = await import("./net.server.ts");
+  const previous = globalThis.fetch;
+  let calls = 0;
+  try {
+    clearNetCache();
+    globalThis.fetch = (async () => {
+      calls += 1;
+      return new Response("private body", {
+        status: 200,
+        headers: { "cache-control": "no-store" },
+      });
+    }) as typeof fetch;
+    const options = { timeoutMs: 4000, maxBytes: 200, skipRobots: true };
+    await fetchText("https://noncache.example/page", options);
+    await fetchText("https://noncache.example/page", options);
+    assert.equal(calls, 2);
+  } finally {
+    globalThis.fetch = previous;
+    clearNetCache();
+  }
+});
+
+test("target parsing preserves specific page URLs and refuses embedded credentials", () => {
+  const target = parseTarget("https://example.com/Products?sku=A");
+  assert.equal(target.host, "example.com");
+  assert.equal(target.url, "https://example.com");
+  assert.equal(target.requestedUrl, "https://example.com/Products?sku=A");
+  assert.equal(parseTarget("example.com").requestedUrl, "https://example.com/");
+  assert.throws(() => parseTarget("https://user:password@example.com/"));
+});
+
+test("page-specific scans cannot share a trend scope with another page", async () => {
+  const { scanScopeKey } = await import("./scan-coverage.ts");
+  const base = {
+    host: "example.com",
+    profile: "standard",
+    market: "pl",
+    device: "desktop",
+    serpDepth: 10,
+    keywords: ["audit"],
+    engines: ["bing"],
+    sources: [{ id: "bing", status: "ok" }],
+    siteAudit: true,
+    backlinkCap: 400,
+    verifyCap: 64,
+  };
+  assert.notEqual(
+    scanScopeKey({ ...base, requestedUrl: "https://example.com/A" }),
+    scanScopeKey({ ...base, requestedUrl: "https://example.com/B" }),
+  );
+});
+
+test("external client abort cancels a scan time budget immediately", async () => {
+  const { Budget } = await import("./net.server.ts");
+  const client = new AbortController();
+  const budget = new Budget(60_000, client.signal);
+  assert.equal(budget.signal.aborted, false);
+  client.abort();
+  assert.equal(budget.signal.aborted, true);
+  const alreadyClosed = new AbortController();
+  alreadyClosed.abort();
+  assert.equal(new Budget(60_000, alreadyClosed.signal).signal.aborted, true);
+});
+
+test("in-memory cache rechecks robots after policy change", async () => {
+  const { Budget, fetchText, clearNetCache } = await import("./net.server.ts");
+  const { clearRobotsCache } = await import("./robots.server.ts");
+  const previousFetch = globalThis.fetch;
+  let allow = true;
+  let pageFetches = 0;
+  const pageUrl = "https://robots-cache.example/private/page";
+  try {
+    clearNetCache();
+    clearRobotsCache();
+    globalThis.fetch = (async (raw: string | URL | Request) => {
+      const url = String(raw);
+      if (url.endsWith("/robots.txt")) {
+        return new Response(
+          allow ? "User-agent: *\nAllow: /" : "User-agent: *\nDisallow: /private",
+          { status: 200, headers: { "cache-control": "no-store" } },
+        );
+      }
+      pageFetches += 1;
+      return new Response("<html><body>Public demonstration page.</body></html>", {
+        status: 200,
+      });
+    }) as typeof fetch;
+    const budget = new Budget(30_000);
+    const options = { timeoutMs: 5_000, maxBytes: 10_000, budget };
+    await fetchText(pageUrl, options);
+    assert.equal(pageFetches, 1);
+    allow = false;
+    clearRobotsCache();
+    await assert.rejects(fetchText(pageUrl, options), /robots\.txt disallows/);
+    assert.equal(pageFetches, 1, "blocked cached pages must not trigger a fresh page request");
+  } finally {
+    globalThis.fetch = previousFetch;
+    clearNetCache();
+    clearRobotsCache();
+  }
+});
+
+test("aborted callers cannot retrieve an otherwise warm cache entry", async () => {
+  const { fetchText, clearNetCache } = await import("./net.server.ts");
+  const original = globalThis.fetch;
+  try {
+    clearNetCache();
+    globalThis.fetch = (async () => new Response("cached")) as typeof fetch;
+    const url = "https://cache-abort.example/";
+    await fetchText(url, { timeoutMs: 2_000, maxBytes: 100, skipRobots: true });
+    const controller = new AbortController();
+    controller.abort();
+    await assert.rejects(
+      fetchText(url, {
+        timeoutMs: 2_000,
+        maxBytes: 100,
+        skipRobots: true,
+        signal: controller.signal,
+      }),
+      /abort/i,
+    );
+  } finally {
+    globalThis.fetch = original;
+    clearNetCache();
+  }
+});
+
+test("bounded HTML reading reports partial evidence and does not cache it", async () => {
+  const { fetchText, clearNetCache } = await import("./net.server.ts");
+  const previous = globalThis.fetch;
+  let requests = 0;
+  try {
+    clearNetCache();
+    globalThis.fetch = (async () => {
+      requests += 1;
+      return new Response("x".repeat(200), { status: 200 });
+    }) as typeof fetch;
+    const options = { timeoutMs: 5_000, maxBytes: 32, skipRobots: true };
+    const one = await fetchText("https://truncated.example/huge", options);
+    const two = await fetchText("https://truncated.example/huge", options);
+    assert.equal(one.truncated, true);
+    assert.equal(one.text.length, 32);
+    assert.equal(two.fromCache, false);
+    assert.equal(requests, 2);
+  } finally {
+    globalThis.fetch = previous;
+    clearNetCache();
+  }
+});
+
+test("truncated live pages cannot prove historical backlink loss", async () => {
+  const { isConfirmedLostBacklink } = await import("./verify.server.ts");
+  const source = "https://source.example/article";
+  const html = "<main>" + "content ".repeat(90) + "</main>";
+  assert.equal(isConfirmedLostBacklink(200, html, source, "target.example"), true);
+  assert.equal(isConfirmedLostBacklink(200, html, source, "target.example", true), false);
+});
+
+test("crawl-delay reservation never shortens the site's requested spacing", async () => {
+  const { planCrawlDelay } = await import("./net.server.ts");
+  const first = planCrawlDelay(1_000, 0, 20);
+  assert.deepEqual(first, { waitMs: 0, nextAt: 21_000 });
+  // A second immediate request must be rejected, not sent after just 10 s.
+  assert.equal(planCrawlDelay(1_001, first!.nextAt, 20), null);
+  const second = planCrawlDelay(15_000, first!.nextAt, 20);
+  assert.deepEqual(second, { waitMs: 6_000, nextAt: 41_000 });
+});
+
+test("DNS-pinned HTTP transport decodes gzip, deflate and Brotli within strict limits", async () => {
+  const { brotliCompressSync, deflateSync, gzipSync } = await import("node:zlib");
+  const { decodePinnedBody } = await import("./net.server.ts");
+  const text = "example <html>search engine results</html>";
+  const body = Buffer.from(text, "utf8");
+  assert.equal(decodePinnedBody(gzipSync(body), "gzip", 1_000).toString(), text);
+  assert.equal(decodePinnedBody(deflateSync(body), "deflate", 1_000).toString(), text);
+  assert.equal(decodePinnedBody(brotliCompressSync(body), "br", 1_000).toString(), text);
+  assert.throws(() => decodePinnedBody(gzipSync(body), "gzip", 8));
+  assert.throws(() => decodePinnedBody(body, "unknown", 1_000), /Unsupported/);
+});
+
+test("disavow drafts require a separate explicit manual-review acknowledgement", async () => {
+  const { parseArgs } = await import("./cli.ts");
+  const blocked = parseArgs(["scan", "example.com", "--format", "disavow"]);
+  assert.match(blocked.error ?? "", /reviewed-disavow/);
+  const allowed = parseArgs(["scan", "example.com", "--format", "disavow", "--reviewed-disavow"]);
+  assert.equal(allowed.error, undefined);
+  assert.equal(allowed.reviewedDisavow, true);
+});
+
+test("HTML anti-bot challenges and incomplete robots are not treated as allow-all", async () => {
+  const { Budget, clearNetCache } = await import("./net.server.ts");
+  const { robotsFor, isAllowed, clearRobotsCache } = await import("./robots.server.ts");
+  const original = globalThis.fetch;
+  const response = (body: string) =>
+    new Response(body, { status: 200, headers: { "cache-control": "no-store" } });
+  try {
+    const challengeHtml = "<!doctype html><html>Bot challenge</html>";
+    globalThis.fetch = (async () => response(challengeHtml)) as typeof fetch;
+    clearNetCache();
+    clearRobotsCache();
+    const challenge = await robotsFor("https://robots-challenge.example", new Budget(8_000));
+    assert.equal(isAllowed(challenge, "/private"), false);
+    const oversized = "User-agent: *\nAllow: /\n" + "# padding\n".repeat(15_000);
+    globalThis.fetch = (async () => response(oversized)) as typeof fetch;
+    clearRobotsCache();
+    const partial = await robotsFor("https://robots-challenge.example", new Budget(8_000));
+    assert.equal(isAllowed(partial, "/private"), false);
+  } finally {
+    globalThis.fetch = original;
+    clearRobotsCache();
+    clearNetCache();
+  }
+});
+
+test("historical comparisons select the latest matching scope, not the latest host scan", async () => {
+  const { previousForScope } = await import("./history.ts");
+  const entry = (scopeKey: string, at: string) => ({
+    host: "example.com",
+    input: "example.com",
+    at,
+    scopeKey,
+    backlinks: 1,
+    referringDomains: 1,
+    health: 50,
+    ids: [],
+    domains: [],
+  });
+  const rows = [
+    entry("market-us", "2026-10-10T00:00:00Z"),
+    entry("market-pl", "2026-10-08T00:00:00Z"),
+    entry("market-pl", "2026-10-09T00:00:00Z"),
+  ];
+  assert.equal(previousForScope(rows, "example.com", "market-pl")?.at, "2026-10-09T00:00:00Z");
+  assert.equal(previousForScope(rows, "example.com", "market-gb"), null);
+  assert.equal(previousForScope(rows, "another.com", "market-pl"), null);
+  assert.equal(previousForScope(rows, "example.com", undefined), null);
+});
+
+test("RFC 9309 selects the longest applicable product token, not all prefixes", async () => {
+  const { parseRobots, isAllowed } = await import("./robots.server.ts");
+  const text = [
+    "User-agent: Rank",
+    "Disallow: /narrow",
+    "User-agent: RankProof",
+    "Allow: /narrow",
+    "Disallow: /secret",
+    "User-agent: *",
+    "Disallow: /public",
+  ].join("\n");
+  const rules = parseRobots(text);
+  assert.equal(isAllowed(rules, "/narrow"), true);
+  assert.equal(isAllowed(rules, "/secret"), false);
+  assert.equal(isAllowed(rules, "/public"), true);
+});
+
+test("RFC 9309 merges matching groups without wildcard restrictions", async () => {
+  const { parseRobots, isAllowed } = await import("./robots.server.ts");
+  const text = [
+    "User-agent: RankProof",
+    "Disallow: /one",
+    "User-agent: *",
+    "Disallow: /wildcard",
+    "User-agent: RankProof",
+    "Disallow: /two",
+    "Allow: /two/public",
+  ].join("\n");
+  const rules = parseRobots(text);
+  assert.equal(isAllowed(rules, "/one"), false);
+  assert.equal(isAllowed(rules, "/two/private"), false);
+  assert.equal(isAllowed(rules, "/two/public"), true);
+  assert.equal(isAllowed(rules, "/wildcard"), true);
+});
+
+test("robots empty named group overrides wildcard rules even with no directives", async () => {
+  const { parseRobots, isAllowed } = await import("./robots.server.ts");
+  const text = ["User-agent: *", "Disallow: /", "User-agent: RankProof"].join("\n");
+  assert.equal(isAllowed(parseRobots(text), "/anything"), true);
+});
+
+test("an archived backlink cannot be declared lost from a redirected source page", async () => {
+  const { isConfirmedLostBacklink } = await import("./verify.server.ts");
+  const original = "https://source.example/stories/old";
+  const moved = "https://source.example/";
+  const body = "<html><body>" + "Current home page text. ".repeat(40) + "</body></html>";
+  const notLost = isConfirmedLostBacklink(200, body, moved, "target.example", false, original);
+  const lost = isConfirmedLostBacklink(200, body, original, "target.example", false, original);
+  assert.equal(notLost, false);
+  assert.equal(lost, true);
+});
+
+test("history deltas compare only link IDs that could have been persisted", async () => {
+  const { rowToDelta, MAX_HISTORY_IDS } = await import("./history-diff.ts");
+  const { diffReport } = await import("./history.ts");
+  const backlinks = Array.from({ length: 900 }, (_, i) => ({ id: `link-${i}` }));
+  const report = {
+    target: { host: "example.com" },
+    scopeKey: "fixed-scope",
+    queriedAt: "2026-10-11T20:00:00Z",
+    backlinks,
+    analytics: { referringDomains: [], health: { total: 70 } },
+    stats: { backlinks: 900, referringDomains: 0, domainRating: 0, serpVisibility: 0 },
+  } as unknown as Parameters<typeof rowToDelta>[0];
+  const row = {
+    queried_at: "2026-10-10T20:00:00Z",
+    scan_scope: "fixed-scope",
+    backlinks: 900,
+    referring_domains: 0,
+    dofollow: 0,
+    domain_rating: 0,
+    health: 70,
+    spam_domains: 0,
+    lost_links: 0,
+    visibility: 0,
+    link_ids: backlinks.slice(0, MAX_HISTORY_IDS).map((item) => item.id),
+    domains: [],
+  };
+  const delta = rowToDelta(report, row);
+  assert.equal(delta?.newLinks, 0);
+  assert.equal(delta?.notRediscoveredLinks, 0);
+  const browserEntry = {
+    host: "example.com",
+    input: "example.com",
+    at: "2026-10-10T20:00:00Z",
+    scopeKey: "fixed-scope",
+    backlinks: 900,
+    referringDomains: 0,
+    health: 70,
+    ids: backlinks.slice(0, 500).map((item) => item.id),
+    domains: [],
+  };
+  const local = diffReport(report, browserEntry);
+  assert.equal(local?.newLinks, 0);
+  assert.equal(local?.notRediscoveredLinks, 0);
+});
+
+test("failed or missing SERP measurements never create invented position losses", async () => {
+  const { buildRankMoves } = await import("./serp-intel.ts");
+  const previous = [{ keyword: "example keyword", engine: "bing", position: 5 }];
+  const query = {
+    keyword: "example keyword",
+    engine: "bing" as const,
+    targetPosition: null,
+    status: "blocked" as const,
+    results: [],
+    features: [],
+    related: [],
+    questions: [],
+    depth: 10,
+    difficulty: 0,
+    market: "pl" as const,
+    device: "desktop" as const,
+    ms: 5,
+  };
+  assert.deepEqual(buildRankMoves([query], previous), []);
+  assert.deepEqual(buildRankMoves([], previous), []);
+  const measured = { ...query, status: "ok" as const };
+  assert.equal(buildRankMoves([measured], previous)[0]?.state, "lost");
+  const improved = { ...measured, targetPosition: 3 };
+  assert.equal(buildRankMoves([improved], previous)[0]?.state, "up");
+});
+
+test("UTF-8 BOM in robots.txt cannot hide a crawler-specific disallow rule", async () => {
+  const { parseRobots, isAllowed } = await import("./robots.server.ts");
+  const rules = parseRobots("\uFEFFUser-agent: RankProof\nDisallow: /secret");
+  assert.equal(isAllowed(rules, "/secret/page"), false);
+});
+
+test("target crawler identifies itself to robots.txt", async () => {
+  const { Budget, fetchUsefulHtml, clearNetCache } = await import("./net.server.ts");
+  const { clearRobotsCache } = await import("./robots.server.ts");
+  const original = globalThis.fetch;
+  const requests: { url: string; agent: string }[] = [];
+  try {
+    clearNetCache();
+    clearRobotsCache();
+    const fetchImpl = async (url: string | URL | Request, init?: RequestInit) => {
+      const headers = init?.headers as Record<string, string> | undefined;
+      const address = String(url);
+      requests.push({ url: address, agent: headers?.["User-Agent"] ?? "" });
+      if (address.endsWith("/robots.txt")) {
+        return new Response("User-agent: RankProof\nDisallow: /secret");
+      }
+      return new Response("This page should not be fetched.");
+    };
+    globalThis.fetch = fetchImpl as typeof fetch;
+    const budget = new Budget(8_000);
+    const scan = fetchUsefulHtml(
+      "https://robots-agent.example/secret",
+      5_000,
+      budget.signal,
+      budget,
+    );
+    await assert.rejects(scan, /robots.txt disallows/);
+    assert.equal(requests.length, 1);
+    assert.match(requests[0]!.agent, /^RankProof\//);
+  } finally {
+    globalThis.fetch = original;
+    clearNetCache();
+    clearRobotsCache();
+  }
+});
+
+test("Google provider rejects redirects without visiting private metadata endpoints", async () => {
+  const { fetchGoogleOrganicViaProvider } = await import("./serp-providers.ts");
+  let calls = 0;
+  const provider = async (_url: string | URL | Request, init?: RequestInit) => {
+    calls += 1;
+    assert.equal(init?.redirect, "manual");
+    return new Response(null, {
+      status: 302,
+      headers: { location: "http://169.254.169.254/latest/meta-data/" },
+    });
+  };
+  await assert.rejects(
+    fetchGoogleOrganicViaProvider("test", {
+      baseUrl: "https://provider.example",
+      resolve: async () => ["93.184.216.34"],
+      fetchImpl: provider as typeof fetch,
+    }),
+    /redirects are not allowed/,
+  );
+  assert.equal(calls, 1);
+});
+
+test("OpenSERP refuses HTTP public providers but allows secure public URLs", async () => {
+  const { assertProviderUrlAllowed } = await import("./serp-providers.ts");
+  const resolver = async () => ["93.184.216.34"];
+  await assert.rejects(
+    assertProviderUrlAllowed("http://provider.example/google/search", resolver),
+    /HTTPS/,
+  );
+  await assertProviderUrlAllowed("https://provider.example/google/search", resolver);
+});
+
+test("OpenSERP malformed envelopes and engine failures never become zero rankings", async () => {
+  const { fetchGoogleOrganicViaProvider } = await import("./serp-providers.ts");
+  const provider = (data: unknown) =>
+    fetchGoogleOrganicViaProvider("brand", {
+      baseUrl: "https://provider.example",
+      resolve: async () => ["93.184.216.34"],
+      fetchImpl: (async () =>
+        new Response(JSON.stringify(data), {
+          headers: { "content-type": "application/json" },
+        })) as typeof fetch,
+    });
+  await assert.rejects(provider({ error: "all_engines_failed" }), /results field/);
+  await assert.rejects(
+    provider({ meta: { engines_failed: ["google"] }, results: [] }),
+    /engine failed/,
+  );
+  const empty = await provider({ meta: { engines_failed: [] }, results: [] });
+  assert.deepEqual(empty.hits, []);
+});
+
+test("blocked SERPs do not contaminate competitor analytics", async () => {
+  const { buildSerpCompetitors } = await import("./serp-intel.ts");
+  const { snapshotFromQueries } = await import("./serp.server.ts");
+  const measured = query({
+    keyword: "seo audit",
+    results: [hit(1, "https://healthy-competitor.example/a")],
+  });
+  const blocked = query({
+    keyword: "unknown query",
+    engine: "duckduckgo",
+    status: "blocked",
+    results: [hit(1, "https://untrusted-result.example/a")],
+  });
+  const baseline = buildSerpCompetitors([measured]);
+  assert.deepEqual(buildSerpCompetitors([measured, blocked]), baseline);
+  const snapshot = snapshotFromQueries([measured, blocked]);
+  assert.deepEqual(snapshot.competitors, baseline);
+  assert.equal(snapshot.unmeasured, 1);
+  const blockedEngine = snapshot.engineHealth.some((engine) => engine.status === "blocked");
+  assert.equal(blockedEngine, true);
+  const blockedOnly = snapshotFromQueries([blocked]);
+  assert.equal(blockedOnly.competitors.length, 0);
+  assert.equal(blockedOnly.contentGaps.length, 0);
+});
+
+test("script strings and HTML comments cannot create verified backlinks", () => {
+  const page = [
+    "<html><body>",
+    "<script>const fake = '<a href=\"https://target.example/script\">X</a>';</script>",
+    '<!-- <a href="https://target.example/comment">X</a> -->',
+    '<template><a href="https://target.example/template">X</a></template>',
+    '<a title="Text 3 > 2" href="https://target.example/live">Live</a>',
+    "</body></html>",
+  ].join("");
+  const links = parseAnchors(page, "https://source.example/article");
+  assert.equal(links.length, 1);
+  assert.equal(links[0]?.href, "https://target.example/live");
+  assert.equal(links[0]?.text, "Live");
 });

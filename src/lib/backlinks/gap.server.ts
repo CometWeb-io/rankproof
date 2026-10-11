@@ -11,9 +11,9 @@ type Profile = {
   error?: string;
 };
 
-async function profileOf(input: string, light: boolean): Promise<Profile> {
+async function profileOf(input: string, light: boolean, signal?: AbortSignal): Promise<Profile> {
   const host = parseTarget(input).host;
-  const result = await runScan(input, light ? { mode: "light" } : {});
+  const result = await runScan(input, light ? { mode: "light", signal } : { signal });
   if (!result.ok) {
     return { host, domains: new Map(), report: null, error: result.error };
   }
@@ -36,10 +36,11 @@ async function profileOf(input: string, light: boolean): Promise<Profile> {
 export async function runLinkGap(
   targetInput: string,
   competitorInputs: string[],
+  signal?: AbortSignal,
 ): Promise<GapResult> {
   let target: Profile;
   try {
-    target = await profileOf(targetInput, false);
+    target = await profileOf(targetInput, false, signal);
   } catch (err) {
     return {
       ok: false,
@@ -58,7 +59,7 @@ export async function runLinkGap(
   const settled = await Promise.all(
     inputs.map(async (input) => {
       try {
-        return await profileOf(input, true);
+        return await profileOf(input, true, signal);
       } catch (err) {
         return {
           host: input,

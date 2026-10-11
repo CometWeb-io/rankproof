@@ -113,8 +113,14 @@ async function runScanCommand(options, log) {
     market: options.market,
     device: options.device,
     engines: options.engines.length > 0 ? options.engines : undefined,
-    depth: options.depth,
+    // Only an explicit --depth overrides the workload profile. Otherwise
+    // the deep profile may inspect 20 positions without an extra CLI flag.
+    depth: process.argv.slice(2).some((arg) => arg === "--depth" || arg.startsWith("--depth="))
+      ? options.depth
+      : undefined,
     skipSiteAudit: options.skipAudit,
+    // Opt in locally. Never expose owner credentials through HTTP or the web UI.
+    includeOwnerData: process.env.RANKPROOF_CLI_OWNER_DATA === "1",
   });
   if (!result.ok) throw new Error(result.error);
   const report = result.report;
@@ -141,10 +147,12 @@ async function runSerpCommand(options, log) {
   if (!result.ok) throw new Error(result.error);
   if (options.format === "json") return JSON.stringify(result, null, 2);
   if (options.format === "csv") {
+    const { csvCell } = await import(engine("export"));
     const header = "keyword,engine,position,difficulty";
-    const rows = result.snapshot.queries.map(
-      (query) =>
-        `"${query.keyword}","${query.engine}",${query.targetPosition ?? ""},${query.difficulty}`,
+    const rows = result.snapshot.queries.map((query) =>
+      [query.keyword, query.engine, query.targetPosition ?? "", query.difficulty]
+        .map(csvCell)
+        .join(","),
     );
     return [header, ...rows].join("\n");
   }

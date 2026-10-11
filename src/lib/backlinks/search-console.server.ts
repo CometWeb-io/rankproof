@@ -62,6 +62,7 @@ async function googleAccessToken(credentials: GoogleCredentials): Promise<string
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
     body,
+    signal: AbortSignal.timeout(15_000),
   });
   if (!response.ok) {
     throw new Error(`Google token refresh failed (HTTP ${response.status}).`);
@@ -102,6 +103,7 @@ async function gscQuery(
       "content-type": "application/json",
     },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(15_000),
   });
   if (response.status === 403 || response.status === 404) {
     throw new Error(`No access to property ${property}.`);
@@ -151,9 +153,10 @@ export async function fetchSearchConsole(
 
   // Search Console lags roughly two days; asking for today returns nothing.
   const endDate = isoDaysAgo(2);
-  const startDate = isoDaysAgo(2 + days);
-  const previousEnd = isoDaysAgo(3 + days);
-  const previousStart = isoDaysAgo(3 + days * 2);
+  // Search Analytics dates are inclusive: exactly N days in each window.
+  const startDate = isoDaysAgo(2 + days - 1);
+  const previousEnd = isoDaysAgo(2 + days);
+  const previousStart = isoDaysAgo(2 + days * 2 - 1);
 
   const properties = options.property ? [options.property] : propertyCandidates(host);
   let property: string | null = null;
@@ -188,7 +191,7 @@ export async function fetchSearchConsole(
     };
   }
 
-  const [pages, previous] = await Promise.all([
+  const [pages, previous, propertyTotals] = await Promise.all([
     gscQuery(property, token, {
       startDate,
       endDate,
@@ -201,15 +204,28 @@ export async function fetchSearchConsole(
       dimensions: ["query"],
       rowLimit,
     }).catch(() => [] as GscRow[]),
+    // Query rows are truncated/filtered. Property totals must not be derived
+    // from the top-N visible queries, which understates actual performance.
+    gscQuery(property, token, { startDate, endDate }).catch(() => null),
   ]);
-
-  const clicks = queries.reduce((sum, row) => sum + (row.clicks ?? 0), 0);
-  const impressions = queries.reduce((sum, row) => sum + (row.impressions ?? 0), 0);
-  const weightedPosition =
-    impressions > 0
-      ? queries.reduce((sum, row) => sum + (row.position ?? 0) * (row.impressions ?? 0), 0) /
-        impressions
-      : 0;
+  if (propertyTotals === null) {
+    return {
+      source: "google",
+      connected: false,
+      property,
+      error:
+        "Could not retrieve property-wide totals; refusing to report partial query totals as complete.",
+      days,
+      queries: [],
+      pages: [],
+      previousQueries: [],
+      totals: { clicks: 0, impressions: 0, ctr: 0, position: 0 },
+    };
+  }
+  const total = propertyTotals[0];
+  const clicks = total?.clicks ?? 0;
+  const impressions = total?.impressions ?? 0;
+  const weightedPosition = total?.position ?? 0;
 
   return {
     source: "google",

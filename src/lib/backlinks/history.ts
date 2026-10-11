@@ -4,6 +4,7 @@ export type HistoryItem = {
   host: string;
   input: string;
   at: string;
+  scopeKey?: string;
   backlinks: number;
   referringDomains: number;
   health: number;
@@ -14,6 +15,9 @@ export type HistoryItem = {
 
 export type ScanDiff = {
   previousAt: string;
+  /** Only a verified archived-vs-live comparison proves loss. */
+  notRediscoveredLinks?: number;
+  notRediscoveredDomains?: string[];
   newLinks: number;
   lostLinks: number;
   newDomains: string[];
@@ -52,6 +56,7 @@ export function toHistoryItem(report: ScanReport, input: string): HistoryItem {
     host: report.target.host,
     input,
     at: report.queriedAt,
+    scopeKey: report.scopeKey,
     backlinks: report.stats.backlinks,
     referringDomains: report.stats.referringDomains,
     health: report.analytics.health.total,
@@ -60,39 +65,67 @@ export function toHistoryItem(report: ScanReport, input: string): HistoryItem {
   };
 }
 
-export function findPrevious(host: string): HistoryItem | null {
-  return loadHistory().find((row) => row.host === host) ?? null;
+/** Pick the most recent comparable observation rather than just the last host scan. */
+export function previousForScope(
+  items: HistoryItem[],
+  host: string,
+  scopeKey: string | undefined,
+): HistoryItem | null {
+  if (!scopeKey) return null;
+  const candidates = items.filter((item) => item.host === host && item.scopeKey === scopeKey);
+  return candidates.sort((a, b) => b.at.localeCompare(a.at))[0] ?? null;
+}
+
+export function findPrevious(host: string, scopeKey?: string): HistoryItem | null {
+  const items = loadHistory();
+  if (scopeKey) return previousForScope(items, host, scopeKey);
+  return items.find((row) => row.host === host) ?? null;
 }
 
 /** Comparison with the previous scan of the same domain: new and lost links. */
 export function diffReport(report: ScanReport, previous: HistoryItem | null): ScanDiff | null {
-  if (!previous || previous.host !== report.target.host) return null;
-  if (previous.at === report.queriedAt) return null;
+  // The UI starts a scan before knowing its scope; an unrelated latest
+  // observation must not hide an older comparable observation.
+  let comparable = previous;
+  if (
+    !report.scopeKey ||
+    comparable?.scopeKey !== report.scopeKey ||
+    comparable.host !== report.target.host
+  ) {
+    comparable = previousForScope(loadHistory(), report.target.host, report.scopeKey);
+  }
+  if (!comparable || comparable.at === report.queriedAt) return null;
 
-  const prevIds = new Set(previous.ids ?? []);
-  const prevDomains = new Set(previous.domains ?? []);
-  const currentIds = report.backlinks.map((b) => b.id);
+  const prevIds = new Set(comparable.ids ?? []);
+  const prevDomains = new Set(comparable.domains ?? []);
+  // localStorage retains only MAX_IDS; never compare with more than were saved.
+  const currentIds = report.backlinks.slice(0, MAX_IDS).map((b) => b.id);
   const currentDomains = report.analytics.referringDomains.map((d) => d.domain);
   const currentDomainSet = new Set(currentDomains);
 
   const newIds = new Set(currentIds.filter((id) => !prevIds.has(id)));
-  const lostLinks = [...prevIds].filter((id) => !currentIds.includes(id)).length;
+  const notRediscoveredLinks = [...prevIds].filter((id) => !currentIds.includes(id)).length;
 
   return {
-    previousAt: previous.at,
+    previousAt: comparable.at,
     newLinks: newIds.size,
-    lostLinks,
+    lostLinks: 0,
+    notRediscoveredLinks,
     newDomains: currentDomains.filter((d) => !prevDomains.has(d)).slice(0, 30),
-    lostDomains: [...prevDomains].filter((d) => !currentDomainSet.has(d)).slice(0, 30),
-    backlinkDelta: report.stats.backlinks - previous.backlinks,
-    domainDelta: report.stats.referringDomains - previous.referringDomains,
-    healthDelta: report.analytics.health.total - (previous.health ?? 0),
+    lostDomains: [],
+    notRediscoveredDomains: [...prevDomains].filter((d) => !currentDomainSet.has(d)).slice(0, 30),
+    backlinkDelta: report.stats.backlinks - comparable.backlinks,
+    domainDelta: report.stats.referringDomains - comparable.referringDomains,
+    healthDelta: report.analytics.health.total - (comparable.health ?? 0),
     newIds,
   };
 }
 
 export function pushHistory(item: HistoryItem): HistoryItem[] {
-  const next = [item, ...loadHistory().filter((row) => row.host !== item.host)].slice(0, LIMIT);
+  const next = [
+    item,
+    ...loadHistory().filter((row) => row.host !== item.host || row.scopeKey !== item.scopeKey),
+  ].slice(0, LIMIT);
   try {
     window.localStorage.setItem(KEY, JSON.stringify(next));
   } catch {

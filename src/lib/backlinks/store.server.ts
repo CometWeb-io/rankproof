@@ -10,15 +10,19 @@ import { buildRankMoves, type PositionRow } from "./serp-intel.ts";
 import { buildVelocity } from "./segments.ts";
 import type { ScanReport, SerpQuery } from "./types.ts";
 
-/** The most recent scans for a domain, newest first. */
-export async function loadScanRows(host: string, limit = TREND_LIMIT): Promise<ScanRow[]> {
+/** Historical trends must only include runs with matching collection scope. */
+export async function loadScanRows(
+  host: string,
+  scopeKey: string,
+  limit = TREND_LIMIT,
+): Promise<ScanRow[]> {
   const sql = await getSql();
   return sql<ScanRow>`
     select queried_at, backlinks, referring_domains, dofollow, domain_rating,
            health, spam_domains, lost_links, link_ids, domains,
-           coalesce(visibility, 0) as visibility
+           coalesce(visibility, 0) as visibility, scan_scope
     from scan_history
-    where host = ${host}
+    where host = ${host} and scan_scope = ${scopeKey}
     order by queried_at desc
     limit ${limit}
   `;
@@ -28,12 +32,18 @@ export async function loadScanRows(host: string, limit = TREND_LIMIT): Promise<S
  * Positions from the most recent earlier scan — one row per (keyword, engine)
  * pair. We take the latest measurement preceding the current scan.
  */
-export async function loadPreviousPositions(host: string, before: string): Promise<PositionRow[]> {
+export async function loadPreviousPositions(
+  host: string,
+  before: string,
+  scopeKey?: string,
+): Promise<PositionRow[]> {
+  // A prior rank from another market/device/keyword set is not a rank move.
+  if (!scopeKey) return [];
   const sql = await getSql();
   const rows = await sql<{ keyword: string; engine: string; position: number | null }>`
     select distinct on (keyword, engine) keyword, engine, position
     from serp_rank_history
-    where host = ${host} and queried_at < ${before}
+    where host = ${host} and queried_at < ${before} and scan_scope = ${scopeKey}
     order by keyword, engine, queried_at desc
   `;
   return rows.map((row) => ({
@@ -48,14 +58,21 @@ export async function saveSerpPositions(
   host: string,
   queriedAt: string,
   queries: SerpQuery[],
+  scopeKey?: string,
 ): Promise<void> {
-  if (queries.length === 0) return;
+  if (queries.length === 0 || !scopeKey) return;
   const sql = await getSql();
-  for (const query of queries.slice(0, 60)) {
+  const measured = queries.filter(
+    (query) => query.status === "ok" || query.status === "no-results",
+  );
+  for (const query of measured.slice(0, 60)) {
     await sql`
-      insert into serp_rank_history (host, keyword, engine, position, difficulty, queried_at)
-      values (${host}, ${query.keyword}, ${query.engine}, ${query.targetPosition},
-              ${query.difficulty}, ${queriedAt})
+      insert into serp_rank_history (
+        host, keyword, engine, position, difficulty, queried_at, scan_scope
+      ) values (
+        ${host}, ${query.keyword}, ${query.engine}, ${query.targetPosition},
+        ${query.difficulty}, ${queriedAt}, ${scopeKey}
+      )
     `;
   }
 }
@@ -65,7 +82,7 @@ export async function saveScan(report: ScanReport): Promise<void> {
   await sql`
     insert into scan_history (
       host, queried_at, backlinks, referring_domains, dofollow, domain_rating,
-      health, spam_domains, lost_links, visibility, link_ids, domains
+      health, spam_domains, lost_links, visibility, link_ids, domains, scan_scope
     ) values (
       ${report.target.host},
       ${report.queriedAt},
@@ -78,7 +95,8 @@ export async function saveScan(report: ScanReport): Promise<void> {
       ${report.stats.lostLinks},
       ${report.stats.serpVisibility},
       ${JSON.stringify(report.backlinks.slice(0, MAX_HISTORY_IDS).map((b) => b.id))}::jsonb,
-      ${JSON.stringify(report.analytics.referringDomains.map((d) => d.domain))}::jsonb
+      ${JSON.stringify(report.analytics.referringDomains.map((d) => d.domain))}::jsonb,
+      ${report.scopeKey ?? null}
     )
   `;
 }
@@ -90,16 +108,28 @@ export async function saveScan(report: ScanReport): Promise<void> {
  */
 export async function attachHistory(report: ScanReport): Promise<ScanReport> {
   try {
-    const rows = await loadScanRows(report.target.host);
+    // A new report always has a fingerprint. Historical legacy rows with no
+    // fingerprint cannot be compared or interpreted as the same experiment.
+    if (!report.scopeKey) return report;
+    const rows = await loadScanRows(report.target.host, report.scopeKey);
     const delta = rowToDelta(report, rows[0]);
     const trend = rowsToTrend(rows);
 
     // Rank moves are computed before the current measurement is written.
     let moves = report.serp.moves;
     try {
-      const previous = await loadPreviousPositions(report.target.host, report.queriedAt);
+      const previous = await loadPreviousPositions(
+        report.target.host,
+        report.queriedAt,
+        report.scopeKey,
+      );
       if (previous.length > 0) moves = buildRankMoves(report.serp.queries, previous);
-      await saveSerpPositions(report.target.host, report.queriedAt, report.serp.queries);
+      await saveSerpPositions(
+        report.target.host,
+        report.queriedAt,
+        report.serp.queries,
+        report.scopeKey,
+      );
     } catch {
       // SERP history is optional — a missing table must not break the report.
     }

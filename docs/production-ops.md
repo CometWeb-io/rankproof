@@ -62,7 +62,7 @@ Put a reverse proxy (Caddy, nginx, Cloudflare Tunnel) in front with:
 - Authentication if exposed publicly (the scan endpoints accept URLs from callers)
 - Rate limiting on `/scan`, `/doctor`, and related POST routes
 
-Set `DATABASE_URL` for persistent scan history across restarts. Without it, embedded PGLite stores data locally inside the process working directory.
+Set `DATABASE_URL` for server-backed persistence. Without it, PGLite uses in-memory storage by default; set `RANKPROOF_PGLITE_DIR` to persist a single local instance on disk.
 
 ### Required environment
 
@@ -100,6 +100,7 @@ Scraping Google from RankProof is intentionally unsupported. For competitor Goog
 
 ```bash
 export RANKPROOF_GOOGLE_PROVIDER_URL=http://127.0.0.1:7000
+export RANKPROOF_GOOGLE_ALLOW_LOOPBACK=1 # trust only the administrator-configured local provider
 ```
 
 See [`providers.md`](providers.md).
@@ -127,3 +128,35 @@ See [`providers.md`](providers.md).
 - Do not expose the API on `0.0.0.0` without auth and rate limits.
 - Rotate OAuth refresh tokens if a host is compromised.
 - Report SSRF bypasses privately — see [`SECURITY.md`](../SECURITY.md).
+
+### Safe outbound requests
+
+Production scans pin connections to previously validated public DNS addresses. Keep `RANKPROOF_PIN_DNS` unset (or `1`); setting it to `0` is unsafe on a publicly reachable scanner. The network layer enforces per-response byte limits and rechecks robots directives after redirects. HTTPS-to-HTTP fallback is disabled by default. The 60-second in-memory response cache is for reducing duplicate work, not proof that a page is still current.
+
+### No-cost durable local history
+
+By default PGLite runs in memory: it does not persist across process restarts. On a local machine, set `RANKPROOF_PGLITE_DIR=./.local/rankproof-db` to store the database on disk. Keep that directory private, backed up and out of source control. Do not share a single PGLite data directory across simultaneously running processes or use it as a network filesystem service. For multi-instance hosting use PostgreSQL instead.
+
+### Crawl-delay and bounded wait budgets
+
+When robots.txt requests a crawl delay, RankProof reserves the actual requested interval for the origin. If the next request would require waiting longer than the bounded per-request queue budget (10 seconds), it **skips/fails that fetch** instead of shortening the site operator's delay. Waiting is abortable when a scan is cancelled. Reservation state is bounded and expired entries are pruned.
+
+### Global outbound request admission
+
+In addition to per-host request concurrency, RankProof bounds simultaneously active HTTP connections across **all** hosts in the process. `RANKPROOF_GLOBAL_HTTP_CONCURRENCY` defaults to 12 and is capped at 24. Slots are occupied through response consumption and released on cancellation. This is a local resource safeguard, not a distributed quota or a complete count of third-party requests outside the shared HTTP transport.
+
+### Pinned transport and compressed HTTP
+
+The DNS-pinned Node HTTP(S) client decodes `gzip`, `deflate` and Brotli responses with a hard cap on both received compressed bytes and the decompressed body. Unknown or oversized encodings fail rather than being interpreted as empty HTML or consuming unbounded memory. Response headers are normalized after decompression. This is necessary for parity with Node `fetch`, which decodes standard content encodings automatically.
+
+### Unreadable robots.txt responses
+
+A successful HTTP status alone does not guarantee readable robots rules. HTML anti-bot pages returned as 200, incomplete responses cut off by the byte limit and exhausted redirect chains are treated as temporarily unreachable: crawling is denied during a short back-off period. The robots policy cache is bounded to 512 entries in long-running processes.
+
+### robots.txt user-agent precedence (RFC 9309)
+
+The parser merges repeated groups that match the **most specific applicable product token**, not all shorter-prefix groups or the wildcard when a specific group exists. This prevents both accidental overblocking and policy bypass from incorrectly combined rules. Regression cases cover repeated named groups, wildcard fallback and an empty most-specific group. This behavior follows [RFC 9309](https://www.rfc-editor.org/rfc/rfc9309.html) and still enforces the locally configured crawl-delay budget.
+
+### Transparent crawler identity
+
+Requests that inspect website pages, verify backlink destinations or fetch `robots.txt` now identify using the configured `RANKPROOF_USER_AGENT` (default: `RankProof/8.1` plus repository URL), rather than impersonating Chrome. The user-agent product token used to select robots rules matches the value sent in the request. Search-engine HTML adapters can continue to use their separate compatibility headers. URL probes are passed the crawl budget and respect robots rules.

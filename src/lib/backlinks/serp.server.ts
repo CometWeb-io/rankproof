@@ -305,6 +305,8 @@ export function emptySerp(
     ranked: 0,
     top3: 0,
     top10: 0,
+    measured: 0,
+    unmeasured: 0,
     avgPosition: 0,
     trafficScore: 0,
     engines: [],
@@ -333,25 +335,30 @@ export function snapshotFromQueries(
     targetText?: string;
   } = {},
 ): SerpSnapshot {
+  // Keep source failures in engine health, but never use blocked, timed-out
+  // or parser-failed HTML as evidence for SERP competitors or opportunities.
+  const measuredQueries = queries.filter(
+    (query) => query.status === "ok" || query.status === "no-results",
+  );
   const vis = visibilityScore(queries);
-  const aggregates = serpAggregates(queries);
-  const extras = collectSerpExtras(queries);
+  const aggregates = serpAggregates(measuredQueries);
+  const extras = collectSerpExtras(measuredQueries);
   return {
     queries,
     ...vis,
     ...aggregates,
     engines: [...new Set(queries.map((q) => q.engine))],
-    competitors: buildSerpCompetitors(queries, { linkingDomains: options.linkingDomains }),
-    cannibalization: detectCannibalization(queries),
+    competitors: buildSerpCompetitors(measuredQueries, { linkingDomains: options.linkingDomains }),
+    cannibalization: detectCannibalization(measuredQueries),
     engineHealth: engineHealth(queries),
     moves: options.moves ?? [],
     market: queries[0]?.market ?? DEFAULT_MARKET,
     device: queries[0]?.device ?? "desktop",
-    clusters: clusterKeywords(queries, { brandTokens: options.brandTokens }),
-    contentGaps: options.targetText ? contentGapTerms(queries, options.targetText) : [],
-    featured: featuredOpportunities(queries),
-    buckets: positionBuckets(queries),
-    consensus: engineConsensus(queries),
+    clusters: clusterKeywords(measuredQueries, { brandTokens: options.brandTokens }),
+    contentGaps: options.targetText ? contentGapTerms(measuredQueries, options.targetText) : [],
+    featured: featuredOpportunities(measuredQueries),
+    buckets: positionBuckets(measuredQueries),
+    consensus: engineConsensus(measuredQueries),
     ...extras,
   };
 }
@@ -526,6 +533,7 @@ export type KeywordSerpOptions = {
   brandTokens?: string[];
   /** Earlier positions (from the database) used to compute gains and drops. */
   previous?: PositionRow[];
+  signal?: AbortSignal;
 };
 
 /** Manual keyword checking — the "check your own keywords" panel. */
@@ -552,7 +560,7 @@ export async function runKeywordSerp(
       : (["bing", "duckduckgo", "mojeek"] as SerpEngine[]);
   const depth = options.depth ?? 10;
 
-  const budget = new Budget(depth > 10 || unique.length > 5 ? 30_000 : 18_000);
+  const budget = new Budget(depth > 10 || unique.length > 5 ? 30_000 : 18_000, options.signal);
   const timedRun = await timed(() =>
     runSerpQueries(host, unique, budget, engines, {
       depth,

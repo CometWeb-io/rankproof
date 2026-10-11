@@ -9,7 +9,8 @@ import {
   sld,
   stripWww,
 } from "./parse.ts";
-import { Budget, mapLimit, timed, type Timed } from "./net.server.ts";
+import { Budget, fetchUsefulHtml, mapLimit, timed, type Timed } from "./net.server.ts";
+import { auditOnPage } from "./onpage.ts";
 import {
   scanBing,
   scanBluesky,
@@ -61,6 +62,7 @@ import {
   runSerpQueries,
   snapshotFromQueries,
 } from "./serp.server.ts";
+import { scanScopeKey } from "./scan-coverage.ts";
 import type {
   Backlink,
   Mention,
@@ -76,7 +78,7 @@ import type {
   SourceStatus,
 } from "./types.ts";
 
-export const REPORT_VERSION = 5;
+export const REPORT_VERSION = 8;
 
 const MAX_MENTIONS = 120;
 const MAX_DEEP = 28;
@@ -119,7 +121,9 @@ function hydrate(partial: Partial<Backlink>, host: string, tokens: string[]): Ba
     sitewide: false,
     discoveredVia: partial.discoveredVia ?? "lookup",
     wikiLang: partial.wikiLang,
-    verified: partial.verified ?? false,
+    // API observations must never masquerade as HTML-verified evidence.
+    verified: false,
+    evidenceKind: "source-api",
     firstSeen: null,
     httpStatus: partial.httpStatus ?? null,
     targetStatus: null,
@@ -187,6 +191,10 @@ export type ScanOptions = {
   depth?: number;
   /** Skips the internal crawl — useful in CI and for quick lookups. */
   skipSiteAudit?: boolean;
+  /** Trusted local CLI only; public web/server API never receives owner metrics. */
+  includeOwnerData?: boolean;
+  /** Abort expensive work when the originating client disconnects. */
+  signal?: AbortSignal;
 };
 
 export async function runScan(rawInput: string, options: ScanOptions = {}): Promise<ScanResult> {
@@ -204,10 +212,16 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
 
   const { host } = parsed;
   const runtime = config();
+  const quick = runtime.profile === "quick" && !light;
   const budget = new Budget(
     options.budgetMs ?? (light ? runtime.lightBudgetMs : runtime.scanBudgetMs),
+    options.signal,
   );
-  const notes: string[] = [];
+  const notes: string[] = quick
+    ? [
+        "Quick profile: limited sources, keywords and no internal crawl; results are not exhaustive.",
+      ]
+    : [];
 
   /* --- Phase 1: target plus sources that need no brand tokens ---------------------- */
   const intelT = timed(() => inspectTarget(host, budget));
@@ -226,20 +240,24 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
   /* --- Phase 2: sources that use the brand name ----------------------- */
   const skip = <T>(value: T) => timed(async () => value);
 
-  const hnT = light
-    ? skip({ backlinks: [], mentions: [] })
-    : timed(() => scanHackerNews(queries, host, budget.signal));
+  const hnT =
+    light || quick
+      ? skip({ backlinks: [], mentions: [] })
+      : timed(() => scanHackerNews(queries, host, budget.signal));
   const bingT = timed(() => scanBing(host, tokens, budget.signal));
   const ddgT = timed(() => scanDuckDuckGo(host, tokens, budget.signal));
   const mojeekT = timed(() => scanMojeek(host, tokens, budget.signal));
-  const newsT = light
-    ? skip({ mentions: [], candidates: [] as Candidate[] })
-    : timed(() => scanNews(queries, host, budget.signal));
+  const newsT =
+    light || quick
+      ? skip({ mentions: [], candidates: [] as Candidate[] })
+      : timed(() => scanNews(queries, host, budget.signal));
   const githubT = timed(() => scanGithub(queries, host, budget.signal));
-  const gdeltT = light ? skip([] as Candidate[]) : timed(() => scanGdelt(host, budget.signal));
-  const bskyT = light
-    ? skip({ backlinks: [], mentions: [] })
-    : timed(() => scanBluesky(queries, host, budget.signal));
+  const gdeltT =
+    light || quick ? skip([] as Candidate[]) : timed(() => scanGdelt(host, budget.signal));
+  const bskyT =
+    light || quick
+      ? skip({ backlinks: [], mentions: [] })
+      : timed(() => scanBluesky(queries, host, budget.signal));
 
   const [wikiR, urlscanR, seR, redditR, hnR, bingR, ddgR, mojeekR, newsR, githubR, gdeltR, bskyR] =
     await Promise.all([
@@ -315,7 +333,7 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
 
   // The brand is a separate query: it shows what a customer who already knows you sees.
   const brandQuery = tokens[0] && tokens[0].length >= 3 ? [tokens[0]] : [];
-  const serpKeywords = [...new Set([...brandQuery, ...seedKeywords])].slice(0, 6);
+  const serpKeywords = [...new Set([...brandQuery, ...seedKeywords])].slice(0, quick ? 3 : 6);
 
   const serpT = light
     ? skip([] as SerpQuery[])
@@ -327,7 +345,7 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
           options.engines?.length ? options.engines : runtime.engines,
           {
             depth: options.depth ?? runtime.serpDepth,
-            maxKeywords: 6,
+            maxKeywords: quick ? 3 : 6,
             market: options.market ?? runtime.market,
             device: options.device ?? runtime.device,
           },
@@ -390,7 +408,7 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
 
   /* --- Phase 4: lost links from the archive ----------------------------- */
   let lostLinks: Backlink[] = [];
-  if (!light && !budget.spent(0.72) && unlinkedPages.length > 0) {
+  if (!light && !quick && !budget.spent(0.72) && unlinkedPages.length > 0) {
     lostLinks = await findLostLinks(unlinkedPages, {
       host,
       brandTokens: tokens,
@@ -564,6 +582,12 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
   enriched = markSerpCorankers(enriched, serpQueries);
 
   const ranked = capPerDomain(sortBacklinks(enriched), 25).slice(0, runtime.maxBacklinks);
+  const truncated = ranked.length < enriched.length;
+  if (truncated) {
+    notes.push(
+      "Backlink sample is capped; displayed counts are observations, not all links to the site.",
+    );
+  }
 
   const site: SiteSnapshot = intelR.value?.snapshot ?? {
     host,
@@ -633,6 +657,7 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
     lostLinks: ranked.filter((b) => b.state === "lost"),
     visibility: serpSnapshot.visibility,
     rankedKeywords: serpSnapshot.ranked,
+    measuredKeywords: serpSnapshot.measured ?? 0,
     keywordCount: keywordSeeds.length,
     onPageIssues: onPage?.issues,
   });
@@ -659,7 +684,7 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
 
   // The internal audit needs its own budget: it crawls the target, not the web.
   const siteAudit =
-    light || options.skipSiteAudit
+    light || quick || options.skipSiteAudit
       ? null
       : await runSiteAudit(
           site.url,
@@ -670,9 +695,66 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
         );
 
   // Real clicks and impressions, but only when the operator connected an account.
-  const searchConsole = light
-    ? null
-    : buildSearchConsoleInsights(await fetchSearchConsoleData(host).catch(() => []), serpQueries);
+  // Environment credentials identify the server operator, not the web caller.
+  // Keep owner-only performance out of unauthenticated web/API scan results.
+  const searchConsole =
+    light || !options.includeOwnerData
+      ? null
+      : buildSearchConsoleInsights(await fetchSearchConsoleData(host).catch(() => []), serpQueries);
+
+  // A supplied /path must never be silently treated as an on-page scan of /.
+  // Domain-wide link and SERP metrics stay separate from the requested URL.
+  let requestedPage: ScanReport["requestedPage"] = null;
+  const requested = new URL(parsed.requestedUrl);
+  if (requested.pathname !== "/" || requested.search) {
+    const pageBudget = new Budget(8_000);
+    try {
+      const res = await fetchUsefulHtml(
+        parsed.requestedUrl,
+        pageBudget.timeout(8_000),
+        pageBudget.signal,
+        pageBudget,
+      );
+      const mediaType = res.headers?.get("content-type") ?? "";
+      const appearsHtml = /html|xhtml/i.test(mediaType) || /<html|<!doctype/i.test(res.text);
+      const sameSite = isTargetHost(hostFromUrl(res.finalUrl), host);
+      const usable =
+        res.status >= 200 &&
+        res.status < 300 &&
+        res.text.length >= 100 &&
+        appearsHtml &&
+        sameSite &&
+        !res.truncated;
+      requestedPage = {
+        url: parsed.requestedUrl,
+        finalUrl: res.finalUrl,
+        status: res.status,
+        onPage: usable
+          ? auditOnPage({
+              html: res.text,
+              url: res.finalUrl,
+              host,
+              https: res.finalUrl.startsWith("https://"),
+            })
+          : null,
+        error: usable
+          ? null
+          : !sameSite
+            ? "Requested page redirects outside the audited site."
+            : res.truncated
+              ? "Requested page exceeded the HTML measurement limit."
+              : "Requested page was not successfully retrieved as HTML.",
+      };
+    } catch (error) {
+      requestedPage = {
+        url: parsed.requestedUrl,
+        finalUrl: null,
+        status: null,
+        onPage: null,
+        error: error instanceof Error ? error.message.slice(0, 160) : "Page not measured.",
+      };
+    }
+  }
 
   const scorecard = buildScorecard({
     analytics,
@@ -794,6 +876,30 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
 
   const report: ScanReport = {
     version: REPORT_VERSION,
+    coverage: {
+      sourceCandidates: enriched.length,
+      reportedLinks: ranked.length,
+      htmlVerified: ranked.filter((link) => link.verified && link.state === "live").length,
+      apiObserved: ranked.filter((link) => link.evidenceKind === "source-api").length,
+      archiveConfirmedLost: ranked.filter((link) => link.state === "lost").length,
+      truncated,
+      completeness: "bounded-sample",
+    },
+    scopeKey: scanScopeKey({
+      host,
+      requestedUrl: requestedPage?.url,
+      profile: runtime.profile,
+      market: options.market ?? runtime.market,
+      device: options.device ?? runtime.device,
+      serpDepth: options.depth ?? runtime.serpDepth,
+      keywords: serpKeywords,
+      engines: options.engines?.length ? options.engines : runtime.engines,
+      sources: sources.map(({ id, status }) => ({ id, status })),
+      siteAudit: siteAudit !== null,
+      backlinkCap: runtime.maxBacklinks,
+      verifyCap: runtime.maxVerify,
+      truncated,
+    }),
     queriedAt: new Date().toISOString(),
     input: rawInput.trim(),
     target: site,
@@ -859,6 +965,7 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
     keywords: keywordStats,
     prospects,
     onPage,
+    requestedPage,
     toxic,
     anchorAudit,
     segments,

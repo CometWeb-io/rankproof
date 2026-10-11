@@ -2,9 +2,12 @@ import { lookup } from "node:dns/promises";
 import http from "node:http";
 import https from "node:https";
 import type { IncomingMessage } from "node:http";
+import { setTimeout as sleep } from "node:timers/promises";
+import { brotliDecompressSync, gunzipSync, inflateSync } from "node:zlib";
 
 import { usefulHtml } from "./html.ts";
 import { config } from "./config.ts";
+import { createTransportCapacity } from "./host-limiter.ts";
 import { diskCache, type CachedResponse } from "./disk-cache.server.ts";
 import { guardUrl, guardUrlWithDns, isPrivateAddress } from "./ssrf.ts";
 import { isAllowed, robotsFor } from "./robots.server.ts";
@@ -19,49 +22,56 @@ export type FetchResult = {
   finalUrl: string;
   headers: Headers | null;
   fromCache: boolean;
+  /** True when byte or useful-HTML limits stopped reading before EOF. */
+  truncated?: boolean;
 };
 
-const CACHE = new Map<string, FetchResult>();
-const CACHE_LIMIT = 400;
+const CACHE = new Map<string, { value: FetchResult; storedAt: number }>();
+const CACHE_LIMIT = 64; // predictable memory budget on small local machines
+// Short lifetime: backlink verification must reflect changes within a session.
+const CACHE_TTL_MS = 60_000;
 
-/** A simple limiter: at most N parallel requests to a single host. */
-const HOST_SLOTS = new Map<string, number>();
-const HOST_QUEUE = new Map<string, (() => void)[]>();
-const HOST_CONCURRENCY = config().hostConcurrency;
-
-async function acquireHost(host: string): Promise<() => void> {
-  const used = HOST_SLOTS.get(host) ?? 0;
-  if (used < HOST_CONCURRENCY) {
-    HOST_SLOTS.set(host, used + 1);
-    return () => releaseHost(host);
-  }
-  await new Promise<void>((resolve) => {
-    const queue = HOST_QUEUE.get(host) ?? [];
-    queue.push(resolve);
-    HOST_QUEUE.set(host, queue);
-  });
-  return () => releaseHost(host);
-}
-
-function releaseHost(host: string) {
-  const queue = HOST_QUEUE.get(host);
-  if (queue && queue.length > 0) {
-    const next = queue.shift();
-    if (queue.length === 0) HOST_QUEUE.delete(host);
-    next?.();
-    return;
-  }
-  const used = HOST_SLOTS.get(host) ?? 1;
-  if (used <= 1) HOST_SLOTS.delete(host);
-  else HOST_SLOTS.set(host, used - 1);
-}
+/** Two independent local controls: per-host and total simultaneous HTTP I/O. */
+const configuredGlobal = Number(process.env.RANKPROOF_GLOBAL_HTTP_CONCURRENCY);
+const globalConcurrency =
+  Number.isSafeInteger(configuredGlobal) && configuredGlobal >= 1
+    ? Math.min(24, configuredGlobal)
+    : 12;
+const acquireTransport = createTransportCapacity(config().hostConcurrency, globalConcurrency);
 
 /**
  * The cache key must include language and user-agent: the same SERP URL returns
  * different results for another market and for the mobile version.
  */
 function cacheKey(url: string, method: string, opts: FetchOptions): string {
-  return `${method} ${url} ${opts.acceptLanguage ?? ""} ${opts.ua ?? ""}`;
+  // Different byte limits, representations and request headers cannot share a
+  // cached body. Never cache authorization-bearing requests at all.
+  const headers = Object.entries(opts.headers ?? {}).sort(([a], [b]) => a.localeCompare(b));
+  return JSON.stringify([
+    method,
+    url,
+    opts.acceptLanguage,
+    opts.ua,
+    opts.accept,
+    opts.maxBytes,
+    opts.usefulMax,
+    opts.skipRobots,
+    headers,
+  ]);
+}
+
+/** Respect response-level cache privacy and variant semantics. */
+export function isResponseCacheable(res: Response): boolean {
+  if (res.status < 200 || res.status >= 300) return false;
+  if (res.headers.has("set-cookie")) return false;
+  const policy = res.headers.get("cache-control") ?? "";
+  if (/(?:^|,)\s*(?:private|no-store)\b/i.test(policy)) return false;
+  const allowedVary = new Set(["accept", "accept-language", "user-agent"]);
+  for (const name of (res.headers.get("vary") ?? "").split(",")) {
+    const header = name.trim().toLowerCase();
+    if (header && !allowedVary.has(header)) return false;
+  }
+  return true;
 }
 
 function remember(key: string, value: FetchResult) {
@@ -69,7 +79,7 @@ function remember(key: string, value: FetchResult) {
     const first = CACHE.keys().next().value;
     if (first) CACHE.delete(first);
   }
-  CACHE.set(key, value);
+  CACHE.set(key, { value, storedAt: Date.now() });
 }
 
 export type FetchOptions = {
@@ -150,6 +160,27 @@ function pickPinnedAddress(addresses: string[]): string {
  * HTTP(S) request that connects to a previously validated IP while preserving
  * Host / SNI for the original hostname.
  */
+/** Decode HTTP Content-Encoding in reverse order with a strict output cap.
+ * A compressed response must never be mistaken for empty HTML or expand into
+ * an unbounded zip bomb when DNS-pinned transport is used in production. */
+export function decodePinnedBody(body: Buffer, encoding: string, maxOutputBytes: number): Buffer {
+  const chain = encoding
+    .split(",")
+    .map((item) => item.trim().toLowerCase())
+    .filter((item) => item && item !== "identity");
+  if (chain.length > 2) throw new Error("Too many HTTP content encodings.");
+  let decoded = body;
+  for (const item of chain.reverse()) {
+    const options = { maxOutputLength: maxOutputBytes };
+    if (item === "gzip" || item === "x-gzip") decoded = gunzipSync(decoded, options);
+    else if (item === "deflate") decoded = inflateSync(decoded, options);
+    else if (item === "br") decoded = brotliDecompressSync(decoded, options);
+    else throw new Error(`Unsupported HTTP content encoding: ${item}`);
+    if (decoded.byteLength > maxOutputBytes) throw new Error("Decompressed response too large.");
+  }
+  return decoded;
+}
+
 function pinnedRequest(
   url: string,
   addresses: string[],
@@ -157,6 +188,7 @@ function pinnedRequest(
     method: string;
     headers: Record<string, string>;
     signal?: AbortSignal;
+    maxBytes: number;
   },
 ): Promise<Response> {
   const parsed = new URL(url);
@@ -182,29 +214,47 @@ function pinnedRequest(
       },
       (res: IncomingMessage) => {
         const chunks: Buffer[] = [];
-        // Without these two the promise never settles when the peer resets or
-        // truncates after the headers: 'end' simply never fires, and neither
-        // the request timeout nor the abort signal applies any more.
+        let received = 0;
         res.on("error", reject);
         res.on("aborted", () => reject(new Error("Response aborted by the server.")));
-        res.on("data", (chunk: Buffer) => chunks.push(chunk));
-        res.on("end", () => {
-          const headerInit: [string, string][] = [];
-          for (const [key, value] of Object.entries(res.headers)) {
-            if (value === undefined) continue;
-            if (Array.isArray(value)) {
-              for (const item of value) headerInit.push([key, item]);
-            } else {
-              headerInit.push([key, value]);
-            }
+        res.on("data", (chunk: Buffer) => {
+          received += chunk.byteLength;
+          if (received > init.maxBytes) {
+            res.destroy(new Error("Response exceeded configured byte limit."));
+            return;
           }
-          resolve(
-            new Response(Buffer.concat(chunks), {
-              status: res.statusCode ?? 0,
-              statusText: res.statusMessage,
-              headers: headerInit,
-            }),
-          );
+          chunks.push(chunk);
+        });
+        res.on("end", () => {
+          try {
+            const noBody = init.method === "HEAD" || [204, 205, 304].includes(res.statusCode ?? 0);
+            const encoding = String(res.headers["content-encoding"] ?? "");
+            const compressed = !noBody && encoding.trim() !== "" && encoding !== "identity";
+            const payload = noBody
+              ? null
+              : decodePinnedBody(Buffer.concat(chunks), encoding, init.maxBytes);
+            const headerInit: [string, string][] = [];
+            for (const [key, value] of Object.entries(res.headers)) {
+              if (value === undefined) continue;
+              if (compressed && (key === "content-encoding" || key === "content-length")) {
+                continue;
+              }
+              if (Array.isArray(value)) {
+                for (const item of value) headerInit.push([key, item]);
+              } else {
+                headerInit.push([key, value]);
+              }
+            }
+            resolve(
+              new Response(payload === null ? null : new Uint8Array(payload), {
+                status: res.statusCode ?? 200,
+                statusText: res.statusMessage,
+                headers: headerInit,
+              }),
+            );
+          } catch (error) {
+            reject(error);
+          }
         });
       },
     );
@@ -213,98 +263,173 @@ function pinnedRequest(
   });
 }
 
-/** Delays imposed by a host's Crawl-delay directive, tracked per origin. */
+/** Fetch a configured public JSON provider through the same validated and
+ * pinned IP transport as the production crawler. Redirects are never followed. */
+export async function fetchPinnedProviderJson(
+  url: string,
+  signal: AbortSignal,
+  maxBytes = 2_000_000,
+): Promise<Response> {
+  signal.throwIfAborted();
+  const addresses = await assertFetchable(url);
+  const release = await acquireTransport(new URL(url).hostname, signal);
+  try {
+    return await pinnedRequest(url, addresses, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "Accept-Encoding": "identity",
+        "User-Agent": "RankProof/google-provider",
+      },
+      signal,
+      maxBytes,
+    });
+  } finally {
+    release();
+  }
+}
+
+/** Per-origin reservations for robots.txt Crawl-delay. */
 const NEXT_ALLOWED_AT = new Map<string, number>();
-
 const MAX_CRAWL_DELAY_WAIT_MS = 10_000;
+const MAX_DELAY_ORIGINS = 512;
 
-async function respectCrawlDelay(origin: string, delaySeconds: number | null): Promise<void> {
+/** A delay larger than the local scan's wait budget must refuse a fetch,
+ * never silently compress the website operator's requested spacing. */
+export function planCrawlDelay(
+  now: number,
+  priorNextAt: number,
+  delaySeconds: number,
+  maxWaitMs = MAX_CRAWL_DELAY_WAIT_MS,
+): { waitMs: number; nextAt: number } | null {
+  const waitMs = Math.max(0, priorNextAt - now);
+  if (waitMs > maxWaitMs) return null;
+  return { waitMs, nextAt: now + waitMs + delaySeconds * 1000 };
+}
+
+async function respectCrawlDelay(
+  origin: string,
+  delaySeconds: number | null,
+  signal?: AbortSignal,
+): Promise<void> {
   if (!delaySeconds || delaySeconds <= 0) return;
+  signal?.throwIfAborted();
   const now = Date.now();
-  const earliest = NEXT_ALLOWED_AT.get(origin) ?? 0;
-  // The wait is capped so one hostile Crawl-delay cannot stall a whole scan —
-  // but then the reservation has to advance by what we actually waited, not by
-  // the full delay. Otherwise every queued request after the first fires early
-  // and the site is hit harder than its robots.txt asked for.
-  const requested = Math.max(0, earliest - now);
-  const wait = Math.min(requested, MAX_CRAWL_DELAY_WAIT_MS);
-  const step = Math.min(delaySeconds * 1000, MAX_CRAWL_DELAY_WAIT_MS);
-  NEXT_ALLOWED_AT.set(origin, now + wait + step);
-  if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+  for (const [key, until] of NEXT_ALLOWED_AT) {
+    if (until <= now) NEXT_ALLOWED_AT.delete(key);
+  }
+  if (!NEXT_ALLOWED_AT.has(origin) && NEXT_ALLOWED_AT.size >= MAX_DELAY_ORIGINS) {
+    throw new Error("Crawl-delay reservation capacity exhausted.");
+  }
+  const slot = planCrawlDelay(now, NEXT_ALLOWED_AT.get(origin) ?? 0, delaySeconds);
+  if (!slot) {
+    throw new Error("Crawl-delay exceeds the permitted scan wait budget.");
+  }
+  NEXT_ALLOWED_AT.set(origin, slot.nextAt);
+  if (slot.waitMs > 0) await sleep(slot.waitMs, undefined, { signal });
 }
 
 export async function fetchText(url: string, opts: FetchOptions): Promise<FetchResult> {
   const method = opts.method ?? "GET";
-  const key = cacheKey(url, method, opts);
-  if (opts.cache !== false) {
-    const hit = CACHE.get(key);
-    if (hit) return { ...hit, fromCache: true };
-  }
-
-  // Fail closed: an unparseable or non-public URL never reaches the network.
+  const productToken = (opts.ua ?? BROWSER_UA).split(/[\\/\s]/)[0]!.toLowerCase();
+  // Validate input and client cancellation BEFORE reading any cached result:
+  // cached crawl evidence must not bypass the active security policy.
+  opts.signal?.throwIfAborted();
   const staticVerdict = guardUrl(url);
   if (!staticVerdict.allowed) throw new BlockedUrlError(staticVerdict.reason);
 
-  let host = "";
-  let origin = "";
-  try {
-    const parsed = new URL(url);
-    host = parsed.hostname.toLowerCase();
-    origin = parsed.origin;
-  } catch {
-    throw new BlockedUrlError("Malformed source URL.");
+  const key = cacheKey(url, method, opts);
+  const cacheAllowed =
+    opts.cache !== false &&
+    !Object.keys(opts.headers ?? {}).some((key) =>
+      /^(authorization|cookie|proxy-authorization)$/i.test(key),
+    );
+  if (cacheAllowed) {
+    const hit = CACHE.get(key);
+    if (hit && Date.now() - hit.storedAt < CACHE_TTL_MS) {
+      // Robots rules may have changed since this page was cached. Recheck the
+      // requested URL and the final redirect destination before reusing it.
+      if (!opts.skipRobots && opts.budget) {
+        const urls = new Set([url, hit.value.finalUrl]);
+        for (const checkedUrl of urls) {
+          const parsed = new URL(checkedUrl);
+          const rules = await robotsFor(parsed.origin, opts.budget, productToken);
+          if (!isAllowed(rules, parsed.pathname + parsed.search)) {
+            throw new RobotsDisallowedError(checkedUrl);
+          }
+        }
+      }
+      opts.signal?.throwIfAborted();
+      return { ...hit.value, fromCache: true };
+    }
+    if (hit) CACHE.delete(key);
   }
 
-  // robots.txt applies to pages we crawl, not to SERP or API lookups.
-  let crawlDelay: number | null = null;
-  if (!opts.skipRobots && opts.budget) {
-    const rules = await robotsFor(origin, opts.budget);
-    if (!isAllowed(rules, new URL(url).pathname)) throw new RobotsDisallowedError(url);
-    crawlDelay = rules.crawlDelay;
-  }
-
+  // Crawl rules must be enforced for every redirect destination.
   const cache = diskCache();
-  const cacheable = method === "GET" && opts.cache !== false && cache.enabled;
+  const cacheable = method === "GET" && cacheAllowed && cache.enabled;
   const stored: CachedResponse | null = cacheable ? await cache.get(key) : null;
-
-  const release = await acquireHost(host);
-  await respectCrawlDelay(origin, crawlDelay);
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), opts.timeoutMs);
   const onOuterAbort = () => controller.abort();
-  opts.signal?.addEventListener("abort", onOuterAbort);
+  opts.signal?.addEventListener("abort", onOuterAbort, { once: true });
+  if (opts.signal?.aborted) controller.abort();
+  let releaseHost: (() => void) | null = null;
 
   try {
     let current = url;
     let res: Response | null = null;
+    const initialOrigin = new URL(url).origin;
 
-    // Manual redirect handling so the guard sees every hop. Set
-    // RANKPROOF_PIN_DNS=1 to connect via the validated IP (Host/SNI preserved)
-    // and close the DNS-rebinding TOCTOU window; default uses fetch so test
-    // doubles that stub globalThis.fetch keep working.
+    // Production pins validated IPs; development allows fetch-based test doubles.
+    // RANKPROOF_PIN_DNS=0 is an unsafe explicit override for local debugging only.
     for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
       const addresses = await assertFetchable(current);
+      const hopUrl = new URL(current);
+      if (!opts.skipRobots && opts.budget) {
+        const rules = await robotsFor(hopUrl.origin, opts.budget, productToken);
+        if (!isAllowed(rules, hopUrl.pathname + hopUrl.search)) {
+          throw new RobotsDisallowedError(current);
+        }
+        await respectCrawlDelay(hopUrl.origin, rules.crawlDelay, controller.signal);
+      }
+      // Conditional validators belong to the exact cached URL. Do not send
+      // operator/API credentials or cookies to an unrelated redirect host.
+      const sameOrigin = hopUrl.origin === initialOrigin;
+      const extraHeaders = Object.fromEntries(
+        Object.entries(opts.headers ?? {}).filter(
+          ([name]) =>
+            !/^(host|connection|proxy-authorization)$/i.test(name) &&
+            (sameOrigin || !/^(authorization|cookie)$/i.test(name)),
+        ),
+      );
       const headers = {
         "User-Agent": opts.ua ?? BROWSER_UA,
         Accept: opts.accept ?? "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8",
         "Accept-Language": opts.acceptLanguage ?? "en,pl;q=0.8",
-        ...cache.conditionalHeaders(stored),
-        ...opts.headers,
+        ...(current === url ? cache.conditionalHeaders(stored) : {}),
+        ...extraHeaders,
       };
-      const response =
-        process.env.RANKPROOF_PIN_DNS === "1" || process.env.SERPRADAR_PIN_DNS === "1"
-          ? await pinnedRequest(current, addresses, {
-              method,
-              signal: controller.signal,
-              headers,
-            })
-          : await fetch(current, {
-              method,
-              signal: controller.signal,
-              redirect: "manual",
-              headers,
-            });
+      // The slot is held until the response BODY is read or cancelled, not
+      // merely until headers arrive. Otherwise slow peers bypass concurrency.
+      releaseHost = await acquireTransport(hopUrl.hostname, controller.signal);
+      const pin =
+        process.env.RANKPROOF_PIN_DNS === "1" ||
+        (process.env.NODE_ENV === "production" && process.env.RANKPROOF_PIN_DNS !== "0");
+      const response = pin
+        ? await pinnedRequest(current, addresses, {
+            method,
+            signal: controller.signal,
+            headers,
+            maxBytes: opts.maxBytes,
+          })
+        : await fetch(current, {
+            method,
+            signal: controller.signal,
+            redirect: "manual",
+            headers,
+          });
 
       const location = response.headers.get("location");
       if (response.status >= 300 && response.status < 400 && location) {
@@ -312,6 +437,11 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
           res = response;
           break;
         }
+        // Release the unused redirect body and the previous host's slot.
+        // The next hop will be revalidated before connecting.
+        await response.body?.cancel().catch(() => undefined);
+        releaseHost();
+        releaseHost = null;
         current = new URL(location, current).href;
         continue;
       }
@@ -323,6 +453,13 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
 
     // 304: the stored body is still valid, so nothing crosses the wire.
     if (res.status === 304 && stored) {
+      if (!opts.skipRobots && opts.budget) {
+        const prior = new URL(stored.finalUrl);
+        const rules = await robotsFor(prior.origin, opts.budget, productToken);
+        if (!isAllowed(rules, prior.pathname + prior.search)) {
+          throw new RobotsDisallowedError(stored.finalUrl);
+        }
+      }
       const result: FetchResult = {
         status: stored.status,
         text: stored.text,
@@ -330,11 +467,12 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
         headers: res.headers,
         fromCache: true,
       };
-      if (opts.cache !== false) remember(key, result);
+      if (cacheAllowed && isResponseCacheable(res)) remember(key, result);
       return result;
     }
 
     if (method === "HEAD") {
+      await res.body?.cancel().catch(() => undefined);
       const result: FetchResult = {
         status: res.status,
         text: "",
@@ -342,12 +480,13 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
         headers: res.headers,
         fromCache: false,
       };
-      if (opts.cache !== false) remember(key, result);
+      if (cacheAllowed && isResponseCacheable(res)) remember(key, result);
       return result;
     }
 
     const contentType = res.headers.get("content-type") ?? "";
     if (/^(image|video|audio|font)\//i.test(contentType)) {
+      await res.body?.cancel().catch(() => undefined);
       const result: FetchResult = {
         status: res.status,
         text: "",
@@ -355,35 +494,52 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
         headers: res.headers,
         fromCache: false,
       };
-      if (opts.cache !== false) remember(key, result);
+      if (cacheAllowed && isResponseCacheable(res)) remember(key, result);
       return result;
     }
 
     const reader = res.body?.getReader();
     let text = "";
+    let truncated = false;
     if (!reader) {
-      text = (await res.text()).slice(0, opts.maxBytes);
+      text = await res.text();
+      truncated = Buffer.byteLength(text, "utf8") > opts.maxBytes;
+      if (truncated) text = text.slice(0, opts.maxBytes);
     } else {
       const decoder = new TextDecoder("utf-8", { fatal: false });
       let received = 0;
-      while (received < opts.maxBytes) {
-        const { done, value } = await reader.read();
-        if (done || !value) break;
-        received += value.byteLength;
-        text += decoder.decode(value, { stream: true });
-        if (
-          opts.usefulMax &&
-          received > 60_000 &&
-          usefulHtml(text, opts.usefulMax).length >= opts.usefulMax
-        ) {
-          break;
-        }
-      }
-      text += decoder.decode();
       try {
-        await reader.cancel();
-      } catch {
-        /* ignore */
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (!value) continue;
+          // Decode at most the remaining byte budget, even when a server
+          // returns an unexpectedly large single stream chunk.
+          const remaining = Math.max(0, opts.maxBytes - received);
+          if (value.byteLength > remaining) {
+            text += decoder.decode(value.subarray(0, remaining), { stream: true });
+            truncated = true;
+            break;
+          }
+          received += value.byteLength;
+          text += decoder.decode(value, { stream: true });
+          if (
+            opts.usefulMax &&
+            received > 60_000 &&
+            usefulHtml(text, opts.usefulMax).length >= opts.usefulMax
+          ) {
+            truncated = true;
+            break;
+          }
+        }
+        text += decoder.decode();
+      } finally {
+        try {
+          await reader.cancel();
+        } catch {
+          /* stream reached EOF or was already cancelled */
+        }
+        reader.releaseLock();
       }
     }
 
@@ -397,9 +553,10 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
       finalUrl,
       headers: res.headers,
       fromCache: false,
+      truncated,
     };
-    if (opts.cache !== false) remember(key, result);
-    if (cacheable) {
+    if (!truncated && cacheAllowed && isResponseCacheable(res)) remember(key, result);
+    if (!truncated && cacheable && isResponseCacheable(res)) {
       await cache.set(key, {
         url,
         status: res.status,
@@ -412,9 +569,9 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
     }
     return result;
   } finally {
+    releaseHost?.();
     clearTimeout(timer);
     opts.signal?.removeEventListener("abort", onOuterAbort);
-    release();
   }
 }
 
@@ -448,18 +605,24 @@ export async function fetchUsefulHtml(
   let res = await fetchText(url, {
     timeoutMs,
     maxBytes: 1_600_000,
-    ua: BROWSER_UA,
+    ua: API_UA,
     usefulMax: 260_000,
     signal,
     budget,
   });
-  if (res.status >= 500 && url.startsWith("https://")) {
+  // HTTPS-to-HTTP downgrade is disabled by default. It can expose requests
+  // and produces non-equivalent measurements when an HTTPS origin fails.
+  if (
+    process.env.RANKPROOF_ALLOW_HTTP_FALLBACK === "1" &&
+    res.status >= 500 &&
+    url.startsWith("https://")
+  ) {
     const httpUrl = `http://${url.slice("https://".length)}`;
     try {
       const retry = await fetchText(httpUrl, {
         timeoutMs: Math.min(timeoutMs, 6000),
         maxBytes: 1_600_000,
-        ua: BROWSER_UA,
+        ua: API_UA,
         usefulMax: 260_000,
         signal,
         budget,
@@ -477,14 +640,16 @@ export async function probeStatus(
   url: string,
   timeoutMs = 6000,
   signal?: AbortSignal,
+  budget?: Budget,
 ): Promise<{ status: number; finalUrl: string } | null> {
   try {
     const head = await fetchText(url, {
       timeoutMs,
       maxBytes: 1,
       method: "HEAD",
-      ua: BROWSER_UA,
+      ua: API_UA,
       signal,
+      budget,
     });
     if (head.status !== 405 && head.status !== 501 && head.status !== 403) {
       return { status: head.status, finalUrl: head.finalUrl };
@@ -496,8 +661,9 @@ export async function probeStatus(
     const get = await fetchText(url, {
       timeoutMs,
       maxBytes: 40_000,
-      ua: BROWSER_UA,
+      ua: API_UA,
       signal,
+      budget,
     });
     return { status: get.status, finalUrl: get.finalUrl };
   } catch {
@@ -554,8 +720,10 @@ export class Budget {
   private readonly controller = new AbortController();
   private readonly totalMs: number;
 
-  constructor(totalMs: number) {
+  constructor(totalMs: number, outerSignal?: AbortSignal) {
     this.totalMs = totalMs;
+    if (outerSignal?.aborted) this.controller.abort();
+    else outerSignal?.addEventListener("abort", () => this.controller.abort(), { once: true });
     const timer = setTimeout(() => this.controller.abort(), totalMs);
     if (typeof timer === "object" && timer && "unref" in timer) {
       (timer as { unref: () => void }).unref();

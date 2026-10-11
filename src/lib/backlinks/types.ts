@@ -64,7 +64,10 @@ export type Backlink = {
   sitewide: boolean;
   discoveredVia: DiscoverySource;
   wikiLang?: string;
+  /** True only when the source HTML has been independently checked. */
   verified: boolean;
+  /** Distinguishes source API observations from HTML or archive evidence. */
+  evidenceKind?: "source-api" | "source-html" | "archived-html";
   /** First sighting of the source page in the Internet Archive (YYYY-MM-DD). */
   firstSeen: string | null;
   httpStatus: number | null;
@@ -453,6 +456,8 @@ export type SerpSnapshot = {
   ranked: number;
   top3: number;
   top10: number;
+  measured?: number;
+  unmeasured?: number;
   /** Average position across keywords the target ranks for at all. */
   avgPosition: number;
   /** Sum of estimated CTR shares — a proxy for organic traffic. */
@@ -887,6 +892,18 @@ export type ScanStats = {
 
 export type ScanReport = {
   version: number;
+  /** Observed evidence size and whether the published set was truncated. */
+  coverage?: {
+    sourceCandidates: number;
+    reportedLinks: number;
+    htmlVerified: number;
+    apiObserved: number;
+    archiveConfirmedLost: number;
+    truncated: boolean;
+    completeness: "bounded-sample";
+  };
+  /** Exact scope of requested parameters and source coverage; required for trend deltas. */
+  scopeKey?: string;
   queriedAt: string;
   input: string;
   target: SiteSnapshot;
@@ -906,6 +923,14 @@ export type ScanReport = {
   keywords: KeywordStat[];
   prospects: SerpProspect[];
   onPage: OnPageAudit | null;
+  /** Explicit URL path inspection, separate from the site-wide metrics. */
+  requestedPage?: {
+    url: string;
+    finalUrl: string | null;
+    status: number | null;
+    onPage: OnPageAudit | null;
+    error: string | null;
+  } | null;
   toxic: ToxicReport;
   anchorAudit: AnchorAudit;
   segments: SegmentStat[];
@@ -933,9 +958,13 @@ export type TrendPoint = {
 export type ScanDelta = {
   previousAt: string;
   newLinks: number;
+  /** Not re-discovered links are NOT confirmed lost. This remains zero. */
   lostLinks: number;
+  /** Previously observed identifiers absent from today's bounded sample. */
+  notRediscoveredLinks?: number;
   newDomains: string[];
   lostDomains: string[];
+  notRediscoveredDomains?: string[];
   backlinkDelta: number;
   domainDelta: number;
   healthDelta: number;

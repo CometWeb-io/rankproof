@@ -19,7 +19,7 @@ npm run cli -- scan example.com
 npm run cli -- scan example.com --market us --device mobile
 npm run cli -- scan example.com --format json --out report.json
 npm run cli -- scan example.com --format html --out report.html
-npm run cli -- scan example.com --format disavow --out disavow.txt
+npm run cli -- scan example.com --format disavow --reviewed-disavow --out disavow.txt
 ```
 
 Formats: `text` (default, readable in a terminal), `json` (full report), `csv` (backlinks), `html` (standalone report), `disavow` (file for Google Search Console).
@@ -108,3 +108,23 @@ node bin/rankproof.mjs scan example.com --quiet --format json \
 ```
 
 Rank history is written on every scan, so the next one will show gains and drops.
+
+## Owner-only Search Console and Bing Webmaster data
+
+Public scans never include private performance data. On the trusted local CLI, opt in with `RANKPROOF_CLI_OWNER_DATA=1` and configured credentials:
+
+```bash
+RANKPROOF_CLI_OWNER_DATA=1 node bin/rankproof.mjs scan example.com --format json --out private-report.json
+```
+
+Keep exported reports private. This flag is intentionally ignored by the web app and standalone API.
+
+## Scan workload profiles
+
+Set `RANKPROOF_SCAN_PROFILE=quick|standard|deep` before invoking the command. Quick runs fewer discovery sources, checks fewer keywords and skips the internal crawl; deep raises work limits. These are not hard request quotas or time guarantees. The default remains `standard`. Never compare quick/deep trend deltas as if their discovery coverage were equal.
+
+A manually supplied `--depth` overrides the scan profile for that invocation. Without `--depth`, a `deep` profile uses the deeper default. Values such as `RANKPROOF_SCAN_BUDGET_MS` and `RANKPROOF_MAX_VERIFY` take precedence over profile defaults; keep those overrides commented in your `.env` unless you intentionally want them.
+
+### Manual-review gate for Disavow drafts
+
+Disavow is a high-impact SEO decision. RankProof's toxicity labels are heuristic review signals, not proof of harmful links. To export a Disavow **draft**, users must explicitly pass `--reviewed-disavow`. Never submit the generated draft without independently verifying every listed domain and whether the site's actual manual-action situation warrants it. The CLI also escapes spreadsheet formula-like keywords in SERP CSV exports.

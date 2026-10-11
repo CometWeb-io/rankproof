@@ -139,10 +139,13 @@ export function buildSerpCompetitors(
   options: { linkingDomains?: Set<string>; limit?: number } = {},
 ): SerpCompetitor[] {
   const acc = new Map<string, CompetitorAcc>();
-  const keywordCount = new Set(queries.map((q) => q.keyword)).size || 1;
+  const measured = queries.filter(
+    (query) => query.status === "ok" || query.status === "no-results",
+  );
+  const keywordCount = new Set(measured.map((q) => q.keyword)).size || 1;
   let totalVoice = 0;
 
-  for (const query of queries) {
+  for (const query of measured) {
     for (const hit of query.results) {
       if (hit.isTarget || !hit.domain) continue;
       const voice = adjustedCtr(hit.position, query.features);
@@ -174,7 +177,7 @@ export function buildSerpCompetitors(
     }
   }
 
-  const targetVoice = queries.reduce((sum, query) => {
+  const targetVoice = measured.reduce((sum, query) => {
     const hit = query.results.find((item) => item.isTarget);
     return sum + (hit ? adjustedCtr(hit.position, query.features) : 0);
   }, 0);
@@ -245,11 +248,12 @@ export function buildRankMoves(queries: SerpQuery[], previous: PositionRow[]): R
     before.set(`${row.engine}|${row.keyword}`, row.position);
   }
   const out: RankMove[] = [];
-  const seen = new Set<string>();
 
   for (const query of queries) {
+    // A blocked, timed-out or otherwise unmeasured SERP says nothing about
+    // movement. Never turn source failure into a claimed ranking loss.
+    if (query.status !== "ok" && query.status !== "no-results") continue;
     const key = `${query.engine}|${query.keyword}`;
-    seen.add(key);
     if (!before.has(key)) {
       if (query.targetPosition === null) continue;
       out.push({
@@ -295,19 +299,6 @@ export function buildRankMoves(queries: SerpQuery[], previous: PositionRow[]): R
       current,
       change,
       state: change > 0 ? "up" : change < 0 ? "down" : "stable",
-    });
-  }
-
-  for (const [key, position] of before) {
-    if (seen.has(key) || position === null) continue;
-    const [engine, ...rest] = key.split("|");
-    out.push({
-      keyword: rest.join("|"),
-      engine: (engine ?? "bing") as RankMove["engine"],
-      previous: position,
-      current: null,
-      change: null,
-      state: "lost",
     });
   }
 

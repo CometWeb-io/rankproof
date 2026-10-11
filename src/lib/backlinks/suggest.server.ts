@@ -119,7 +119,7 @@ function ideaScore(item: Acc, brandTokens: string[]): number {
  */
 export async function suggestKeywords(
   seeds: string[],
-  options: { brandTokens?: string[]; limit?: number; budgetMs?: number } = {},
+  options: { brandTokens?: string[]; limit?: number; budgetMs?: number; signal?: AbortSignal } = {},
 ): Promise<SuggestResult> {
   const clean = [...new Set(seeds.map((s) => cleanIdea(s)).filter((s) => s.length >= 2))].slice(
     0,
@@ -128,7 +128,7 @@ export async function suggestKeywords(
   if (clean.length === 0) return { ok: false, error: "Enter at least one seed keyword." };
 
   const started = Date.now();
-  const budget = new Budget(options.budgetMs ?? 16_000);
+  const budget = new Budget(options.budgetMs ?? 16_000, options.signal);
   const acc = new Map<string, Acc>();
   const brandTokens = options.brandTokens ?? [];
 

@@ -13,6 +13,7 @@ export type ScanRow = {
   spam_domains: number;
   lost_links: number;
   visibility?: number | null;
+  scan_scope?: string | null;
   link_ids: string[] | null;
   domains: string[] | null;
 };
@@ -49,10 +50,14 @@ export function rowsToTrend(rows: ScanRow[]): TrendPoint[] {
 
 /** The difference against the previous stored scan of the same domain. */
 export function rowToDelta(report: ScanReport, row: ScanRow | undefined): ScanDelta | null {
-  if (!row) return null;
+  // Legacy rows and unlike collection scopes are not comparable. A source
+  // outage or a different keyword/market/profile cannot mean lost backlinks.
+  if (!row || !report.scopeKey || row.scan_scope !== report.scopeKey) return null;
   const prevIds = new Set(asList(row.link_ids));
   const prevDomains = new Set(asList(row.domains));
-  const currentIds = report.backlinks.map((b) => b.id);
+  // The DB retains only MAX_HISTORY_IDS identifiers. Comparing beyond that
+  // cap incorrectly classifies every unsaved identifier as a newly found link.
+  const currentIds = report.backlinks.slice(0, MAX_HISTORY_IDS).map((b) => b.id);
   const currentIdSet = new Set(currentIds);
   const currentDomains = report.analytics.referringDomains.map((d) => d.domain);
   const currentDomainSet = new Set(currentDomains);
@@ -61,9 +66,11 @@ export function rowToDelta(report: ScanReport, row: ScanRow | undefined): ScanDe
   return {
     previousAt: toIso(row.queried_at),
     newLinks: newIds.length,
-    lostLinks: [...prevIds].filter((id) => !currentIdSet.has(id)).length,
+    lostLinks: 0,
+    notRediscoveredLinks: [...prevIds].filter((id) => !currentIdSet.has(id)).length,
     newDomains: currentDomains.filter((d) => !prevDomains.has(d)).slice(0, 40),
-    lostDomains: [...prevDomains].filter((d) => !currentDomainSet.has(d)).slice(0, 40),
+    lostDomains: [],
+    notRediscoveredDomains: [...prevDomains].filter((d) => !currentDomainSet.has(d)).slice(0, 40),
     backlinkDelta: report.stats.backlinks - row.backlinks,
     domainDelta: report.stats.referringDomains - row.referring_domains,
     healthDelta: report.analytics.health.total - row.health,

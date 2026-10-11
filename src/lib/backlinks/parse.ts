@@ -1,92 +1,6 @@
-const HOST_RE = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}$/i;
+import { publicSuffix, registeredDomain } from "./public-suffix.ts";
 
-/**
- * A shortened list of multi-part public suffixes (a subset of the Public Suffix
- * List). It lets us count referring domains correctly for `company.com.pl` or
- * `shop.co.uk`, where naively taking the last two labels gives the wrong answer.
- */
-const MULTI_SUFFIXES = new Set([
-  "com.pl",
-  "net.pl",
-  "org.pl",
-  "edu.pl",
-  "gov.pl",
-  "info.pl",
-  "biz.pl",
-  "waw.pl",
-  "krakow.pl",
-  "wroclaw.pl",
-  "poznan.pl",
-  "gda.pl",
-  "lodz.pl",
-  "co.uk",
-  "org.uk",
-  "ac.uk",
-  "gov.uk",
-  "me.uk",
-  "net.uk",
-  "sch.uk",
-  "com.au",
-  "net.au",
-  "org.au",
-  "edu.au",
-  "gov.au",
-  "id.au",
-  "co.nz",
-  "net.nz",
-  "org.nz",
-  "govt.nz",
-  "ac.nz",
-  "co.jp",
-  "ne.jp",
-  "or.jp",
-  "ac.jp",
-  "go.jp",
-  "com.br",
-  "net.br",
-  "org.br",
-  "gov.br",
-  "edu.br",
-  "com.cn",
-  "net.cn",
-  "org.cn",
-  "gov.cn",
-  "edu.cn",
-  "co.in",
-  "net.in",
-  "org.in",
-  "gov.in",
-  "ac.in",
-  "com.mx",
-  "com.ar",
-  "com.tr",
-  "com.tw",
-  "com.hk",
-  "com.sg",
-  "com.my",
-  "com.ua",
-  "co.za",
-  "org.za",
-  "co.il",
-  "com.es",
-  "com.pt",
-  "com.ru",
-  "co.kr",
-  "or.kr",
-  "ne.kr",
-  "go.kr",
-  "gov.it",
-  "edu.it",
-  "gov.gr",
-  "com.gr",
-  "edu.gr",
-  "org.gr",
-  "gov.cz",
-  "gov.sk",
-  "gov.hu",
-  "gov.ro",
-  "gov.rs",
-]);
+const HOST_RE = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:[a-z]{2,63}|xn--[a-z0-9-]{2,59})$/i;
 
 /** Tracking parameters — stripped during normalisation to avoid duplicates. */
 const TRACKING_PARAM_RE =
@@ -99,30 +13,21 @@ export type ParsedTarget = {
   url: string;
   /** The path supplied by the user (when they pointed at a specific page). */
   path: string;
+  /** Exact requested page, including path and query; site scans remain domain-wide. */
+  requestedUrl: string;
 };
 
 export function stripWww(host: string): string {
   return host.replace(/^www\./i, "").toLowerCase();
 }
 
-/** eTLD+1, np. `blog.sklep.com.pl` -> `sklep.com.pl`. */
+/** eTLD+1 from the complete ICANN+private Public Suffix List. */
 export function registrableDomain(host: string): string {
-  const h = stripWww(host).replace(/\.$/, "");
-  if (!h || !h.includes(".")) return h;
-  const labels = h.split(".");
-  if (labels.length <= 2) return h;
-  const lastTwo = labels.slice(-2).join(".");
-  if (MULTI_SUFFIXES.has(lastTwo) && labels.length >= 3) {
-    return labels.slice(-3).join(".");
-  }
-  return lastTwo;
+  return registeredDomain(stripWww(host));
 }
 
 export function tldOf(host: string): string {
-  const parts = stripWww(host).split(".");
-  const lastTwo = parts.slice(-2).join(".");
-  if (MULTI_SUFFIXES.has(lastTwo)) return lastTwo;
-  return parts.at(-1) ?? "";
+  return publicSuffix(stripWww(host));
 }
 
 /** Etykieta marki: `sklep` z `sklep.com.pl`. */
@@ -144,6 +49,7 @@ export function parseTarget(raw: string): ParsedTarget {
   let host = "";
   let url = "";
   let path = "/";
+  let requestedUrl = "";
 
   try {
     const withProto = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
@@ -151,6 +57,8 @@ export function parseTarget(raw: string): ParsedTarget {
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
       throw new Error("Only http(s) addresses are supported.");
     }
+    if (parsed.username || parsed.password) throw new Error("Embedded credentials are forbidden.");
+    requestedUrl = parsed.href;
     host = stripWww(parsed.hostname);
     path = parsed.pathname || "/";
     url = `https://${host}`;
@@ -171,6 +79,7 @@ export function parseTarget(raw: string): ParsedTarget {
     wwwHost: `www.${host}`,
     url,
     path,
+    requestedUrl,
   };
 }
 
@@ -233,7 +142,8 @@ export function pageKey(raw: string): string {
   const normalized = normalizeUrl(raw);
   try {
     const u = new URL(normalized);
-    return `${stripWww(u.hostname)}${u.pathname}${u.search}`.toLowerCase();
+    // Hostnames are case-insensitive; paths and query values are not.
+    return `${stripWww(u.hostname)}${u.pathname}${u.search}`;
   } catch {
     return normalized.toLowerCase();
   }

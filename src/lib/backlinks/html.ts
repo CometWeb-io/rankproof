@@ -405,24 +405,33 @@ export type ParsedAnchor = {
 };
 
 /** Parses `<a>` with its context: image alt, rel and document section. */
+/** Strip non-rendered sections without shifting source offsets used for link
+ * placement. A JavaScript string or HTML comment is not a live backlink. */
+function visibleAnchorMarkup(html: string): string {
+  const excluded =
+    /<!--[\s\S]*?-->|<(script|style|noscript|template|textarea)\b(?:"[^"]*"|'[^']*'|[^'">])*?>[\s\S]*?<\/\1\s*>/gi;
+  return html.replace(excluded, (block) => " ".repeat(block.length));
+}
+
 export function parseAnchors(
   html: string,
   baseUrl: string,
   opts: { limit?: number; withPlacement?: boolean } = {},
 ): ParsedAnchor[] {
   const limit = opts.limit ?? 1200;
-  const regions = opts.withPlacement === false ? [] : buildRegions(html);
+  const visible = visibleAnchorMarkup(html);
+  const regions = opts.withPlacement === false ? [] : buildRegions(visible);
   const out: ParsedAnchor[] = [];
-  const re = /<a\b([^>]{0,1200})>/gi;
+  // Do not interpret a > inside a quoted attribute as the tag's closing >.
+  const re = /<a\b((?:"[^"]*"|'[^']*'|[^'">]){0,1200})>/gi;
   let match: RegExpExecArray | null;
   let count = 0;
-  while ((match = re.exec(html)) && count < limit) {
+  while ((match = re.exec(visible)) && count < limit) {
     count += 1;
-    const attrs = match[1] ?? "";
-    const hrefMatch =
-      attrs.match(/href\s*=\s*["']([^"']{1,2000})["']/i) ?? attrs.match(/href\s*=\s*([^\s>]+)/i);
-    if (!hrefMatch?.[1]) continue;
-    const rawHref = decodeText(hrefMatch[1].trim());
+    const attrs = parseTagAttrs(match[1] ?? "");
+    // Only the exact "href" attribute counts, never "data-href" or "x-href".
+    const rawHref = decodeText((attrs.href ?? "").trim());
+    if (!rawHref || rawHref.length > 2000) continue;
     if (
       !rawHref ||
       rawHref.startsWith("#") ||
@@ -442,9 +451,9 @@ export function parseAnchors(
     } catch {
       continue;
     }
-    const relMatch = attrs.match(/rel\s*=\s*["']([^"']+)["']/i);
+    const rel = attrs.rel ?? "";
     const afterStart = match.index + match[0].length;
-    const after = html.slice(afterStart, afterStart + 600);
+    const after = visible.slice(afterStart, afterStart + 600);
     const close = after.search(/<\s*\/\s*a\s*>/i);
     const inner = close >= 0 ? after.slice(0, close) : after.slice(0, 200);
     const imgAlt = inner.match(/<img[^>]+alt\s*=\s*["']([^"']{1,140})["']/i)?.[1] ?? "";
@@ -452,15 +461,15 @@ export function parseAnchors(
     const rawText = decodeText(inner.replace(/<[^>]+>/g, " "))
       .replace(/\s+/g, " ")
       .trim();
-    const ariaLabel = attrs.match(/aria-label\s*=\s*["']([^"']{1,140})["']/i)?.[1];
-    const titleAttr = attrs.match(/title\s*=\s*["']([^"']{1,140})["']/i)?.[1];
+    const ariaLabel = attrs["aria-label"]?.slice(0, 140);
+    const titleAttr = attrs.title?.slice(0, 140);
     const text = (rawText || decodeText(imgAlt) || ariaLabel || titleAttr || "")
       .replace(/\s+/g, " ")
       .trim()
       .slice(0, 160);
     out.push({
       href,
-      rel: relMatch?.[1] ?? "",
+      rel,
       text,
       isImage,
       index: match.index,

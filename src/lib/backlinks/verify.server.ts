@@ -232,6 +232,7 @@ export async function verifyPages(pages: Candidate[], opts: VerifyOptions): Prom
             sitewide: false,
             discoveredVia: page.via,
             verified: true,
+            evidenceKind: "source-html",
             firstSeen: null,
             httpStatus: res.status,
             targetStatus: null,
@@ -278,7 +279,7 @@ export async function verifyPages(pages: Candidate[], opts: VerifyOptions): Prom
             via: "page",
           });
         }
-      } else if (res.text.toLowerCase().includes(opts.host.toLowerCase())) {
+      } else if (!res.truncated && res.text.toLowerCase().includes(opts.host.toLowerCase())) {
         const snippet =
           snippetAround(res.text, opts.host) ??
           `The page mentions ${opts.host} but no hyperlink was found`;
@@ -294,6 +295,26 @@ export async function verifyPages(pages: Candidate[], opts: VerifyOptions): Prom
   });
 
   return { backlinks, mentions, deeper, checked, edges, unlinkedPages };
+}
+
+/** A link is only 'lost' when the current original page was fetched and
+ * independently found to contain no target-domain anchors. Errors, blocked
+ * pages and HTML too small for meaningful extraction stay unknown. */
+export function isConfirmedLostBacklink(
+  status: number,
+  currentHtml: string,
+  currentUrl: string,
+  targetHost: string,
+  truncated = false,
+  originalSourceUrl?: string,
+): boolean {
+  if (truncated || status < 200 || status >= 300 || currentHtml.length < 500) return false;
+  // A different final page (including a homepage, login page or moved article)
+  // is not the original document. Its missing link proves nothing about loss.
+  if (originalSourceUrl && pageKey(currentUrl) !== pageKey(originalSourceUrl)) return false;
+  return !parseAnchors(currentHtml, currentUrl).some((anchor) =>
+    isTargetHost(hostFromUrl(anchor.href), targetHost),
+  );
 }
 
 /**
@@ -318,12 +339,34 @@ export async function findLostLinks(
         snapshot.url,
         opts.budget.timeout(8000),
         opts.budget.signal,
+        opts.budget,
       );
       if (res.status >= 400 || res.text.length < 500) return;
       const anchors = parseAnchors(res.text, pageUrl).filter((a) =>
         isTargetHost(hostFromUrl(a.href), opts.host),
       );
       if (anchors.length === 0) return;
+      // Archive observation alone does not prove the backlink is lost today.
+      // Fail closed on blocked/unavailable/short current pages rather than
+      // promising a link-recovery opportunity with no fresh evidence.
+      const live = await fetchUsefulHtml(
+        pageUrl,
+        opts.budget.timeout(6000),
+        opts.budget.signal,
+        opts.budget,
+      );
+      if (
+        !isConfirmedLostBacklink(
+          live.status,
+          live.text,
+          live.finalUrl || pageUrl,
+          opts.host,
+          live.truncated,
+          pageUrl,
+        )
+      ) {
+        return;
+      }
       const anchor = anchors[0]!;
       const sourceHost = hostFromUrl(pageUrl);
       const targetUrl = normalizeUrl(anchor.href);
@@ -345,7 +388,8 @@ export async function findLostLinks(
         placement: anchor.placement,
         sitewide: false,
         discoveredVia: "archive",
-        verified: true,
+        verified: false,
+        evidenceKind: "archived-html",
         firstSeen: null,
         httpStatus: null,
         targetStatus: null,
@@ -380,7 +424,7 @@ export async function probeTargets(
   const out = new Map<string, ProbeResult>();
   await mapLimit(unique, 6, async (url) => {
     if (budget.left() < 2000) return;
-    const result = await probeStatus(url, budget.timeout(5000), budget.signal);
+    const result = await probeStatus(url, budget.timeout(5000), budget.signal, budget);
     if (result) out.set(url, { status: result.status, finalUrl: normalizeUrl(result.finalUrl) });
   });
   return out;
