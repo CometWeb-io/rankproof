@@ -6,7 +6,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 
 import { usefulHtml } from "./html.ts";
 import { config } from "./config.ts";
-import { createHostLimiter } from "./host-limiter.ts";
+import { createTransportCapacity } from "./host-limiter.ts";
 import { diskCache, type CachedResponse } from "./disk-cache.server.ts";
 import { guardUrl, guardUrlWithDns, isPrivateAddress } from "./ssrf.ts";
 import { isAllowed, robotsFor } from "./robots.server.ts";
@@ -30,8 +30,13 @@ const CACHE_LIMIT = 64; // predictable memory budget on small local machines
 // Short lifetime: backlink verification must reflect changes within a session.
 const CACHE_TTL_MS = 60_000;
 
-/** A simple limiter: at most N parallel requests to a single host. */
-const acquireHost = createHostLimiter(config().hostConcurrency);
+/** Two independent local controls: per-host and total simultaneous HTTP I/O. */
+const configuredGlobal = Number(process.env.RANKPROOF_GLOBAL_HTTP_CONCURRENCY);
+const globalConcurrency =
+  Number.isSafeInteger(configuredGlobal) && configuredGlobal >= 1
+    ? Math.min(24, configuredGlobal)
+    : 12;
+const acquireTransport = createTransportCapacity(config().hostConcurrency, globalConcurrency);
 
 /**
  * The cache key must include language and user-agent: the same SERP URL returns
@@ -351,7 +356,7 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
       };
       // The slot is held until the response BODY is read or cancelled, not
       // merely until headers arrive. Otherwise slow peers bypass concurrency.
-      releaseHost = await acquireHost(hopUrl.hostname, controller.signal);
+      releaseHost = await acquireTransport(hopUrl.hostname, controller.signal);
       const pin =
         process.env.RANKPROOF_PIN_DNS === "1" ||
         (process.env.NODE_ENV === "production" && process.env.RANKPROOF_PIN_DNS !== "0");

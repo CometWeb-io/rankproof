@@ -140,3 +140,7 @@ By default PGLite runs in memory: it does not persist across process restarts. O
 ### Crawl-delay and bounded wait budgets
 
 When robots.txt requests a crawl delay, RankProof reserves the actual requested interval for the origin. If the next request would require waiting longer than the bounded per-request queue budget (10 seconds), it **skips/fails that fetch** instead of shortening the site operator's delay. Waiting is abortable when a scan is cancelled. Reservation state is bounded and expired entries are pruned.
+
+### Global outbound request admission
+
+In addition to per-host request concurrency, RankProof bounds simultaneously active HTTP connections across **all** hosts in the process. `RANKPROOF_GLOBAL_HTTP_CONCURRENCY` defaults to 12 and is capped at 24. Slots are occupied through response consumption and released on cancellation. This is a local resource safeguard, not a distributed quota or a complete count of third-party requests outside the shared HTTP transport.

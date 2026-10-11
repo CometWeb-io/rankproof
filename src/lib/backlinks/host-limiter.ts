@@ -65,3 +65,25 @@ export function createHostLimiter(perHost: number, maxQueue = 64) {
     });
   };
 }
+
+/** A transport needs both one per-host slot and a global network slot. */
+export function createTransportCapacity(perHost: number, globalMax: number) {
+  const hostGate = createHostLimiter(perHost);
+  const globalGate = createHostLimiter(globalMax);
+  return async (host: string, signal?: AbortSignal): Promise<() => void> => {
+    const releaseHost = await hostGate(host, signal);
+    try {
+      const releaseGlobal = await globalGate("all", signal);
+      let released = false;
+      return () => {
+        if (released) return;
+        released = true;
+        releaseGlobal();
+        releaseHost();
+      };
+    } catch (error) {
+      releaseHost();
+      throw error;
+    }
+  };
+}

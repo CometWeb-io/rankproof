@@ -44,3 +44,19 @@ test("bounded queue rejects excess work and enforces aborted signals", async () 
   controller.abort();
   await assert.rejects(acquire("example.com", controller.signal), /aborted/);
 });
+
+test("transport capacity limits cross-host concurrency and releases both slots", async () => {
+  const { createTransportCapacity } = await import("./host-limiter.ts");
+  const acquire = createTransportCapacity(1, 2);
+  const first = await acquire("a.example");
+  const second = await acquire("b.example");
+  const abort = new AbortController();
+  const queued = acquire("c.example", abort.signal);
+  abort.abort();
+  await assert.rejects(queued, /aborted/);
+  first();
+  second();
+  const third = await acquire("c.example");
+  third();
+  third();
+});
