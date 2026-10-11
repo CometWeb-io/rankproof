@@ -86,9 +86,13 @@ export async function assertProviderUrlAllowed(raw: string, resolve?: Resolver):
   // Never apply this exception to site URLs, redirects or caller-supplied hosts.
   const configured = new URL(raw);
   const localHostname = configured.hostname.toLowerCase().replace(/^\[|\]$/g, "");
-  if (process.env.RANKPROOF_GOOGLE_ALLOW_LOOPBACK === "1" &&
-      configured.protocol === "http:" &&
-      (localHostname === "127.0.0.1" || localHostname === "::1")) return;
+  if (
+    process.env.RANKPROOF_GOOGLE_ALLOW_LOOPBACK === "1" &&
+    configured.protocol === "http:" &&
+    (localHostname === "127.0.0.1" || localHostname === "::1")
+  ) {
+    return;
+  }
 
   const staticVerdict = guardUrl(raw);
   if (!staticVerdict.allowed) {
@@ -139,7 +143,14 @@ export async function fetchGoogleOrganicViaProvider(
   const url = new URL(`${base}/google/search`);
   // OpenSERP v2 uses text/lang/region/start, not Google HTML parameters q/gl.
   url.searchParams.set("text", keyword);
-  const languages: Record<string, string> = { pl: "pl", us: "en", gb: "en", de: "de", fr: "fr", es: "es" };
+  const languages: Record<string, string> = {
+    pl: "pl",
+    us: "en",
+    gb: "en",
+    de: "de",
+    fr: "fr",
+    es: "es",
+  };
   if (options.market) {
     url.searchParams.set("region", options.market);
     url.searchParams.set("lang", languages[options.market] ?? "en");
@@ -199,8 +210,10 @@ export async function fetchGoogleOrganicViaProvider(
     const positionRecord = isRecord(row.position) ? row.position : null;
     const explicitPosition = Number(positionRecord?.absolute ?? row.rank);
     hits.push({
-      position: Number.isInteger(explicitPosition) && explicitPosition > 0
-        ? explicitPosition : page * 10 + hits.length + 1,
+      position:
+        Number.isInteger(explicitPosition) && explicitPosition > 0
+          ? explicitPosition
+          : page * 10 + hits.length + 1,
       url: href,
       title: String(row.title ?? "").slice(0, 200),
       snippet: String(row.snippet ?? row.description ?? "").slice(0, 400),

@@ -243,7 +243,8 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
     ? skip({ mentions: [], candidates: [] as Candidate[] })
     : timed(() => scanNews(queries, host, budget.signal));
   const githubT = timed(() => scanGithub(queries, host, budget.signal));
-  const gdeltT = light || quick ? skip([] as Candidate[]) : timed(() => scanGdelt(host, budget.signal));
+  const gdeltT =
+    light || quick ? skip([] as Candidate[]) : timed(() => scanGdelt(host, budget.signal));
   const bskyT = light || quick
     ? skip({ backlinks: [], mentions: [] })
     : timed(() => scanBluesky(queries, host, budget.signal));
@@ -680,9 +681,10 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
   // Real clicks and impressions, but only when the operator connected an account.
   // Environment credentials identify the server operator, not the web caller.
   // Keep owner-only performance out of unauthenticated web/API scan results.
-  const searchConsole = light || !options.includeOwnerData
-    ? null
-    : buildSearchConsoleInsights(await fetchSearchConsoleData(host).catch(() => []), serpQueries);
+  const searchConsole =
+    light || !options.includeOwnerData
+      ? null
+      : buildSearchConsoleInsights(await fetchSearchConsoleData(host).catch(() => []), serpQueries);
 
   const scorecard = buildScorecard({
     analytics,

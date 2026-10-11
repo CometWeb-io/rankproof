@@ -2032,7 +2032,8 @@ test("Google provider URL is refused for loopback and metadata before fetch", as
 /* ----------- Evidence correctness regression tests (2026-10) ----------- */
 
 test("parseAnchors does not treat data-href or data-rel as real link attributes", () => {
-  const html = '<a data-href="https://fake.example/target" data-rel="nofollow" href="https://real.example/target" rel="sponsored">Actual</a>';
+  const html =
+    '<a data-href="https://fake.example/target" data-rel="nofollow" href="https://real.example/target" rel="sponsored">Actual</a>';
   const links = parseAnchors(html, "https://source.example/page", { withPlacement: false });
   assert.equal(links.length, 1);
   assert.equal(links[0]?.href, "https://real.example/target");
@@ -2041,8 +2042,14 @@ test("parseAnchors does not treat data-href or data-rel as real link attributes"
 
 test("pageKey preserves case-sensitive paths and query values", () => {
   assert.notEqual(pageKey("https://example.com/Products"), pageKey("https://example.com/products"));
-  assert.notEqual(pageKey("https://example.com/item?sku=A"), pageKey("https://example.com/item?sku=a"));
-  assert.equal(pageKey("https://EXAMPLE.com/item?sku=A"), pageKey("https://example.com/item?sku=A"));
+  assert.notEqual(
+    pageKey("https://example.com/item?sku=A"),
+    pageKey("https://example.com/item?sku=a"),
+  );
+  assert.equal(
+    pageKey("https://EXAMPLE.com/item?sku=A"),
+    pageKey("https://example.com/item?sku=A"),
+  );
 });
 
 test("SERP visibility is monotone for ranks 1..20 and beats no rank", async () => {
@@ -2060,8 +2067,10 @@ test("SERP visibility is monotone for ranks 1..20 and beats no rank", async () =
     assert.ok(current <= previous, `rank ${rank} should not outrank rank ${rank - 1}`);
     previous = current;
   }
-  assert.ok(visibilityScore([query(20) as never]).visibility >
-    visibilityScore([query(null) as never]).visibility);
+  assert.ok(
+    visibilityScore([query(20) as never]).visibility >
+      visibilityScore([query(null) as never]).visibility,
+  );
 });
 
 test("OpenSERP v2 contract uses text/lang/region and preserves absolute rank", async () => {
@@ -2074,11 +2083,21 @@ test("OpenSERP v2 contract uses text/lang/region and preserves absolute rank", a
     resolve: async () => ["93.184.216.34"],
     fetchImpl: (async (url: string | URL | Request) => {
       requested = String(url);
-      return new Response(JSON.stringify({ results: [
-        { url: "https://ads.example", type: "ad", position: { absolute: 10 }, title: "Ad" },
-        { url: "https://organic.example", type: "organic", position: { absolute: 12 }, title: "Organic" }
-      ] }), { status: 200, headers: { "content-type": "application/json" } });
-    }) as typeof fetch
+      return new Response(
+        JSON.stringify({
+          results: [
+            { url: "https://ads.example", type: "ad", position: { absolute: 10 }, title: "Ad" },
+            {
+              url: "https://organic.example",
+              type: "organic",
+              position: { absolute: 12 },
+              title: "Organic",
+            },
+          ],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }) as typeof fetch,
   });
   const url = new URL(requested);
   assert.equal(url.pathname, "/google/search");
@@ -2098,7 +2117,9 @@ test("robots policy fails closed after transport errors, not open", async () => 
   try {
     clearNetCache();
     clearRobotsCache();
-    globalThis.fetch = (async () => { throw new Error("connection reset"); }) as typeof fetch;
+    globalThis.fetch = (async () => {
+      throw new Error("connection reset");
+    }) as typeof fetch;
     const rules = await robotsFor("https://robots-unavailable.example", new Budget(5_000));
     assert.equal(rules.missing, false);
     assert.equal(isAllowed(rules, "/page"), false);
@@ -2117,7 +2138,10 @@ test("network cache does not reuse responses with different byte limits", async 
     clearNetCache();
     globalThis.fetch = (async () => {
       calls++;
-      return new Response("abcdef", { status: 200, headers: { "content-type": "text/plain" } });
+      return new Response("abcdef", {
+        status: 200,
+        headers: { "content-type": "text/plain" },
+      });
     }) as typeof fetch;
     const url = "https://cache-test.example/article";
     const common = { timeoutMs: 4000, skipRobots: true };
@@ -2134,7 +2158,10 @@ test("network cache does not reuse responses with different byte limits", async 
 
 test("CSV exporter neutralizes formula-leading untrusted text", async () => {
   const { csvCell } = await import("./export.ts");
-  assert.equal(csvCell('=HYPERLINK("https://example.com")'), `"'=HYPERLINK(""https://example.com"")"`);
+  assert.equal(
+    csvCell('=HYPERLINK("https://example.com")'),
+    `"'=HYPERLINK(""https://example.com"")"`,
+  );
   assert.equal(csvCell("   +SUM(1,2)"), `"'   +SUM(1,2)"`);
   assert.equal(csvCell(-42), '"-42"');
 });
@@ -2142,10 +2169,21 @@ test("CSV exporter neutralizes formula-leading untrusted text", async () => {
 test("rank opportunity is zero when SERP sources did not measure the query", async () => {
   const { buildKeywordStats } = await import("./keywords.ts");
   const seeds = [{ keyword: "missing keyword", source: "content" as const, weight: 70 }];
-  const q = { keyword: "missing keyword", engine: "bing" as const,
-    status: "blocked" as const, targetPosition: null, results: [], features: [],
-    depth: 0, difficulty: 0, market: "pl" as const, device: "desktop" as const,
-    related: [], questions: [], ms: 10 };
+  const q = {
+    keyword: "missing keyword",
+    engine: "bing" as const,
+    status: "blocked" as const,
+    targetPosition: null,
+    results: [],
+    features: [],
+    depth: 0,
+    difficulty: 0,
+    market: "pl" as const,
+    device: "desktop" as const,
+    related: [],
+    questions: [],
+    ms: 10,
+  };
   const stats = buildKeywordStats(seeds, [q], [], []);
   assert.equal(stats[0]?.opportunity, 0);
   assert.equal(stats[0]?.bestPosition, null);

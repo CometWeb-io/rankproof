@@ -40,7 +40,7 @@ _Animated excerpt of actual local command output. [Static version](docs/media/cl
 | Area              | Output                                                            |
 | ----------------- | ----------------------------------------------------------------- |
 | Search visibility | Positions, keyword ideas, SERP overlap and scan history           |
-| Backlinks         | HTML-verified links distinguished from source-API observations   |
+| Backlinks         | HTML-verified links distinguished from source-API observations    |
 | Site structure    | Internal links, redirects, canonical issues and orphan candidates |
 | Comparison        | Link gaps and changes between scans                               |
 | Reporting         | JSON, CSV and a standalone HTML report                            |
@@ -78,11 +78,11 @@ npm run build
 
 RankProof does not require paid SEO APIs or hosted infrastructure. Set `RANKPROOF_SCAN_PROFILE` to control the amount of work:
 
-| Profile | Time budget | Backlink cap | Verification candidates | Notes |
-| --- | ---: | ---: | ---: | --- |
-| `quick` | 20 s | 160 | 24 | Skips expensive secondary discovery and internal crawl; incomplete by design |
-| `standard` (default) | 58 s | 400 | 64 | Balanced free-data scan |
-| `deep` | 180 s | 1200 | 200 | Wider evidence gathering; run locally |
+| Profile              | Time budget | Backlink cap | Verification candidates | Notes                                                                        |
+| -------------------- | ----------: | -----------: | ----------------------: | ---------------------------------------------------------------------------- |
+| `quick`              |        20 s |          160 |                      24 | Skips expensive secondary discovery and internal crawl; incomplete by design |
+| `standard` (default) |        58 s |          400 |                      64 | Balanced free-data scan                                                      |
+| `deep`               |       180 s |         1200 |                     200 | Wider evidence gathering; run locally                                        |
 
 These are **internal scan budgets and caps, not a guaranteed total runtime or an HTTP request count**. Network operations, optional integrations and the internal audit can extend elapsed time. Compare trends only across equivalent profiles and source coverage.
 

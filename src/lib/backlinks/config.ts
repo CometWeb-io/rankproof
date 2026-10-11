@@ -88,12 +88,30 @@ export function parseDevice(raw: string | undefined, fallback: SerpDevice): Serp
 }
 
 const PROFILE_LIMITS = {
-  quick: { scanBudgetMs: 20_000, lightBudgetMs: 8_000, hostConcurrency: 2,
-    maxBacklinks: 160, maxVerify: 24, serpDepth: 10 },
-  standard: { scanBudgetMs: 58_000, lightBudgetMs: 20_000, hostConcurrency: 3,
-    maxBacklinks: 400, maxVerify: 64, serpDepth: 10 },
-  deep: { scanBudgetMs: 180_000, lightBudgetMs: 30_000, hostConcurrency: 2,
-    maxBacklinks: 1_200, maxVerify: 200, serpDepth: 20 },
+  quick: {
+    scanBudgetMs: 20_000,
+    lightBudgetMs: 8_000,
+    hostConcurrency: 2,
+    maxBacklinks: 160,
+    maxVerify: 24,
+    serpDepth: 10,
+  },
+  standard: {
+    scanBudgetMs: 58_000,
+    lightBudgetMs: 20_000,
+    hostConcurrency: 3,
+    maxBacklinks: 400,
+    maxVerify: 64,
+    serpDepth: 10,
+  },
+  deep: {
+    scanBudgetMs: 180_000,
+    lightBudgetMs: 30_000,
+    hostConcurrency: 2,
+    maxBacklinks: 1_200,
+    maxVerify: 200,
+    serpDepth: 20,
+  },
 } as const;
 
 export const DEFAULT_CONFIG: RuntimeConfig = {

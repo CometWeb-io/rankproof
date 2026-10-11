@@ -210,9 +210,15 @@ export async function fetchSearchConsole(
   ]);
   if (propertyTotals === null) {
     return {
-      source: "google", connected: false, property,
-      error: "Could not retrieve property-wide totals; refusing to report partial query totals as complete.",
-      days, queries: [], pages: [], previousQueries: [],
+      source: "google",
+      connected: false,
+      property,
+      error:
+        "Could not retrieve property-wide totals; refusing to report partial query totals as complete.",
+      days,
+      queries: [],
+      pages: [],
+      previousQueries: [],
       totals: { clicks: 0, impressions: 0, ctr: 0, position: 0 },
     };
   }
