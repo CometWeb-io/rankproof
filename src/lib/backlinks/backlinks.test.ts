@@ -2817,7 +2817,7 @@ test("OpenSERP malformed envelopes and engine failures never become zero ranking
   assert.deepEqual(empty.hits, []);
 });
 
-test("blocked SERP sources cannot contaminate competitor share or keyword opportunities", async () => {
+test("blocked SERPs do not contaminate competitor analytics", async () => {
   const { buildSerpCompetitors } = await import("./serp-intel.ts");
   const { snapshotFromQueries } = await import("./serp.server.ts");
   const measured = query({
@@ -2835,7 +2835,8 @@ test("blocked SERP sources cannot contaminate competitor share or keyword opport
   const snapshot = snapshotFromQueries([measured, blocked]);
   assert.deepEqual(snapshot.competitors, baseline);
   assert.equal(snapshot.unmeasured, 1);
-  assert.equal(snapshot.engineHealth.some((engine) => engine.status === "blocked"), true);
+  const blockedEngine = snapshot.engineHealth.some((engine) => engine.status === "blocked");
+  assert.equal(blockedEngine, true);
   const blockedOnly = snapshotFromQueries([blocked]);
   assert.equal(blockedOnly.competitors.length, 0);
   assert.equal(blockedOnly.contentGaps.length, 0);
