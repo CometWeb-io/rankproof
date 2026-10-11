@@ -233,21 +233,24 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
   /* --- Phase 2: sources that use the brand name ----------------------- */
   const skip = <T>(value: T) => timed(async () => value);
 
-  const hnT = light || quick
-    ? skip({ backlinks: [], mentions: [] })
-    : timed(() => scanHackerNews(queries, host, budget.signal));
+  const hnT =
+    light || quick
+      ? skip({ backlinks: [], mentions: [] })
+      : timed(() => scanHackerNews(queries, host, budget.signal));
   const bingT = timed(() => scanBing(host, tokens, budget.signal));
   const ddgT = timed(() => scanDuckDuckGo(host, tokens, budget.signal));
   const mojeekT = timed(() => scanMojeek(host, tokens, budget.signal));
-  const newsT = light || quick
-    ? skip({ mentions: [], candidates: [] as Candidate[] })
-    : timed(() => scanNews(queries, host, budget.signal));
+  const newsT =
+    light || quick
+      ? skip({ mentions: [], candidates: [] as Candidate[] })
+      : timed(() => scanNews(queries, host, budget.signal));
   const githubT = timed(() => scanGithub(queries, host, budget.signal));
   const gdeltT =
     light || quick ? skip([] as Candidate[]) : timed(() => scanGdelt(host, budget.signal));
-  const bskyT = light || quick
-    ? skip({ backlinks: [], mentions: [] })
-    : timed(() => scanBluesky(queries, host, budget.signal));
+  const bskyT =
+    light || quick
+      ? skip({ backlinks: [], mentions: [] })
+      : timed(() => scanBluesky(queries, host, budget.signal));
 
   const [wikiR, urlscanR, seR, redditR, hnR, bingR, ddgR, mojeekR, newsR, githubR, gdeltR, bskyR] =
     await Promise.all([
