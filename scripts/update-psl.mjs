@@ -16,7 +16,10 @@ const groups = { icann: [], private: [] };
 let group = "icann";
 for (const line of text.split(/\r?\n/)) {
   const rule = line.trim();
-  if (rule.includes("===BEGIN PRIVATE DOMAINS===")) { group = "private"; continue; }
+  if (rule.includes("===BEGIN PRIVATE DOMAINS===")) {
+    group = "private";
+    continue;
+  }
   if (rule.includes("===END PRIVATE DOMAINS===")) break;
   if (!rule || rule.startsWith("//")) continue;
   if (!/^[^\s`$]+$/.test(rule)) throw new Error("Invalid PSL rule");
