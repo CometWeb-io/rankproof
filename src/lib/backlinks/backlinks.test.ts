@@ -2594,10 +2594,7 @@ test("historical comparisons select the latest matching scope, not the latest ho
     entry("market-pl", "2026-10-08T00:00:00Z"),
     entry("market-pl", "2026-10-09T00:00:00Z"),
   ];
-  assert.equal(
-    previousForScope(rows, "example.com", "market-pl")?.at,
-    "2026-10-09T00:00:00Z",
-  );
+  assert.equal(previousForScope(rows, "example.com", "market-pl")?.at, "2026-10-09T00:00:00Z");
   assert.equal(previousForScope(rows, "example.com", "market-gb"), null);
   assert.equal(previousForScope(rows, "another.com", "market-pl"), null);
   assert.equal(previousForScope(rows, "example.com", undefined), null);
@@ -2620,7 +2617,7 @@ test("RFC 9309 selects the longest applicable product token, not all prefixes", 
   assert.equal(isAllowed(rules, "/public"), true);
 });
 
-test("RFC 9309 combines repeated matching agent groups without wildcard restrictions", async () => {
+test("RFC 9309 merges matching groups without wildcard restrictions", async () => {
   const { parseRobots, isAllowed } = await import("./robots.server.ts");
   const text = [
     "User-agent: RankProof",

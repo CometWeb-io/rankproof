@@ -85,21 +85,21 @@ export function parseRobots(text: string, agent = "rankproof"): RobotsRules {
 
   // RFC 9309 merges rules from applicable groups, not rules belonging to
   // shorter-prefix agents or the wildcard group when a specific one matches.
-  const matching = groups.map((item) => ({
-    group: item,
-    specificity: Math.max(
-      0,
-      ...item.agents
-        .filter((name) => name !== "*" && productToken.startsWith(name))
-        .map((name) => name.length),
-    ),
-  }));
+  const matching: { group: Group; specificity: number }[] = [];
+  for (const candidate of groups) {
+    let specificity = 0;
+    for (const name of candidate.agents) {
+      if (name !== "*" && productToken.startsWith(name)) {
+        specificity = Math.max(specificity, name.length);
+      }
+    }
+    matching.push({ group: candidate, specificity });
+  }
   const specificity = Math.max(0, ...matching.map((item) => item.specificity));
-  const chosen = matching.filter((item) =>
+  const chosen =
     specificity > 0
-      ? item.specificity === specificity
-      : item.group.agents.includes("*"),
-  );
+      ? matching.filter((item) => item.specificity === specificity)
+      : matching.filter((item) => item.group.agents.includes("*"));
   const combined: RobotsRules = {
     allow: chosen.flatMap((item) => item.group.allow),
     disallow: chosen.flatMap((item) => item.group.disallow),

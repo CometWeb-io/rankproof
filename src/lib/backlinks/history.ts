@@ -72,30 +72,28 @@ export function previousForScope(
   scopeKey: string | undefined,
 ): HistoryItem | null {
   if (!scopeKey) return null;
-  const candidates = items.filter(
-    (item) => item.host === host && item.scopeKey === scopeKey,
-  );
+  const candidates = items.filter((item) => item.host === host && item.scopeKey === scopeKey);
   return candidates.sort((a, b) => b.at.localeCompare(a.at))[0] ?? null;
 }
 
 export function findPrevious(host: string, scopeKey?: string): HistoryItem | null {
   const items = loadHistory();
-  return scopeKey
-    ? previousForScope(items, host, scopeKey)
-    : (items.find((row) => row.host === host) ?? null);
+  if (scopeKey) return previousForScope(items, host, scopeKey);
+  return items.find((row) => row.host === host) ?? null;
 }
 
 /** Comparison with the previous scan of the same domain: new and lost links. */
 export function diffReport(report: ScanReport, previous: HistoryItem | null): ScanDiff | null {
   // The UI starts a scan before knowing its scope; an unrelated latest
   // observation must not hide an older comparable observation.
-  const comparable =
-    previous !== null &&
-    report.scopeKey &&
-    previous.scopeKey === report.scopeKey &&
-    previous.host === report.target.host
-      ? previous
-      : previousForScope(loadHistory(), report.target.host, report.scopeKey);
+  let comparable = previous;
+  if (
+    !report.scopeKey ||
+    comparable?.scopeKey !== report.scopeKey ||
+    comparable.host !== report.target.host
+  ) {
+    comparable = previousForScope(loadHistory(), report.target.host, report.scopeKey);
+  }
   if (!comparable || comparable.at === report.queriedAt) return null;
 
   const prevIds = new Set(comparable.ids ?? []);
@@ -125,9 +123,7 @@ export function diffReport(report: ScanReport, previous: HistoryItem | null): Sc
 export function pushHistory(item: HistoryItem): HistoryItem[] {
   const next = [
     item,
-    ...loadHistory().filter(
-      (row) => row.host !== item.host || row.scopeKey !== item.scopeKey,
-    ),
+    ...loadHistory().filter((row) => row.host !== item.host || row.scopeKey !== item.scopeKey),
   ].slice(0, LIMIT);
   try {
     window.localStorage.setItem(KEY, JSON.stringify(next));
