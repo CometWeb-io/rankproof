@@ -172,3 +172,7 @@ Rank movement requires a **successfully measured SERP**. Missing keyword rows, b
 ## SERP evidence boundaries
 
 The report retains every attempted query and its provider health, but competitors, keyword clusters, content gaps, featured opportunities, page-position summaries and SERP overlap use only queries whose status is `ok` or `no-results`. Partial HTML returned alongside a blocked, rate-limited or failed query must not create competitor leads or dilute keyword overlap denominators.
+
+## HTML-backed link extraction
+
+The backlink parser ignores anchor-like strings within HTML comments, JavaScript, style blocks, templates and textareas. It handles quoted `>` characters in opening anchor attributes. The scanner preserves original source offsets for link placement and does not treat non-rendered markup as a verified hyperlink. HTML parsing remains a bounded heuristic rather than a full browser DOM or JavaScript renderer; real-site fixture evaluation is still needed.
