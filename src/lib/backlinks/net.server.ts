@@ -21,8 +21,10 @@ export type FetchResult = {
   fromCache: boolean;
 };
 
-const CACHE = new Map<string, FetchResult>();
+const CACHE = new Map<string, { value: FetchResult; storedAt: number }>();
 const CACHE_LIMIT = 400;
+// Short lifetime: backlink verification must reflect changes within a session.
+const CACHE_TTL_MS = 60_000;
 
 /** A simple limiter: at most N parallel requests to a single host. */
 const HOST_SLOTS = new Map<string, number>();
@@ -61,7 +63,11 @@ function releaseHost(host: string) {
  * different results for another market and for the mobile version.
  */
 function cacheKey(url: string, method: string, opts: FetchOptions): string {
-  return `${method} ${url} ${opts.acceptLanguage ?? ""} ${opts.ua ?? ""}`;
+  // Different byte limits, representations and request headers cannot share a
+  // cached body. Never cache authorization-bearing requests at all.
+  const headers = Object.entries(opts.headers ?? {}).sort(([a], [b]) => a.localeCompare(b));
+  return JSON.stringify([method, url, opts.acceptLanguage, opts.ua, opts.accept,
+    opts.maxBytes, opts.usefulMax, opts.skipRobots, headers]);
 }
 
 function remember(key: string, value: FetchResult) {
@@ -69,7 +75,7 @@ function remember(key: string, value: FetchResult) {
     const first = CACHE.keys().next().value;
     if (first) CACHE.delete(first);
   }
-  CACHE.set(key, value);
+  CACHE.set(key, { value, storedAt: Date.now() });
 }
 
 export type FetchOptions = {
@@ -157,6 +163,7 @@ function pinnedRequest(
     method: string;
     headers: Record<string, string>;
     signal?: AbortSignal;
+    maxBytes: number;
   },
 ): Promise<Response> {
   const parsed = new URL(url);
@@ -182,12 +189,17 @@ function pinnedRequest(
       },
       (res: IncomingMessage) => {
         const chunks: Buffer[] = [];
-        // Without these two the promise never settles when the peer resets or
-        // truncates after the headers: 'end' simply never fires, and neither
-        // the request timeout nor the abort signal applies any more.
+        let received = 0;
         res.on("error", reject);
         res.on("aborted", () => reject(new Error("Response aborted by the server.")));
-        res.on("data", (chunk: Buffer) => chunks.push(chunk));
+        res.on("data", (chunk: Buffer) => {
+          received += chunk.byteLength;
+          if (received > init.maxBytes) {
+            res.destroy(new Error("Response exceeded configured byte limit."));
+            return;
+          }
+          chunks.push(chunk);
+        });
         res.on("end", () => {
           const headerInit: [string, string][] = [];
           for (const [key, value] of Object.entries(res.headers)) {
@@ -199,8 +211,10 @@ function pinnedRequest(
             }
           }
           resolve(
-            new Response(Buffer.concat(chunks), {
-              status: res.statusCode ?? 0,
+            new Response(
+              init.method === "HEAD" || [204, 205, 304].includes(res.statusCode ?? 0)
+                ? null : Buffer.concat(chunks), {
+              status: res.statusCode ?? 200,
               statusText: res.statusMessage,
               headers: headerInit,
             }),
@@ -236,9 +250,13 @@ async function respectCrawlDelay(origin: string, delaySeconds: number | null): P
 export async function fetchText(url: string, opts: FetchOptions): Promise<FetchResult> {
   const method = opts.method ?? "GET";
   const key = cacheKey(url, method, opts);
-  if (opts.cache !== false) {
+  const cacheAllowed = opts.cache !== false &&
+    !Object.keys(opts.headers ?? {}).some((key) => /^(authorization|cookie|proxy-authorization)$/i.test(key));
+  if (cacheAllowed) {
     const hit = CACHE.get(key);
-    if (hit) return { ...hit, fromCache: true };
+    if (hit && Date.now() - hit.storedAt < CACHE_TTL_MS)
+      return { ...hit.value, fromCache: true };
+    if (hit) CACHE.delete(key);
   }
 
   // Fail closed: an unparseable or non-public URL never reaches the network.
@@ -255,20 +273,10 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
     throw new BlockedUrlError("Malformed source URL.");
   }
 
-  // robots.txt applies to pages we crawl, not to SERP or API lookups.
-  let crawlDelay: number | null = null;
-  if (!opts.skipRobots && opts.budget) {
-    const rules = await robotsFor(origin, opts.budget);
-    if (!isAllowed(rules, new URL(url).pathname)) throw new RobotsDisallowedError(url);
-    crawlDelay = rules.crawlDelay;
-  }
-
+  // Crawl rules must also be enforced for every redirect destination.
   const cache = diskCache();
-  const cacheable = method === "GET" && opts.cache !== false && cache.enabled;
+  const cacheable = method === "GET" && cacheAllowed && cache.enabled;
   const stored: CachedResponse | null = cacheable ? await cache.get(key) : null;
-
-  const release = await acquireHost(host);
-  await respectCrawlDelay(origin, crawlDelay);
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), opts.timeoutMs);
@@ -279,12 +287,17 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
     let current = url;
     let res: Response | null = null;
 
-    // Manual redirect handling so the guard sees every hop. Set
-    // RANKPROOF_PIN_DNS=1 to connect via the validated IP (Host/SNI preserved)
-    // and close the DNS-rebinding TOCTOU window; default uses fetch so test
-    // doubles that stub globalThis.fetch keep working.
+    // Production pins validated IPs; development allows fetch-based test doubles.
+    // RANKPROOF_PIN_DNS=0 is an unsafe explicit override for local debugging only.
     for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
       const addresses = await assertFetchable(current);
+      const hopUrl = new URL(current);
+      if (!opts.skipRobots && opts.budget) {
+        const rules = await robotsFor(hopUrl.origin, opts.budget);
+        if (!isAllowed(rules, hopUrl.pathname + hopUrl.search))
+          throw new RobotsDisallowedError(current);
+        await respectCrawlDelay(hopUrl.origin, rules.crawlDelay);
+      }
       const headers = {
         "User-Agent": opts.ua ?? BROWSER_UA,
         Accept: opts.accept ?? "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8",
@@ -292,19 +305,21 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
         ...cache.conditionalHeaders(stored),
         ...opts.headers,
       };
-      const response =
-        process.env.RANKPROOF_PIN_DNS === "1" || process.env.SERPRADAR_PIN_DNS === "1"
+      const releaseHost = await acquireHost(hopUrl.hostname);
+      let response: Response;
+      try {
+        const pin = process.env.RANKPROOF_PIN_DNS === "1" ||
+          (process.env.NODE_ENV === "production" && process.env.RANKPROOF_PIN_DNS !== "0");
+        response = pin
           ? await pinnedRequest(current, addresses, {
-              method,
-              signal: controller.signal,
-              headers,
+              method, signal: controller.signal, headers, maxBytes: opts.maxBytes,
             })
           : await fetch(current, {
-              method,
-              signal: controller.signal,
-              redirect: "manual",
-              headers,
+              method, signal: controller.signal, redirect: "manual", headers,
             });
+      } finally {
+        releaseHost();
+      }
 
       const location = response.headers.get("location");
       if (response.status >= 300 && response.status < 400 && location) {
@@ -330,7 +345,7 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
         headers: res.headers,
         fromCache: true,
       };
-      if (opts.cache !== false) remember(key, result);
+      if (cacheAllowed && res.status >= 200 && res.status < 300) remember(key, result);
       return result;
     }
 
@@ -342,7 +357,7 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
         headers: res.headers,
         fromCache: false,
       };
-      if (opts.cache !== false) remember(key, result);
+      if (cacheAllowed && res.status >= 200 && res.status < 300) remember(key, result);
       return result;
     }
 
@@ -355,7 +370,7 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
         headers: res.headers,
         fromCache: false,
       };
-      if (opts.cache !== false) remember(key, result);
+      if (cacheAllowed && res.status >= 200 && res.status < 300) remember(key, result);
       return result;
     }
 
@@ -398,7 +413,7 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
       headers: res.headers,
       fromCache: false,
     };
-    if (opts.cache !== false) remember(key, result);
+    if (cacheAllowed && res.status >= 200 && res.status < 300) remember(key, result);
     if (cacheable) {
       await cache.set(key, {
         url,
@@ -414,7 +429,6 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
   } finally {
     clearTimeout(timer);
     opts.signal?.removeEventListener("abort", onOuterAbort);
-    release();
   }
 }
 
@@ -453,7 +467,10 @@ export async function fetchUsefulHtml(
     signal,
     budget,
   });
-  if (res.status >= 500 && url.startsWith("https://")) {
+  // HTTPS-to-HTTP downgrade is disabled by default. It can expose requests
+  // and produces non-equivalent measurements when an HTTPS origin fails.
+  if (process.env.RANKPROOF_ALLOW_HTTP_FALLBACK === "1" &&
+      res.status >= 500 && url.startsWith("https://")) {
     const httpUrl = `http://${url.slice("https://".length)}`;
     try {
       const retry = await fetchText(httpUrl, {

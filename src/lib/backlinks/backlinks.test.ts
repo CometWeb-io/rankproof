@@ -2108,3 +2108,26 @@ test("robots policy fails closed after transport errors, not open", async () => 
     clearNetCache();
   }
 });
+
+test("network cache does not reuse responses with different byte limits", async () => {
+  const { fetchText, clearNetCache } = await import("./net.server.ts");
+  const oldFetch = globalThis.fetch;
+  let calls = 0;
+  try {
+    clearNetCache();
+    globalThis.fetch = (async () => {
+      calls++;
+      return new Response("abcdef", { status: 200, headers: { "content-type": "text/plain" } });
+    }) as typeof fetch;
+    const url = "https://cache-test.example/article";
+    const common = { timeoutMs: 4000, skipRobots: true };
+    const large = await fetchText(url, { ...common, maxBytes: 100 });
+    const small = await fetchText(url, { ...common, maxBytes: 2 });
+    assert.equal(large.text, "abcdef");
+    assert.equal(small.text.length, 2);
+    assert.equal(calls, 2);
+  } finally {
+    globalThis.fetch = oldFetch;
+    clearNetCache();
+  }
+});

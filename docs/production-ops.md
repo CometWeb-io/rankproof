@@ -128,3 +128,7 @@ See [`providers.md`](providers.md).
 - Do not expose the API on `0.0.0.0` without auth and rate limits.
 - Rotate OAuth refresh tokens if a host is compromised.
 - Report SSRF bypasses privately — see [`SECURITY.md`](../SECURITY.md).
+
+### Safe outbound requests
+
+Production scans pin connections to previously validated public DNS addresses. Keep `RANKPROOF_PIN_DNS` unset (or `1`); setting it to `0` is unsafe on a publicly reachable scanner. The network layer enforces per-response byte limits and rechecks robots directives after redirects. HTTPS-to-HTTP fallback is disabled by default. The 60-second in-memory response cache is for reducing duplicate work, not proof that a page is still current.

@@ -74,3 +74,7 @@ Golden tests in `backlinks.test.ts` run the same parsers against frozen fixtures
 - `Budget` — a shared clock with an `AbortSignal` for the whole scan.
 
 Want to change network behaviour? It is one file plus `config.ts`.
+
+## Production network hardening
+
+The crawler pins outbound TCP connections to validated public DNS answers by default in `NODE_ENV=production`. Use `RANKPROOF_PIN_DNS=1` to enable the same transport in development. `RANKPROOF_PIN_DNS=0` is an unsafe troubleshooting override and must not be used on publicly reachable deployments. Responses in the pinned transport have a hard byte limit and handle 204/205/304 without a body. Crawl rules are checked for each redirect destination. RAM cache expires after 60 seconds; the optional disk cache uses conditional revalidation. HTTP downgrade is disabled unless `RANKPROOF_ALLOW_HTTP_FALLBACK=1` is explicitly set.
