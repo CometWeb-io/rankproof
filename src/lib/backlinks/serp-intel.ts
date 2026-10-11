@@ -299,7 +299,6 @@ export function buildRankMoves(queries: SerpQuery[], previous: PositionRow[]): R
     });
   }
 
-
   const rank = (state: RankMove["state"]) =>
     state === "lost" ? 0 : state === "down" ? 1 : state === "up" ? 2 : state === "new" ? 3 : 4;
   return out.sort(
