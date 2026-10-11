@@ -2519,3 +2519,13 @@ test("truncated live pages cannot prove historical backlink loss", async () => {
   assert.equal(isConfirmedLostBacklink(200, html, source, "target.example"), true);
   assert.equal(isConfirmedLostBacklink(200, html, source, "target.example", true), false);
 });
+
+test("crawl-delay reservation never shortens the site's requested spacing", async () => {
+  const { planCrawlDelay } = await import("./net.server.ts");
+  const first = planCrawlDelay(1_000, 0, 20);
+  assert.deepEqual(first, { waitMs: 0, nextAt: 21_000 });
+  // A second immediate request must be rejected, not sent after just 10 s.
+  assert.equal(planCrawlDelay(1_001, first!.nextAt, 20), null);
+  const second = planCrawlDelay(15_000, first!.nextAt, 20);
+  assert.deepEqual(second, { waitMs: 6_000, nextAt: 41_000 });
+});

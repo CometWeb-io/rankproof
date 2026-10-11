@@ -136,3 +136,7 @@ Production scans pin connections to previously validated public DNS addresses. K
 ### No-cost durable local history
 
 By default PGLite runs in memory: it does not persist across process restarts. On a local machine, set `RANKPROOF_PGLITE_DIR=./.local/rankproof-db` to store the database on disk. Keep that directory private, backed up and out of source control. Do not share a single PGLite data directory across simultaneously running processes or use it as a network filesystem service. For multi-instance hosting use PostgreSQL instead.
+
+### Crawl-delay and bounded wait budgets
+
+When robots.txt requests a crawl delay, RankProof reserves the actual requested interval for the origin. If the next request would require waiting longer than the bounded per-request queue budget (10 seconds), it **skips/fails that fetch** instead of shortening the site operator's delay. Waiting is abortable when a scan is cancelled. Reservation state is bounded and expired entries are pruned.

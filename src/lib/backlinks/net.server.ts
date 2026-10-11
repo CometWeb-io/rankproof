@@ -2,6 +2,7 @@ import { lookup } from "node:dns/promises";
 import http from "node:http";
 import https from "node:https";
 import type { IncomingMessage } from "node:http";
+import { setTimeout as sleep } from "node:timers/promises";
 
 import { usefulHtml } from "./html.ts";
 import { config } from "./config.ts";
@@ -227,24 +228,44 @@ function pinnedRequest(
   });
 }
 
-/** Delays imposed by a host's Crawl-delay directive, tracked per origin. */
+/** Per-origin reservations for robots.txt Crawl-delay. */
 const NEXT_ALLOWED_AT = new Map<string, number>();
-
 const MAX_CRAWL_DELAY_WAIT_MS = 10_000;
+const MAX_DELAY_ORIGINS = 512;
 
-async function respectCrawlDelay(origin: string, delaySeconds: number | null): Promise<void> {
+/** A delay larger than the local scan's wait budget must refuse a fetch,
+ * never silently compress the website operator's requested spacing. */
+export function planCrawlDelay(
+  now: number,
+  priorNextAt: number,
+  delaySeconds: number,
+  maxWaitMs = MAX_CRAWL_DELAY_WAIT_MS,
+): { waitMs: number; nextAt: number } | null {
+  const waitMs = Math.max(0, priorNextAt - now);
+  if (waitMs > maxWaitMs) return null;
+  return { waitMs, nextAt: now + waitMs + delaySeconds * 1000 };
+}
+
+async function respectCrawlDelay(
+  origin: string,
+  delaySeconds: number | null,
+  signal?: AbortSignal,
+): Promise<void> {
   if (!delaySeconds || delaySeconds <= 0) return;
+  signal?.throwIfAborted();
   const now = Date.now();
-  const earliest = NEXT_ALLOWED_AT.get(origin) ?? 0;
-  // The wait is capped so one hostile Crawl-delay cannot stall a whole scan —
-  // but then the reservation has to advance by what we actually waited, not by
-  // the full delay. Otherwise every queued request after the first fires early
-  // and the site is hit harder than its robots.txt asked for.
-  const requested = Math.max(0, earliest - now);
-  const wait = Math.min(requested, MAX_CRAWL_DELAY_WAIT_MS);
-  const step = Math.min(delaySeconds * 1000, MAX_CRAWL_DELAY_WAIT_MS);
-  NEXT_ALLOWED_AT.set(origin, now + wait + step);
-  if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+  for (const [key, until] of NEXT_ALLOWED_AT) {
+    if (until <= now) NEXT_ALLOWED_AT.delete(key);
+  }
+  if (!NEXT_ALLOWED_AT.has(origin) && NEXT_ALLOWED_AT.size >= MAX_DELAY_ORIGINS) {
+    throw new Error("Crawl-delay reservation capacity exhausted.");
+  }
+  const slot = planCrawlDelay(now, NEXT_ALLOWED_AT.get(origin) ?? 0, delaySeconds);
+  if (!slot) {
+    throw new Error("Crawl-delay exceeds the permitted scan wait budget.");
+  }
+  NEXT_ALLOWED_AT.set(origin, slot.nextAt);
+  if (slot.waitMs > 0) await sleep(slot.waitMs, undefined, { signal });
 }
 
 export async function fetchText(url: string, opts: FetchOptions): Promise<FetchResult> {
@@ -309,7 +330,7 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
         if (!isAllowed(rules, hopUrl.pathname + hopUrl.search)) {
           throw new RobotsDisallowedError(current);
         }
-        await respectCrawlDelay(hopUrl.origin, rules.crawlDelay);
+        await respectCrawlDelay(hopUrl.origin, rules.crawlDelay, controller.signal);
       }
       // Conditional validators belong to the exact cached URL. Do not send
       // operator/API credentials or cookies to an unrelated redirect host.
