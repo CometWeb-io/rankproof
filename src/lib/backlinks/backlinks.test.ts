@@ -2550,3 +2550,30 @@ test("disavow drafts require a separate explicit manual-review acknowledgement",
   assert.equal(allowed.error, undefined);
   assert.equal(allowed.reviewedDisavow, true);
 });
+
+test("HTML anti-bot challenges and incomplete robots are not treated as allow-all", async () => {
+  const { Budget, clearNetCache } = await import("./net.server.ts");
+  const { robotsFor, isAllowed, clearRobotsCache } = await import("./robots.server.ts");
+  const original = globalThis.fetch;
+  try {
+    globalThis.fetch = (async () => new Response("<!doctype html><html>Bot challenge</html>", {
+      status: 200,
+      headers: { "cache-control": "no-store" },
+    })) as typeof fetch;
+    clearNetCache();
+    clearRobotsCache();
+    const challenge = await robotsFor("https://robots-challenge.example", new Budget(8_000));
+    assert.equal(isAllowed(challenge, "/private"), false);
+    globalThis.fetch = (async () => new Response(
+      "User-agent: *\nAllow: /\n" + "# padding\n".repeat(15_000),
+      { status: 200, headers: { "cache-control": "no-store" } },
+    )) as typeof fetch;
+    clearRobotsCache();
+    const partial = await robotsFor("https://robots-challenge.example", new Budget(8_000));
+    assert.equal(isAllowed(partial, "/private"), false);
+  } finally {
+    globalThis.fetch = original;
+    clearRobotsCache();
+    clearNetCache();
+  }
+});

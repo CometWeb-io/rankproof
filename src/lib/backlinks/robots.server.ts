@@ -144,6 +144,7 @@ const CACHE = new Map<string, CacheEntry>();
 /** Successful fetches are cheap to keep; a back-off must not outlive the incident. */
 const CACHE_TTL_MS = 30 * 60_000;
 const ERROR_TTL_MS = 5 * 60_000;
+const MAX_ROBOTS_CACHE_ENTRIES = 512;
 
 /**
  * Fetches and caches robots.txt per origin. Entries expire: `scripts/serve-api.mjs`
@@ -163,7 +164,7 @@ export async function robotsFor(
   let ttl = CACHE_TTL_MS;
   try {
     const { fetchText } = await import("./net.server.ts");
-    const { status, text } = await fetchText(`${origin}/robots.txt`, {
+    const { status, text, truncated } = await fetchText(`${origin}/robots.txt`, {
       timeoutMs: budget.timeout(4000),
       maxBytes: 120_000,
       signal: budget.signal,
@@ -171,9 +172,17 @@ export async function robotsFor(
       // be circular.
       skipRobots: true,
     });
-    // 4xx means "no rules"; 5xx means the host is unhappy — back off politely.
-    if (status >= 200 && status < 300 && text.trim()) rules = parseRobots(text, agent);
-    else if (status === 429 || status >= 500) {
+    // A 200 HTML anti-bot challenge or a partially downloaded robots file
+    // is not proof that all paths are permitted.
+    const appearsHtml = /<\s*(?:!doctype\s+html|html|head|body|form|script)\b/i.test(
+      text.slice(0, 2_048),
+    );
+    if (truncated || appearsHtml || (status >= 300 && status < 400)) {
+      rules = { ...ALLOW_ALL, missing: false, disallow: ["/"] };
+      ttl = ERROR_TTL_MS;
+    } else if (status >= 200 && status < 300 && text.trim()) {
+      rules = parseRobots(text, agent);
+    } else if (status === 429 || status >= 500) {
       rules = { ...ALLOW_ALL, missing: false, disallow: ["/"] };
       ttl = ERROR_TTL_MS;
     }
@@ -185,6 +194,10 @@ export async function robotsFor(
   }
 
   CACHE.set(key, { rules, until: Date.now() + ttl });
+  if (CACHE.size > MAX_ROBOTS_CACHE_ENTRIES) {
+    const oldest = CACHE.keys().next().value;
+    if (oldest) CACHE.delete(oldest);
+  }
   return rules;
 }
 

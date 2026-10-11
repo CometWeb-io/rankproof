@@ -148,3 +148,7 @@ In addition to per-host request concurrency, RankProof bounds simultaneously act
 ### Pinned transport and compressed HTTP
 
 The DNS-pinned Node HTTP(S) client decodes `gzip`, `deflate` and Brotli responses with a hard cap on both received compressed bytes and the decompressed body. Unknown or oversized encodings fail rather than being interpreted as empty HTML or consuming unbounded memory. Response headers are normalized after decompression. This is necessary for parity with Node `fetch`, which decodes standard content encodings automatically.
+
+### Unreadable robots.txt responses
+
+A successful HTTP status alone does not guarantee readable robots rules. HTML anti-bot pages returned as 200, incomplete responses cut off by the byte limit and exhausted redirect chains are treated as temporarily unreachable: crawling is denied during a short back-off period. The robots policy cache is bounded to 512 entries in long-running processes.
