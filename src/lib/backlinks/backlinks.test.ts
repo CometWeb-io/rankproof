@@ -781,6 +781,7 @@ test("rank moves distinguish gains, drops, new and lost keywords", async () => {
       query({ keyword: "awans", targetPosition: 3 }),
       query({ keyword: "spadek", targetPosition: 9 }),
       query({ keyword: "nowa", targetPosition: 7 }),
+      query({ keyword: "znikla", targetPosition: null }),
     ],
     [
       { keyword: "awans", engine: "bing", position: 8 },
