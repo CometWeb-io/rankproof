@@ -122,3 +122,5 @@ Keep exported reports private. This flag is intentionally ignored by the web app
 ## Scan workload profiles
 
 Set `RANKPROOF_SCAN_PROFILE=quick|standard|deep` before invoking the command. Quick runs fewer discovery sources, checks fewer keywords and skips the internal crawl; deep raises work limits. These are not hard request quotas or time guarantees. The default remains `standard`. Never compare quick/deep trend deltas as if their discovery coverage were equal.
+
+A manually supplied `--depth` overrides the scan profile for that invocation. Without `--depth`, a `deep` profile uses the deeper default. Values such as `RANKPROOF_SCAN_BUDGET_MS` and `RANKPROOF_MAX_VERIFY` take precedence over profile defaults; keep those overrides commented in your `.env` unless you intentionally want them.

@@ -113,7 +113,11 @@ async function runScanCommand(options, log) {
     market: options.market,
     device: options.device,
     engines: options.engines.length > 0 ? options.engines : undefined,
-    depth: options.depth,
+    // Only an explicit --depth overrides the workload profile. Otherwise
+    // the deep profile may inspect 20 positions without an extra CLI flag.
+    depth: process.argv.slice(2).some((arg) => arg === "--depth" || arg.startsWith("--depth="))
+      ? options.depth
+      : undefined,
     skipSiteAudit: options.skipAudit,
     // Opt in locally. Never expose owner credentials through HTTP or the web UI.
     includeOwnerData: process.env.RANKPROOF_CLI_OWNER_DATA === "1",
