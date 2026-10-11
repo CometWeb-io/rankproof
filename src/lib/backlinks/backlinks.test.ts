@@ -2602,3 +2602,44 @@ test("historical comparisons select the latest matching scope, not the latest ho
   assert.equal(previousForScope(rows, "another.com", "market-pl"), null);
   assert.equal(previousForScope(rows, "example.com", undefined), null);
 });
+
+test("RFC 9309 selects the longest applicable product token, not all prefixes", async () => {
+  const { parseRobots, isAllowed } = await import("./robots.server.ts");
+  const text = [
+    "User-agent: Rank",
+    "Disallow: /narrow",
+    "User-agent: RankProof",
+    "Allow: /narrow",
+    "Disallow: /secret",
+    "User-agent: *",
+    "Disallow: /public",
+  ].join("\n");
+  const rules = parseRobots(text);
+  assert.equal(isAllowed(rules, "/narrow"), true);
+  assert.equal(isAllowed(rules, "/secret"), false);
+  assert.equal(isAllowed(rules, "/public"), true);
+});
+
+test("RFC 9309 combines repeated matching agent groups without wildcard restrictions", async () => {
+  const { parseRobots, isAllowed } = await import("./robots.server.ts");
+  const text = [
+    "User-agent: RankProof",
+    "Disallow: /one",
+    "User-agent: *",
+    "Disallow: /wildcard",
+    "User-agent: RankProof",
+    "Disallow: /two",
+    "Allow: /two/public",
+  ].join("\n");
+  const rules = parseRobots(text);
+  assert.equal(isAllowed(rules, "/one"), false);
+  assert.equal(isAllowed(rules, "/two/private"), false);
+  assert.equal(isAllowed(rules, "/two/public"), true);
+  assert.equal(isAllowed(rules, "/wildcard"), true);
+});
+
+test("robots empty named group overrides wildcard rules even with no directives", async () => {
+  const { parseRobots, isAllowed } = await import("./robots.server.ts");
+  const text = ["User-agent: *", "Disallow: /", "User-agent: RankProof"].join("\n");
+  assert.equal(isAllowed(parseRobots(text), "/anything"), true);
+});

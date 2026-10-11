@@ -152,3 +152,7 @@ The DNS-pinned Node HTTP(S) client decodes `gzip`, `deflate` and Brotli response
 ### Unreadable robots.txt responses
 
 A successful HTTP status alone does not guarantee readable robots rules. HTML anti-bot pages returned as 200, incomplete responses cut off by the byte limit and exhausted redirect chains are treated as temporarily unreachable: crawling is denied during a short back-off period. The robots policy cache is bounded to 512 entries in long-running processes.
+
+### robots.txt user-agent precedence (RFC 9309)
+
+The parser merges repeated groups that match the **most specific applicable product token**, not all shorter-prefix groups or the wildcard when a specific group exists. This prevents both accidental overblocking and policy bypass from incorrectly combined rules. Regression cases cover repeated named groups, wildcard fallback and an empty most-specific group. This behavior follows [RFC 9309](https://www.rfc-editor.org/rfc/rfc9309.html) and still enforces the locally configured crawl-delay budget.

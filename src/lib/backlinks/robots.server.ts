@@ -38,19 +38,17 @@ export const ALLOW_ALL: RobotsRules = {
  * specific agent that applies: our own name wins over `*`.
  */
 export function parseRobots(text: string, agent = "rankproof"): RobotsRules {
-  const rules: RobotsRules = {
-    disallow: [],
-    allow: [],
-    crawlDelay: null,
-    sitemaps: [],
-    missing: false,
+  type Group = {
+    agents: string[];
+    allow: string[];
+    disallow: string[];
+    crawlDelay: number | null;
   };
-  const wildcard: RobotsRules = { ...ALLOW_ALL, disallow: [], allow: [], missing: false };
-
-  let currentAgents: string[] = [];
+  const groups: Group[] = [];
+  const sitemaps: string[] = [];
+  let group: Group | null = null;
   let sawDirective = false;
-  let sawNamedGroup = false;
-  const lower = agent.toLowerCase();
+  const productToken = agent.toLowerCase();
 
   for (const rawLine of text.split(/\r?\n/).slice(0, 3000)) {
     const line = rawLine.replace(/#.*$/, "").trim();
@@ -61,47 +59,58 @@ export function parseRobots(text: string, agent = "rankproof"): RobotsRules {
     const value = line.slice(separator + 1).trim();
 
     if (field === "sitemap") {
-      if (value) rules.sitemaps.push(value);
+      if (value) sitemaps.push(value);
       continue;
     }
     if (field === "user-agent") {
-      // A new agent block starts only after directives, not between agents.
-      if (sawDirective) {
-        currentAgents = [];
+      if (!group || sawDirective) {
+        group = { agents: [], allow: [], disallow: [], crawlDelay: null };
+        groups.push(group);
         sawDirective = false;
       }
-      currentAgents.push(value.toLowerCase());
+      if (value) group.agents.push(value.toLowerCase());
       continue;
     }
-
+    if (!group) continue;
     sawDirective = true;
-    const targets: RobotsRules[] = [];
-    // Token matching, not substring matching. `lower.includes(item)` treated a
-    // group written for "a", "pro", "rank" or "roof" as if it addressed us.
-    // RFC 9309 matches on a prefix of the product token, so require that.
-    if (currentAgents.some((item) => item !== "*" && item !== "" && lower.startsWith(item))) {
-      targets.push(rules);
-      sawNamedGroup = true;
-    }
-    if (currentAgents.includes("*")) targets.push(wildcard);
-    if (targets.length === 0) continue;
-
-    for (const target of targets) {
-      if (field === "disallow") {
-        if (value) target.disallow.push(value);
-      } else if (field === "allow") {
-        if (value) target.allow.push(value);
-      } else if (field === "crawl-delay") {
-        const delay = Number(value.replace(",", "."));
-        if (Number.isFinite(delay) && delay >= 0) target.crawlDelay = Math.min(30, delay);
+    if (field === "allow" && value) group.allow.push(value);
+    if (field === "disallow" && value) group.disallow.push(value);
+    if (field === "crawl-delay") {
+      const delay = Number(value.replace(",", "."));
+      if (Number.isFinite(delay) && delay >= 0) {
+        group.crawlDelay = Math.min(30, delay);
       }
     }
   }
 
-  // A group addressed to us wins even when it produced no rules: `Disallow:`
-  // with an empty value is how a site says "fetch anything".
-  const chosen = sawNamedGroup ? rules : { ...wildcard, sitemaps: rules.sitemaps };
-  return { ...chosen, sitemaps: rules.sitemaps, missing: false };
+  // RFC 9309 merges rules from applicable groups, not rules belonging to
+  // shorter-prefix agents or the wildcard group when a specific one matches.
+  const matching = groups.map((item) => ({
+    group: item,
+    specificity: Math.max(
+      0,
+      ...item.agents
+        .filter((name) => name !== "*" && productToken.startsWith(name))
+        .map((name) => name.length),
+    ),
+  }));
+  const specificity = Math.max(0, ...matching.map((item) => item.specificity));
+  const chosen = matching.filter((item) =>
+    specificity > 0
+      ? item.specificity === specificity
+      : item.group.agents.includes("*"),
+  );
+  const combined: RobotsRules = {
+    allow: chosen.flatMap((item) => item.group.allow),
+    disallow: chosen.flatMap((item) => item.group.disallow),
+    crawlDelay: chosen.reduce<number | null>((delay, item) => {
+      const value = item.group.crawlDelay;
+      return value === null ? delay : Math.max(delay ?? 0, value);
+    }, null),
+    sitemaps,
+    missing: false,
+  };
+  return combined;
 }
 
 function matches(path: string, prefix: string): boolean {
