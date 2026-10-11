@@ -637,7 +637,11 @@ test("collectKeywords takes titles, H1s and exact-match anchors", async () => {
   assert.equal(blockedOnly.visibility, 100, "blocked keywords must not dilute visibility");
 
   const stats = buildKeywordStats(seeds.slice(0, 3), [], []);
-  assert.ok(stats[0]!.opportunity >= 20);
+  assert.equal(
+    stats[0]!.opportunity,
+    0,
+    "unmeasured keyword sets must not be presented as actionable SEO opportunities",
+  );
 });
 
 test("SERP parsers extract organic positions and the target", async () => {
