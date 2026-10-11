@@ -429,6 +429,35 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
           <TrendChart points={report.trend} />
           <GrowthChart stats={analytics.growth} />
           {report.onPage ? <OnPagePanel audit={report.onPage} /> : null}
+          {report.requestedPage ? (
+            <section className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-5">
+              <div>
+                <h3 className="text-sm font-medium text-fg">Requested page</h3>
+                <p className="mt-1 break-all font-mono text-xs text-muted">
+                  {report.requestedPage.url}
+                </p>
+                <p className="mt-1 text-xs text-subtle">
+                  Independent page-level analysis; domain-wide scores above are unchanged.
+                </p>
+              </div>
+              {report.requestedPage.onPage ? (
+                <OnPagePanel audit={report.requestedPage.onPage} />
+              ) : (
+                <p className="text-sm text-muted" role="status">
+                  {report.requestedPage.error ?? "The requested page could not be measured."}
+                </p>
+              )}
+            </section>
+          ) : null}
+          {report.coverage ? (
+            <p className="text-xs text-subtle">
+              Bounded backlink sample: {report.coverage.reportedLinks} links displayed,
+              {" "}{report.coverage.htmlVerified} HTML-verified,
+              {" "}{report.coverage.apiObserved} API observations.
+              {report.coverage.truncated ? " The result set was capped." : ""}
+              {" "}This is not an exhaustive link index.
+            </p>
+          ) : null}
           <SerpOverviewHint />
 
           {report.notes.length > 0 ? (
