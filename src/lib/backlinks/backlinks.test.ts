@@ -2558,7 +2558,8 @@ test("HTML anti-bot challenges and incomplete robots are not treated as allow-al
   const response = (body: string) =>
     new Response(body, { status: 200, headers: { "cache-control": "no-store" } });
   try {
-    globalThis.fetch = (async () => response("<!doctype html><html>Bot challenge</html>")) as typeof fetch;
+    const challengeHtml = "<!doctype html><html>Bot challenge</html>";
+    globalThis.fetch = (async () => response(challengeHtml)) as typeof fetch;
     clearNetCache();
     clearRobotsCache();
     const challenge = await robotsFor("https://robots-challenge.example", new Budget(8_000));
