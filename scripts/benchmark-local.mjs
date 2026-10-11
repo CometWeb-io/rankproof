@@ -36,11 +36,10 @@ const hosts = [
   "foo.city.kawasaki.jp",
   "other.blogspot.com",
 ];
-const html = `<html><body><main>${Array.from(
-  { length: 80 },
-  (_, i) =>
-    `<p><a data-href="https://fake.example/${i}" href="https://partner${i}.example/path?sku=A">${i}</a></p>`,
-).join("")}</main></body></html>`;
+const html = `<html><body><main>${Array.from({ length: 80 }, (_, i) => {
+  const href = `https://partner${i}.example/path?sku=A`;
+  return `<p><a data-href="/shadow" href="${href}">${i}</a></p>`;
+}).join("")}</main></body></html>`;
 
 const results = [
   benchmark("PSL/eTLD+1", 12_000, (i) => registrableDomain(hosts[i % hosts.length]).length),

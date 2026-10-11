@@ -1,41 +1,50 @@
-# RankProof — evidence-led release criteria
+# RankProof: evidence-led release criteria
 
-RankProof is intentionally **local-first, low-cost, free-API-first**. An attractive score alone is not enough to claim correctness. The current changes live in [PR #2](https://github.com/CometWeb-io/rankproof/pull/2); do not treat its code as released until reviewed and merged.
+RankProof is local-first and uses free data sources by default.
+A high score alone is not evidence of correctness.
+Changes in [PR #2](https://github.com/CometWeb-io/rankproof/pull/2) are not released yet.
 
-## What has been implemented
+## Implemented in the draft PR
 
-- Separated operator-owned Search Console/Bing Webmaster data from anonymous HTTP and Web UI scans; local CLI requires explicit opt-in
-- Fixed HTML anchor attribute confusion and case-sensitive URL identity
-- Fixed non-monotonic SERP scores, query/aggregate mismatch in GSC, and inclusive calendar windows
-- Bounded Google/OpenSERP v2 responses and added opt-in loopback trust
-- Restricted production crawler DNS-rebinding, HTTPS downgrade, robots.txt behavior, and caches
-- Added explicit links evidence kinds and live revalidation for archived lost-link claims
-- Added complete PSL (ICANN and private), with a manual no-dependency update path
-- Added scope fingerprints and suppressed cross-scope comparison deltas
-- Added sampled coverage metadata and separated 'not rediscovered' from confirmed loss
-- Added bounded standalone API/Web UI concurrency, optional local PGLite durability and quick/standard/deep profiles
-- Added regression tests, documentation and an offline benchmark command
+- Separate private GSC/Bing Webmaster data from public scans
+- Fix anchor parsing, URL identity, GSC dates and source totals
+- Fix non-monotonic SERP scoring and suppress unsupported opportunities
+- Constrain OpenSERP responses, loopback access, DNS and redirect handling
+- Fail closed on unreachable robots.txt and require live checks for lost links
+- Use full ICANN and private Public Suffix List rules
+- Restrict scan comparisons to matching collection scopes
+- Report source/API/HTML evidence and bounded-sample coverage
+- Bound API/Web UI concurrency and add optional local PGLite persistence
+- Provide quick, standard and deep scan profiles
+- Add regression tests, documentation and offline microbenchmarks
 
-## Acceptance gates before a stable release
+## Required release evidence
 
-1. **Real-world correctness:** use a fixed corpus of diverse sites: small/large, IDN, private hosting, redirects, localized SERPs, blocked SERPs, HTTP/HTTPS, JS-rendered, multi-language and historical/archive cases. Manual examination of ground truth and false-positive rates is required.
-2. **Metrology:** publish source coverage, unknown/blocked status and methodology for every headline metric. Never substitute a zero for missing data; avoid describing bounded discovery as a global backlink census.
-3. **Reproducibility:** record exact engine, market, device, profile, keyword set, source states, date/time and version. Compare only equivalent scopes, never convert links not rediscovered into proven losses.
-4. **Security:** have independent adversarial tests for SSRF (DNS rebinding, IDNs, redirects, IPv4-in-IPv6), HTML/formula injection, local API authentication, multi-process resource exhaustion, fetch cancellation, connection and body limits, timeout behavior and privacy boundaries.
-5. **Resource efficiency:** measure true wall time, p50/p95, CPU, memory, fetched bytes, network requests per scan, cache hit rate and accuracy against a reproducible corpus. Run `npm run bench:local` for *synthetic microbenchmarks only*; they do not replace real-site measurements.
-6. **Supportability:** test Node-supported versions, packaged CLI and standalone API, ephemeral and persistent DB mode, offline tests, migration from earlier history, failure recovery, legal/robots constraints and installation instructions.
-7. **OSS quality:** provide issue and PR templates, contribution policy, deterministic fixtures, changelog, security disclosure instructions, licensing/attribution and explicit non-goals. Workflow automation is intentionally out of scope.
+1. Reproduce findings on small, large, IDN and shared-hosting sites.
+2. Verify redirects, blocked sources, localized SERPs and multilingual pages.
+3. Report unknown, blocked, truncated and HTML-verified observations.
+4. Retain market, device, keywords, sources and profile for comparisons.
+5. Test SSRF, DNS rebinding, response limits, authentication and timeouts.
+6. Measure wall time, request count, bytes, memory and CPU usage.
+7. Test packaged CLI, Web UI, standalone API and database migrations.
+8. Review licenses, docs, contribution process and security disclosures.
 
-## Current known limitations
+These gates require real-world and adversarial tests, not just mocked unit tests.
 
-- Real-time scraped SERPs are source-dependent and may be blocked, localized or personalized; they are not equivalent to Google's private Search Console measurements.
-- Sampling and source outages prevent exhaustive link discovery. `coverage.completeness` is deliberately `bounded-sample`.
-- Pre-existing history rows have no `scopeKey`, so their scan deltas are withheld; preserved historical charts are descriptive.
-- Request admission control is per Node process, not distributed across multiple replicas. A public deployment needs a reverse proxy, TLS, abuse protection, and independent security review.
-- Some SEO recommendations and risk scores are heuristic, not validated causal estimates. In particular disavowal requires manual review; an automated disavow file is **not** a recommended default action.
-- The optional local PSL snapshot is intentionally pinned; refresh it manually after upstream updates, review MPL-2.0 attribution and test against the PSL fixture corpus.
-- Synthetic microbenchmarks do not provide independent evidence that RankProof is the most efficient, accurate or reliable scanner globally.
+## Known limitations
+
+- Scraped SERPs may differ from Google Search Console and may be blocked.
+- Backlinks are sampled, not retrieved from an exhaustive web index.
+- Historical scan rows without a scope fingerprint cannot yield reliable deltas.
+- Request admission controls are per process, not distributed across replicas.
+- SEO recommendations and toxic scores remain uncalibrated heuristics.
+- Any disavow action requires independent human review.
+- The bundled PSL snapshot needs periodic manual updates.
+- Run `npm run bench:local` in a source checkout for synthetic CPU benchmarks.
+- Such benchmarks do not measure real-world SEO accuracy or network latency.
 
 ## Cost contract
 
-No cloud queue, paid LLM, paid commercial SEO index or hosted database is required for the default local workflow. Local CPU, network, memory, and website operators' crawl load remain real costs. Externally hosted services, optional remote data sources and any infrastructure selected by a self-hosting operator can introduce costs.
+No paid LLM, commercial link index, hosted database or cloud queue is required.
+Local CPU, memory, bandwidth and website crawler load remain real costs.
+Public hosting and optional third-party providers may incur charges.
