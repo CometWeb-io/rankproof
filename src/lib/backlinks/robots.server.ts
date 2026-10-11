@@ -51,7 +51,8 @@ export function parseRobots(text: string, agent = "rankproof"): RobotsRules {
   const productToken = agent.toLowerCase();
 
   // UTF-8 BOM is allowed at the beginning of a robots.txt file.
-  for (const rawLine of text.replace(/^\uFEFF/, "").split(/\r?\n/).slice(0, 3000)) {
+  const cleanText = text.replace(/^\uFEFF/, "");
+  for (const rawLine of cleanText.split(/\r?\n/).slice(0, 3000)) {
     const line = rawLine.replace(/#.*$/, "").trim();
     if (!line) continue;
     const separator = line.indexOf(":");

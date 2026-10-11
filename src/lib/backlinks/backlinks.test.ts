@@ -2730,7 +2730,7 @@ test("UTF-8 BOM in robots.txt cannot hide a crawler-specific disallow rule", asy
   assert.equal(isAllowed(rules, "/secret/page"), false);
 });
 
-test("target crawling identifies RankProof and respects its robots group", async () => {
+test("target crawler identifies itself to robots.txt", async () => {
   const { Budget, fetchUsefulHtml, clearNetCache } = await import("./net.server.ts");
   const { clearRobotsCache } = await import("./robots.server.ts");
   const original = globalThis.fetch;
@@ -2738,20 +2738,24 @@ test("target crawling identifies RankProof and respects its robots group", async
   try {
     clearNetCache();
     clearRobotsCache();
-    globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+    const fetchImpl = async (url: string | URL | Request, init?: RequestInit) => {
       const headers = init?.headers as Record<string, string> | undefined;
-      requests.push({ url: String(url), agent: headers?.["User-Agent"] ?? "" });
-      if (String(url).endsWith("/robots.txt")) {
-        return new Response("User-agent: RankProof\nDisallow: /secret", { status: 200 });
+      const address = String(url);
+      requests.push({ url: address, agent: headers?.["User-Agent"] ?? "" });
+      if (address.endsWith("/robots.txt")) {
+        return new Response("User-agent: RankProof\nDisallow: /secret");
       }
-      return new Response("<html><body>Content</body></html>", { status: 200 });
-    }) as typeof fetch;
+      return new Response("This page should not be fetched.");
+    };
+    globalThis.fetch = fetchImpl as typeof fetch;
     const budget = new Budget(8_000);
-    await assert.rejects(
-      fetchUsefulHtml("https://robots-agent.example/secret", 5_000, budget.signal, budget),
-      /robots.txt disallows/,
+    const scan = fetchUsefulHtml(
+      "https://robots-agent.example/secret",
+      5_000,
+      budget.signal,
+      budget,
     );
-    assert.equal(requests.some((item) => item.url.endsWith("/secret")), false);
+    await assert.rejects(scan, /robots.txt disallows/);
     assert.equal(requests.length, 1);
     assert.match(requests[0]!.agent, /^RankProof\//);
   } finally {
