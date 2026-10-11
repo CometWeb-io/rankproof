@@ -50,7 +50,8 @@ export function parseRobots(text: string, agent = "rankproof"): RobotsRules {
   let sawDirective = false;
   const productToken = agent.toLowerCase();
 
-  for (const rawLine of text.split(/\r?\n/).slice(0, 3000)) {
+  // UTF-8 BOM is allowed at the beginning of a robots.txt file.
+  for (const rawLine of text.replace(/^\uFEFF/, "").split(/\r?\n/).slice(0, 3000)) {
     const line = rawLine.replace(/#.*$/, "").trim();
     if (!line) continue;
     const separator = line.indexOf(":");
@@ -172,11 +173,12 @@ export async function robotsFor(
   let rules = ALLOW_ALL;
   let ttl = CACHE_TTL_MS;
   try {
-    const { fetchText } = await import("./net.server.ts");
+    const { fetchText, API_UA } = await import("./net.server.ts");
     const { status, text, truncated } = await fetchText(`${origin}/robots.txt`, {
       timeoutMs: budget.timeout(4000),
       maxBytes: 120_000,
       signal: budget.signal,
+      ua: API_UA,
       // robots.txt itself is always fetchable; skipping the guard here would
       // be circular.
       skipRobots: true,

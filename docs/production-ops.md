@@ -156,3 +156,7 @@ A successful HTTP status alone does not guarantee readable robots rules. HTML an
 ### robots.txt user-agent precedence (RFC 9309)
 
 The parser merges repeated groups that match the **most specific applicable product token**, not all shorter-prefix groups or the wildcard when a specific group exists. This prevents both accidental overblocking and policy bypass from incorrectly combined rules. Regression cases cover repeated named groups, wildcard fallback and an empty most-specific group. This behavior follows [RFC 9309](https://www.rfc-editor.org/rfc/rfc9309.html) and still enforces the locally configured crawl-delay budget.
+
+### Transparent crawler identity
+
+Requests that inspect website pages, verify backlink destinations or fetch `robots.txt` now identify using the configured `RANKPROOF_USER_AGENT` (default: `RankProof/8.1` plus repository URL), rather than impersonating Chrome. The user-agent product token used to select robots rules matches the value sent in the request. Search-engine HTML adapters can continue to use their separate compatibility headers. URL probes are passed the crawl budget and respect robots rules.

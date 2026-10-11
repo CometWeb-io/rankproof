@@ -2723,3 +2723,40 @@ test("failed or missing SERP measurements never create invented position losses"
   const improved = { ...measured, targetPosition: 3 };
   assert.equal(buildRankMoves([improved], previous)[0]?.state, "up");
 });
+
+test("UTF-8 BOM in robots.txt cannot hide a crawler-specific disallow rule", async () => {
+  const { parseRobots, isAllowed } = await import("./robots.server.ts");
+  const rules = parseRobots("\uFEFFUser-agent: RankProof\nDisallow: /secret");
+  assert.equal(isAllowed(rules, "/secret/page"), false);
+});
+
+test("target crawling identifies RankProof and respects its robots group", async () => {
+  const { Budget, fetchUsefulHtml, clearNetCache } = await import("./net.server.ts");
+  const { clearRobotsCache } = await import("./robots.server.ts");
+  const original = globalThis.fetch;
+  const requests: { url: string; agent: string }[] = [];
+  try {
+    clearNetCache();
+    clearRobotsCache();
+    globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+      const headers = init?.headers as Record<string, string> | undefined;
+      requests.push({ url: String(url), agent: headers?.["User-Agent"] ?? "" });
+      if (String(url).endsWith("/robots.txt")) {
+        return new Response("User-agent: RankProof\nDisallow: /secret", { status: 200 });
+      }
+      return new Response("<html><body>Content</body></html>", { status: 200 });
+    }) as typeof fetch;
+    const budget = new Budget(8_000);
+    await assert.rejects(
+      fetchUsefulHtml("https://robots-agent.example/secret", 5_000, budget.signal, budget),
+      /robots.txt disallows/,
+    );
+    assert.equal(requests.some((item) => item.url.endsWith("/secret")), false);
+    assert.equal(requests.length, 1);
+    assert.match(requests[0]!.agent, /^RankProof\//);
+  } finally {
+    globalThis.fetch = original;
+    clearNetCache();
+    clearRobotsCache();
+  }
+});

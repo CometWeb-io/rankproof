@@ -424,7 +424,7 @@ export async function probeTargets(
   const out = new Map<string, ProbeResult>();
   await mapLimit(unique, 6, async (url) => {
     if (budget.left() < 2000) return;
-    const result = await probeStatus(url, budget.timeout(5000), budget.signal);
+    const result = await probeStatus(url, budget.timeout(5000), budget.signal, budget);
     if (result) out.set(url, { status: result.status, finalUrl: normalizeUrl(result.finalUrl) });
   });
   return out;

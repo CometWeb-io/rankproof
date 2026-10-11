@@ -305,6 +305,7 @@ async function respectCrawlDelay(
 
 export async function fetchText(url: string, opts: FetchOptions): Promise<FetchResult> {
   const method = opts.method ?? "GET";
+  const productToken = (opts.ua ?? BROWSER_UA).split(/[\\/\s]/)[0]!.toLowerCase();
   // Validate input and client cancellation BEFORE reading any cached result:
   // cached crawl evidence must not bypass the active security policy.
   opts.signal?.throwIfAborted();
@@ -326,7 +327,7 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
         const urls = new Set([url, hit.value.finalUrl]);
         for (const checkedUrl of urls) {
           const parsed = new URL(checkedUrl);
-          const rules = await robotsFor(parsed.origin, opts.budget);
+          const rules = await robotsFor(parsed.origin, opts.budget, productToken);
           if (!isAllowed(rules, parsed.pathname + parsed.search)) {
             throw new RobotsDisallowedError(checkedUrl);
           }
@@ -361,7 +362,7 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
       const addresses = await assertFetchable(current);
       const hopUrl = new URL(current);
       if (!opts.skipRobots && opts.budget) {
-        const rules = await robotsFor(hopUrl.origin, opts.budget);
+        const rules = await robotsFor(hopUrl.origin, opts.budget, productToken);
         if (!isAllowed(rules, hopUrl.pathname + hopUrl.search)) {
           throw new RobotsDisallowedError(current);
         }
@@ -428,7 +429,7 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
     if (res.status === 304 && stored) {
       if (!opts.skipRobots && opts.budget) {
         const prior = new URL(stored.finalUrl);
-        const rules = await robotsFor(prior.origin, opts.budget);
+        const rules = await robotsFor(prior.origin, opts.budget, productToken);
         if (!isAllowed(rules, prior.pathname + prior.search)) {
           throw new RobotsDisallowedError(stored.finalUrl);
         }
@@ -578,7 +579,7 @@ export async function fetchUsefulHtml(
   let res = await fetchText(url, {
     timeoutMs,
     maxBytes: 1_600_000,
-    ua: BROWSER_UA,
+    ua: API_UA,
     usefulMax: 260_000,
     signal,
     budget,
@@ -595,7 +596,7 @@ export async function fetchUsefulHtml(
       const retry = await fetchText(httpUrl, {
         timeoutMs: Math.min(timeoutMs, 6000),
         maxBytes: 1_600_000,
-        ua: BROWSER_UA,
+        ua: API_UA,
         usefulMax: 260_000,
         signal,
         budget,
@@ -613,14 +614,16 @@ export async function probeStatus(
   url: string,
   timeoutMs = 6000,
   signal?: AbortSignal,
+  budget?: Budget,
 ): Promise<{ status: number; finalUrl: string } | null> {
   try {
     const head = await fetchText(url, {
       timeoutMs,
       maxBytes: 1,
       method: "HEAD",
-      ua: BROWSER_UA,
+      ua: API_UA,
       signal,
+      budget,
     });
     if (head.status !== 405 && head.status !== 501 && head.status !== 403) {
       return { status: head.status, finalUrl: head.finalUrl };
@@ -632,8 +635,9 @@ export async function probeStatus(
     const get = await fetchText(url, {
       timeoutMs,
       maxBytes: 40_000,
-      ua: BROWSER_UA,
+      ua: API_UA,
       signal,
+      budget,
     });
     return { status: get.status, finalUrl: get.finalUrl };
   } catch {
