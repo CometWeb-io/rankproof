@@ -146,3 +146,7 @@ An archived backlink is **not** automatically a lost backlink. RankProof only ma
 ## Comparison of bounded scans (report format 7)
 
 `scopeKey` describes profile, market, device, search engines and keywords, source health, crawl inclusion and scan caps. Persisted scan history stores the same scope in `scan_history.scan_scope`. The web and database diff return **no delta** for incompatible or legacy records. In a comparable scan, a link missing from the newly sampled results is counted as `notRediscoveredLinks`, **not** as a confirmed lost backlink (`lostLinks`). Real lost links require the separately verified archive-versus-live process. Cross-scan metrics can still fluctuate with a changing live index or adaptive time budget; compare trends as observed samples rather than census estimates.
+
+## Coverage and censored counts
+
+Reports include `coverage` with `sourceCandidates`, `reportedLinks`, `htmlVerified`, `apiObserved`, `archiveConfirmedLost` and `truncated`. The `completeness` marker is always `bounded-sample`. Discovery is not an exhaustive external link index, even when `truncated=false`: source blocks, search-engine indexes and page caps impose unseen-link uncertainty. The report headline link/domain totals describe only the retained sample. A scan where the retained set was truncated is not directly comparable to a non-truncated scan.

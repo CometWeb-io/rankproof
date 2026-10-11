@@ -15,6 +15,7 @@ export type ScanScope = {
   siteAudit: boolean;
   backlinkCap: number;
   verifyCap: number;
+  truncated?: boolean;
 };
 
 export function scanScopeKey(input: ScanScope): string {
@@ -31,5 +32,6 @@ export function scanScopeKey(input: ScanScope): string {
     siteAudit: input.siteAudit,
     backlinkCap: input.backlinkCap,
     verifyCap: input.verifyCap,
+    truncated: input.truncated ?? false,
   });
 }

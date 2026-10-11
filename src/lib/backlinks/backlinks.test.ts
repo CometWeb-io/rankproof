@@ -2239,6 +2239,7 @@ test("scope fingerprints reject different markets, sources and keywords", async 
   assert.notEqual(initial, scanScopeKey({ ...base, profile: "quick" }));
   assert.notEqual(initial, scanScopeKey({ ...base, sources: [{ id: "bing", status: "error" }] }));
   assert.notEqual(initial, scanScopeKey({ ...base, keywords: ["different"] }));
+  assert.notEqual(initial, scanScopeKey({ ...base, truncated: true }));
 });
 
 test("database deltas refuse missing and incompatible collection scopes", async () => {

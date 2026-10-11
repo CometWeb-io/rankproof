@@ -578,6 +578,12 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
   enriched = markSerpCorankers(enriched, serpQueries);
 
   const ranked = capPerDomain(sortBacklinks(enriched), 25).slice(0, runtime.maxBacklinks);
+  const truncated = ranked.length < enriched.length;
+  if (truncated) {
+    notes.push(
+      "Backlink sample is capped; displayed counts are observations, not all links to the site.",
+    );
+  }
 
   const site: SiteSnapshot = intelR.value?.snapshot ?? {
     host,
@@ -812,6 +818,15 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
 
   const report: ScanReport = {
     version: REPORT_VERSION,
+    coverage: {
+      sourceCandidates: enriched.length,
+      reportedLinks: ranked.length,
+      htmlVerified: ranked.filter((link) => link.verified && link.state === "live").length,
+      apiObserved: ranked.filter((link) => link.evidenceKind === "source-api").length,
+      archiveConfirmedLost: ranked.filter((link) => link.state === "lost").length,
+      truncated,
+      completeness: "bounded-sample",
+    },
     scopeKey: scanScopeKey({
       host,
       profile: runtime.profile,
@@ -824,6 +839,7 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
       siteAudit: siteAudit !== null,
       backlinkCap: runtime.maxBacklinks,
       verifyCap: runtime.maxVerify,
+      truncated,
     }),
     queriedAt: new Date().toISOString(),
     input: rawInput.trim(),

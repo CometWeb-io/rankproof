@@ -892,6 +892,16 @@ export type ScanStats = {
 
 export type ScanReport = {
   version: number;
+  /** Observed evidence size and whether the published set was truncated. */
+  coverage?: {
+    sourceCandidates: number;
+    reportedLinks: number;
+    htmlVerified: number;
+    apiObserved: number;
+    archiveConfirmedLost: number;
+    truncated: boolean;
+    completeness: "bounded-sample";
+  };
   /** Exact scope of requested parameters and source coverage; required for trend deltas. */
   scopeKey?: string;
   queriedAt: string;
