@@ -719,7 +719,12 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
       const appearsHtml = /html|xhtml/i.test(mediaType) || /<html|<!doctype/i.test(res.text);
       const sameSite = isTargetHost(hostFromUrl(res.finalUrl), host);
       const usable =
-        res.status >= 200 && res.status < 300 && res.text.length >= 100 && appearsHtml && sameSite;
+        res.status >= 200 &&
+        res.status < 300 &&
+        res.text.length >= 100 &&
+        appearsHtml &&
+        sameSite &&
+        !res.truncated;
       requestedPage = {
         url: parsed.requestedUrl,
         finalUrl: res.finalUrl,
@@ -736,7 +741,9 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
           ? null
           : !sameSite
             ? "Requested page redirects outside the audited site."
-            : "Requested page was not successfully retrieved as HTML.",
+            : res.truncated
+              ? "Requested page exceeded the HTML measurement limit."
+              : "Requested page was not successfully retrieved as HTML.",
       };
     } catch (error) {
       requestedPage = {

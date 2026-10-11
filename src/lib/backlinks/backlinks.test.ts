@@ -2488,3 +2488,34 @@ test("aborted callers cannot retrieve an otherwise warm cache entry", async () =
     clearNetCache();
   }
 });
+
+test("bounded HTML reading reports partial evidence and does not cache it", async () => {
+  const { fetchText, clearNetCache } = await import("./net.server.ts");
+  const previous = globalThis.fetch;
+  let requests = 0;
+  try {
+    clearNetCache();
+    globalThis.fetch = (async () => {
+      requests += 1;
+      return new Response("x".repeat(200), { status: 200 });
+    }) as typeof fetch;
+    const options = { timeoutMs: 5_000, maxBytes: 32, skipRobots: true };
+    const one = await fetchText("https://truncated.example/huge", options);
+    const two = await fetchText("https://truncated.example/huge", options);
+    assert.equal(one.truncated, true);
+    assert.equal(one.text.length, 32);
+    assert.equal(two.fromCache, false);
+    assert.equal(requests, 2);
+  } finally {
+    globalThis.fetch = previous;
+    clearNetCache();
+  }
+});
+
+test("truncated live pages cannot prove historical backlink loss", async () => {
+  const { isConfirmedLostBacklink } = await import("./verify.server.ts");
+  const source = "https://source.example/article";
+  const html = "<main>" + "content ".repeat(90) + "</main>";
+  assert.equal(isConfirmedLostBacklink(200, html, source, "target.example"), true);
+  assert.equal(isConfirmedLostBacklink(200, html, source, "target.example", true), false);
+});

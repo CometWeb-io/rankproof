@@ -279,7 +279,7 @@ export async function verifyPages(pages: Candidate[], opts: VerifyOptions): Prom
             via: "page",
           });
         }
-      } else if (res.text.toLowerCase().includes(opts.host.toLowerCase())) {
+      } else if (!res.truncated && res.text.toLowerCase().includes(opts.host.toLowerCase())) {
         const snippet =
           snippetAround(res.text, opts.host) ??
           `The page mentions ${opts.host} but no hyperlink was found`;
@@ -305,8 +305,9 @@ export function isConfirmedLostBacklink(
   currentHtml: string,
   currentUrl: string,
   targetHost: string,
+  truncated = false,
 ): boolean {
-  if (status < 200 || status >= 300 || currentHtml.length < 500) return false;
+  if (truncated || status < 200 || status >= 300 || currentHtml.length < 500) return false;
   return !parseAnchors(currentHtml, currentUrl).some((anchor) =>
     isTargetHost(hostFromUrl(anchor.href), targetHost),
   );
@@ -350,7 +351,15 @@ export async function findLostLinks(
         opts.budget.signal,
         opts.budget,
       );
-      if (!isConfirmedLostBacklink(live.status, live.text, live.finalUrl || pageUrl, opts.host)) {
+      if (
+        !isConfirmedLostBacklink(
+          live.status,
+          live.text,
+          live.finalUrl || pageUrl,
+          opts.host,
+          live.truncated,
+        )
+      ) {
         return;
       }
       const anchor = anchors[0]!;

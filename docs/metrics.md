@@ -154,3 +154,7 @@ Reports include `coverage` with `sourceCandidates`, `reportedLinks`, `htmlVerifi
 ## Page URL versus domain scope (report format 8)
 
 Passing `https://example.com/product?sku=A` now preserves the requested URL and adds an independent `requestedPage` HTML/on-page result. The backlink, SERP, link graph and site-wide score remain at the domain level. An inaccessible page is reported as `requestedPage.error`, not as a successful negative SEO diagnosis. This adds one HTML request only when the user specified a non-homepage path/query. Different requested pages have different scan scope fingerprints.
+
+## Truncated page evidence
+
+A bounded response sets `FetchResult.truncated` whenever the byte or useful-HTML limit ends the read before the response is complete. Truncated HTTP bodies are **not cached** as complete evidence. An incomplete source cannot be used as a confirmed unlinked-brand mention or to prove an archived backlink was removed. An explicitly requested subpage that exceeds its measurement limit yields an unknown/error state rather than an on-page score.

@@ -20,6 +20,8 @@ export type FetchResult = {
   finalUrl: string;
   headers: Headers | null;
   fromCache: boolean;
+  /** True when byte or useful-HTML limits stopped reading before EOF. */
+  truncated?: boolean;
 };
 
 const CACHE = new Map<string, { value: FetchResult; storedAt: number }>();
@@ -415,29 +417,46 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
 
     const reader = res.body?.getReader();
     let text = "";
+    let truncated = false;
     if (!reader) {
-      text = (await res.text()).slice(0, opts.maxBytes);
+      text = await res.text();
+      truncated = Buffer.byteLength(text, "utf8") > opts.maxBytes;
+      if (truncated) text = text.slice(0, opts.maxBytes);
     } else {
       const decoder = new TextDecoder("utf-8", { fatal: false });
       let received = 0;
-      while (received < opts.maxBytes) {
-        const { done, value } = await reader.read();
-        if (done || !value) break;
-        received += value.byteLength;
-        text += decoder.decode(value, { stream: true });
-        if (
-          opts.usefulMax &&
-          received > 60_000 &&
-          usefulHtml(text, opts.usefulMax).length >= opts.usefulMax
-        ) {
-          break;
-        }
-      }
-      text += decoder.decode();
       try {
-        await reader.cancel();
-      } catch {
-        /* ignore */
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (!value) continue;
+          // Decode at most the remaining byte budget, even when a server
+          // returns an unexpectedly large single stream chunk.
+          const remaining = Math.max(0, opts.maxBytes - received);
+          if (value.byteLength > remaining) {
+            text += decoder.decode(value.subarray(0, remaining), { stream: true });
+            truncated = true;
+            break;
+          }
+          received += value.byteLength;
+          text += decoder.decode(value, { stream: true });
+          if (
+            opts.usefulMax &&
+            received > 60_000 &&
+            usefulHtml(text, opts.usefulMax).length >= opts.usefulMax
+          ) {
+            truncated = true;
+            break;
+          }
+        }
+        text += decoder.decode();
+      } finally {
+        try {
+          await reader.cancel();
+        } catch {
+          /* stream reached EOF or was already cancelled */
+        }
+        reader.releaseLock();
       }
     }
 
@@ -451,9 +470,10 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
       finalUrl,
       headers: res.headers,
       fromCache: false,
+      truncated,
     };
-    if (cacheAllowed && isResponseCacheable(res)) remember(key, result);
-    if (cacheable && isResponseCacheable(res)) {
+    if (!truncated && cacheAllowed && isResponseCacheable(res)) remember(key, result);
+    if (!truncated && cacheable && isResponseCacheable(res)) {
       await cache.set(key, {
         url,
         status: res.status,
