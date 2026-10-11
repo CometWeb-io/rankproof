@@ -2352,27 +2352,13 @@ test("cross-origin redirects never forward caller credentials", async () => {
 
 test("private, no-store, cookie and unknown Vary responses are not cached", async () => {
   const { isResponseCacheable } = await import("./net.server.ts");
-  assert.equal(isResponseCacheable(new Response("public")), true);
-  assert.equal(
-    isResponseCacheable(new Response("secret", { headers: { "cache-control": "private, max-age=60" } })),
-    false,
-  );
-  assert.equal(
-    isResponseCacheable(new Response("secret", { headers: { "cache-control": "no-store" } })),
-    false,
-  );
-  assert.equal(
-    isResponseCacheable(new Response("secret", { headers: { "set-cookie": "token=secret" } })),
-    false,
-  );
-  assert.equal(
-    isResponseCacheable(new Response("unknown", { headers: { vary: "X-Experiment" } })),
-    false,
-  );
-  assert.equal(
-    isResponseCacheable(new Response("language", { headers: { vary: "Accept-Language" } })),
-    true,
-  );
+  const response = (headers: Record<string, string>) => new Response("body", { headers });
+  assert.equal(isResponseCacheable(response({})), true);
+  assert.equal(isResponseCacheable(response({ "cache-control": "private, max-age=60" })), false);
+  assert.equal(isResponseCacheable(response({ "cache-control": "no-store" })), false);
+  assert.equal(isResponseCacheable(response({ "set-cookie": "token=secret" })), false);
+  assert.equal(isResponseCacheable(response({ vary: "X-Experiment" })), false);
+  assert.equal(isResponseCacheable(response({ vary: "Accept-Language" })), true);
 });
 
 test("no-store network responses never enter the in-memory cache", async () => {
