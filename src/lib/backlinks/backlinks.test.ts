@@ -2383,3 +2383,33 @@ test("no-store network responses never enter the in-memory cache", async () => {
     clearNetCache();
   }
 });
+
+test("target parsing preserves specific page URLs and refuses embedded credentials", () => {
+  const target = parseTarget("https://example.com/Products?sku=A");
+  assert.equal(target.host, "example.com");
+  assert.equal(target.url, "https://example.com");
+  assert.equal(target.requestedUrl, "https://example.com/Products?sku=A");
+  assert.equal(parseTarget("example.com").requestedUrl, "https://example.com/");
+  assert.throws(() => parseTarget("https://user:password@example.com/"));
+});
+
+test("page-specific scans cannot share a trend scope with another page", async () => {
+  const { scanScopeKey } = await import("./scan-coverage.ts");
+  const base = {
+    host: "example.com",
+    profile: "standard",
+    market: "pl",
+    device: "desktop",
+    serpDepth: 10,
+    keywords: ["audit"],
+    engines: ["bing"],
+    sources: [{ id: "bing", status: "ok" }],
+    siteAudit: true,
+    backlinkCap: 400,
+    verifyCap: 64,
+  };
+  assert.notEqual(
+    scanScopeKey({ ...base, requestedUrl: "https://example.com/A" }),
+    scanScopeKey({ ...base, requestedUrl: "https://example.com/B" }),
+  );
+});

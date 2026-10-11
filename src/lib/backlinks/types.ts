@@ -923,6 +923,14 @@ export type ScanReport = {
   keywords: KeywordStat[];
   prospects: SerpProspect[];
   onPage: OnPageAudit | null;
+  /** Explicit URL path inspection, separate from the site-wide metrics. */
+  requestedPage?: {
+    url: string;
+    finalUrl: string | null;
+    status: number | null;
+    onPage: OnPageAudit | null;
+    error: string | null;
+  } | null;
   toxic: ToxicReport;
   anchorAudit: AnchorAudit;
   segments: SegmentStat[];

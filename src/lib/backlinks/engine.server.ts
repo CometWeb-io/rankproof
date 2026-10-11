@@ -9,7 +9,8 @@ import {
   sld,
   stripWww,
 } from "./parse.ts";
-import { Budget, mapLimit, timed, type Timed } from "./net.server.ts";
+import { Budget, fetchUsefulHtml, mapLimit, timed, type Timed } from "./net.server.ts";
+import { auditOnPage } from "./onpage.ts";
 import {
   scanBing,
   scanBluesky,
@@ -77,7 +78,7 @@ import type {
   SourceStatus,
 } from "./types.ts";
 
-export const REPORT_VERSION = 7;
+export const REPORT_VERSION = 8;
 
 const MAX_MENTIONS = 120;
 const MAX_DEEP = 28;
@@ -698,10 +699,52 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
       ? null
       : buildSearchConsoleInsights(await fetchSearchConsoleData(host).catch(() => []), serpQueries);
 
+  // A supplied /path must never be silently treated as an on-page scan of /.
+  // Domain-wide link and SERP metrics stay separate from the requested URL.
+  let requestedPage: ScanReport["requestedPage"] = null;
+  const requested = new URL(parsed.requestedUrl);
+  if (requested.pathname !== "/" || requested.search) {
+    const pageBudget = new Budget(8_000);
+    try {
+      const res = await fetchUsefulHtml(
+        parsed.requestedUrl,
+        pageBudget.timeout(8_000),
+        pageBudget.signal,
+        pageBudget,
+      );
+      const mediaType = res.headers?.get("content-type") ?? "";
+      const appearsHtml = /html|xhtml/i.test(mediaType) || /<html|<!doctype/i.test(res.text);
+      const usable = res.status >= 200 && res.status < 300 && res.text.length >= 100 && appearsHtml;
+      requestedPage = {
+        url: parsed.requestedUrl,
+        finalUrl: res.finalUrl,
+        status: res.status,
+        onPage: usable
+          ? auditOnPage({
+              html: res.text,
+              url: res.finalUrl,
+              host,
+              https: res.finalUrl.startsWith("https://"),
+            })
+          : null,
+        error: usable ? null : "Requested page was not successfully retrieved as HTML.",
+      };
+    } catch (error) {
+      requestedPage = {
+        url: parsed.requestedUrl,
+        finalUrl: null,
+        status: null,
+        onPage: null,
+        error: error instanceof Error ? error.message.slice(0, 160) : "Page not measured.",
+      };
+    }
+  }
+
   const scorecard = buildScorecard({
     analytics,
     serp: serpSnapshot,
     onPage,
+    requestedPage,
     toxic,
     anchorAudit,
     footprint,
@@ -829,6 +872,7 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
     },
     scopeKey: scanScopeKey({
       host,
+      requestedUrl: requestedPage?.url,
       profile: runtime.profile,
       market: options.market ?? runtime.market,
       device: options.device ?? runtime.device,

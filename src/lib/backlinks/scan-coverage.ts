@@ -5,6 +5,7 @@
  */
 export type ScanScope = {
   host: string;
+  requestedUrl?: string;
   profile: string;
   market: string;
   device: string;
@@ -22,6 +23,7 @@ export function scanScopeKey(input: ScanScope): string {
   return JSON.stringify({
     version: 1,
     host: input.host.toLowerCase(),
+    requestedUrl: input.requestedUrl ?? null,
     profile: input.profile,
     market: input.market,
     device: input.device,

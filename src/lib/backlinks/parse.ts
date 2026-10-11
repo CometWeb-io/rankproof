@@ -13,6 +13,8 @@ export type ParsedTarget = {
   url: string;
   /** The path supplied by the user (when they pointed at a specific page). */
   path: string;
+  /** Exact requested page, including path and query; site scans remain domain-wide. */
+  requestedUrl: string;
 };
 
 export function stripWww(host: string): string {
@@ -47,6 +49,7 @@ export function parseTarget(raw: string): ParsedTarget {
   let host = "";
   let url = "";
   let path = "/";
+  let requestedUrl = "";
 
   try {
     const withProto = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
@@ -54,6 +57,8 @@ export function parseTarget(raw: string): ParsedTarget {
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
       throw new Error("Only http(s) addresses are supported.");
     }
+    if (parsed.username || parsed.password) throw new Error("Embedded credentials are forbidden.");
+    requestedUrl = parsed.href;
     host = stripWww(parsed.hostname);
     path = parsed.pathname || "/";
     url = `https://${host}`;
@@ -74,6 +79,7 @@ export function parseTarget(raw: string): ParsedTarget {
     wwwHost: `www.${host}`,
     url,
     path,
+    requestedUrl,
   };
 }
 
