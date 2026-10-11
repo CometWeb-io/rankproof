@@ -100,7 +100,6 @@ It scans the competitors as well, so a response can take several minutes. Set a 
 | ----- | -------------------------------------------------------------------------- |
 | `200` | Success                                                                    |
 | `400` | Invalid input, or the scan failed                                          |
-| `405` | Wrong method (`/health` and `/doctor` accept GET; everything else is POST) |
 | `401` | Missing or invalid bearer credential                                       |
 | `405` | Wrong method (`/health` and `/doctor` accept GET; everything else is POST) |
 | `415` | POST body is not JSON                                                      |
