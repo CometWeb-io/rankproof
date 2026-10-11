@@ -105,3 +105,7 @@ It scans the competitors as well, so a response can take several minutes. Set a 
 | `415` | POST body is not JSON                                                      |
 | `429` | Rate limit exceeded                                                        |
 | `503` | Scan capacity exhausted or unavailable                                     |
+
+### Cancellation on client disconnect
+
+The standalone HTTP server forwards response-close cancellation to the domain scan's internal `Budget`, allowing cooperative sources and waiting host queues to stop when the client disconnects. This limits avoidable external traffic; not every third-party call or CPU-bound task is currently cancellable. Admission capacity remains a per-process control, not a distributed queue.

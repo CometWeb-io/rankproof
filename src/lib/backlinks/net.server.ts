@@ -594,8 +594,10 @@ export class Budget {
   private readonly controller = new AbortController();
   private readonly totalMs: number;
 
-  constructor(totalMs: number) {
+  constructor(totalMs: number, outerSignal?: AbortSignal) {
     this.totalMs = totalMs;
+    if (outerSignal?.aborted) this.controller.abort();
+    else outerSignal?.addEventListener("abort", () => this.controller.abort(), { once: true });
     const timer = setTimeout(() => this.controller.abort(), totalMs);
     if (typeof timer === "object" && timer && "unref" in timer) {
       (timer as { unref: () => void }).unref();

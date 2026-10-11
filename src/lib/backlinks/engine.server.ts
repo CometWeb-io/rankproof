@@ -193,6 +193,8 @@ export type ScanOptions = {
   skipSiteAudit?: boolean;
   /** Trusted local CLI only; public web/server API never receives owner metrics. */
   includeOwnerData?: boolean;
+  /** Abort expensive work when the originating client disconnects. */
+  signal?: AbortSignal;
 };
 
 export async function runScan(rawInput: string, options: ScanOptions = {}): Promise<ScanResult> {
@@ -213,6 +215,7 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
   const quick = runtime.profile === "quick" && !light;
   const budget = new Budget(
     options.budgetMs ?? (light ? runtime.lightBudgetMs : runtime.scanBudgetMs),
+    options.signal,
   );
   const notes: string[] = quick
     ? [

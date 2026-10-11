@@ -2413,3 +2413,15 @@ test("page-specific scans cannot share a trend scope with another page", async (
     scanScopeKey({ ...base, requestedUrl: "https://example.com/B" }),
   );
 });
+
+test("external client abort cancels a scan time budget immediately", async () => {
+  const { Budget } = await import("./net.server.ts");
+  const client = new AbortController();
+  const budget = new Budget(60_000, client.signal);
+  assert.equal(budget.signal.aborted, false);
+  client.abort();
+  assert.equal(budget.signal.aborted, true);
+  const alreadyClosed = new AbortController();
+  alreadyClosed.abort();
+  assert.equal(new Budget(60_000, alreadyClosed.signal).signal.aborted, true);
+});

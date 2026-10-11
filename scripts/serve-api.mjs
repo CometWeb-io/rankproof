@@ -158,13 +158,19 @@ async function start() {
       send(503, { ok: false, error: "Scan capacity exhausted." });
       return;
     }
+    const clientAbort = new AbortController();
+    const onClose = () => {
+      if (!res.writableEnded) clientAbort.abort();
+    };
+    res.once("close", onClose);
     try {
       const body = await readJson(req);
-      const result = await route(url.pathname, body);
+      const result = await route(url.pathname, body, clientAbort.signal);
       send(result.ok ? 200 : 400, result);
     } catch (error) {
       send(400, { ok: false, error: error instanceof Error ? error.message : "Request error." });
     } finally {
+      res.off("close", onClose);
       release();
     }
   });
@@ -182,7 +188,7 @@ async function start() {
   });
 }
 
-async function route(pathname, body) {
+async function route(pathname, body, signal) {
   switch (pathname) {
     case "/scan": {
       const { runScan } = await import(engine("engine.server"));
@@ -191,6 +197,7 @@ async function route(pathname, body) {
         device: body.device,
         engines: body.engines,
         skipSiteAudit: body.skipSiteAudit,
+        signal,
       });
     }
     case "/serp": {
