@@ -20,6 +20,37 @@ First stable public release after the RC hardening pass.
 - `scan-results.tsx` refactored from a single 1.5k-line module into focused subcomponents.
 - `scan-serp.tsx` split into `src/components/scan/` modules (barrel re-export; largest file ~250 lines).
 
+## [Unreleased] — evidence-first hardening (PR #2, October 2026)
+
+### Reliability and data correctness
+
+- Added comparable scan scope fingerprints, bounded evidence coverage and explicit
+  distinction between verified link loss and links merely not rediscovered.
+- Verified archived link-loss claims against the live source before flagging a
+  backlink as lost.
+- Preserved explicit page URLs and added a separate on-page result in the UI,
+  without mixing it into the domain-level backlink and SERP metrics.
+- Upgraded eTLD+1 grouping to a pinned ICANN and private Public Suffix List,
+  with 78 upstream conformance vectors and an opt-in manual update script.
+- Corrected GSC property totals, inclusive date windows, SERP scoring, source
+  evidence classes, robots.txt error handling and OpenSERP v2 compatibility.
+
+### Network and resource protection
+
+- Cancellable, bounded per-host queues now hold slots through response bodies.
+- DNS resolution rejects malformed records; redirects do not forward
+  credentials or cache validators to unrelated destinations.
+- Externally bound HTTP API requires Bearer authorization and DNS pinning,
+  even when launched in development mode.
+- The HTTP API propagates client disconnects to cancellable scan operations.
+- Response cache respects privacy and Vary headers; optional disk cache limits
+  entry counts, total size and cleanup scope.
+- Added low-cost scan profiles, durable local PGlite opt-in and synthetic,
+  reproducible CPU benchmarks. None requires paid infrastructure.
+
+The PR remains a draft pending independent live-site, adversarial security,
+accuracy and performance evaluation. No CI/CD workflow files changed.
+
 ## [Unreleased] — open-source readiness
 
 Pre-publication pass: a security fix, the last of the Polish surface, engine
