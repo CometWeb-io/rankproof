@@ -57,10 +57,11 @@ export function isResponseCacheable(res: Response): boolean {
   if (res.headers.has("set-cookie")) return false;
   const policy = res.headers.get("cache-control") ?? "";
   if (/(?:^|,)\s*(?:private|no-store)\b/i.test(policy)) return false;
-  const vary = res.headers.get("vary") ?? "";
-  if (vary.split(",").some((header) =>
-    header.trim() !== "" && !["accept", "accept-language", "user-agent"].includes(header.trim().toLowerCase())
-  )) return false;
+  const allowedVary = new Set(["accept", "accept-language", "user-agent"]);
+  for (const name of (res.headers.get("vary") ?? "").split(",")) {
+    const header = name.trim().toLowerCase();
+    if (header && !allowedVary.has(header)) return false;
+  }
   return true;
 }
 
