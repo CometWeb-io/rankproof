@@ -55,7 +55,9 @@ export function rowToDelta(report: ScanReport, row: ScanRow | undefined): ScanDe
   if (!row || !report.scopeKey || row.scan_scope !== report.scopeKey) return null;
   const prevIds = new Set(asList(row.link_ids));
   const prevDomains = new Set(asList(row.domains));
-  const currentIds = report.backlinks.map((b) => b.id);
+  // The DB retains only MAX_HISTORY_IDS identifiers. Comparing beyond that
+  // cap incorrectly classifies every unsaved identifier as a newly found link.
+  const currentIds = report.backlinks.slice(0, MAX_HISTORY_IDS).map((b) => b.id);
   const currentIdSet = new Set(currentIds);
   const currentDomains = report.analytics.referringDomains.map((d) => d.domain);
   const currentDomainSet = new Set(currentDomains);

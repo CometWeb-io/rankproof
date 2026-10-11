@@ -2655,3 +2655,48 @@ test("an archived backlink cannot be declared lost from a redirected source page
     true,
   );
 });
+
+test("history deltas compare only link IDs that could have been persisted", async () => {
+  const { rowToDelta, MAX_HISTORY_IDS } = await import("./history-diff.ts");
+  const { diffReport } = await import("./history.ts");
+  const backlinks = Array.from({ length: 900 }, (_, i) => ({ id: `link-${i}` }));
+  const report = {
+    target: { host: "example.com" },
+    scopeKey: "fixed-scope",
+    queriedAt: "2026-10-11T20:00:00Z",
+    backlinks,
+    analytics: { referringDomains: [], health: { total: 70 } },
+    stats: { backlinks: 900, referringDomains: 0, domainRating: 0, serpVisibility: 0 },
+  } as unknown as Parameters<typeof rowToDelta>[0];
+  const row = {
+    queried_at: "2026-10-10T20:00:00Z",
+    scan_scope: "fixed-scope",
+    backlinks: 900,
+    referring_domains: 0,
+    dofollow: 0,
+    domain_rating: 0,
+    health: 70,
+    spam_domains: 0,
+    lost_links: 0,
+    visibility: 0,
+    link_ids: backlinks.slice(0, MAX_HISTORY_IDS).map((item) => item.id),
+    domains: [],
+  };
+  const delta = rowToDelta(report, row);
+  assert.equal(delta?.newLinks, 0);
+  assert.equal(delta?.notRediscoveredLinks, 0);
+  const browserEntry = {
+    host: "example.com",
+    input: "example.com",
+    at: "2026-10-10T20:00:00Z",
+    scopeKey: "fixed-scope",
+    backlinks: 900,
+    referringDomains: 0,
+    health: 70,
+    ids: backlinks.slice(0, 500).map((item) => item.id),
+    domains: [],
+  };
+  const local = diffReport(report, browserEntry);
+  assert.equal(local?.newLinks, 0);
+  assert.equal(local?.notRediscoveredLinks, 0);
+});

@@ -98,7 +98,8 @@ export function diffReport(report: ScanReport, previous: HistoryItem | null): Sc
 
   const prevIds = new Set(comparable.ids ?? []);
   const prevDomains = new Set(comparable.domains ?? []);
-  const currentIds = report.backlinks.map((b) => b.id);
+  // localStorage retains only MAX_IDS; never compare with more than were saved.
+  const currentIds = report.backlinks.slice(0, MAX_IDS).map((b) => b.id);
   const currentDomains = report.analytics.referringDomains.map((d) => d.domain);
   const currentDomainSet = new Set(currentDomains);
 
