@@ -3,7 +3,10 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { registeredDomain } from "./public-suffix.ts";
 
-const official = readFileSync(new URL("./fixtures/public-suffix-official.txt", import.meta.url), "utf8");
+const official = readFileSync(
+  new URL("./fixtures/public-suffix-official.txt", import.meta.url),
+  "utf8",
+);
 
 /**
  * Public Suffix List upstream conformance cases (public-domain test vectors).
