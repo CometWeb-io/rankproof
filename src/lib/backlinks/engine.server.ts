@@ -187,6 +187,8 @@ export type ScanOptions = {
   depth?: number;
   /** Skips the internal crawl — useful in CI and for quick lookups. */
   skipSiteAudit?: boolean;
+  /** Trusted local CLI only; public web/server API never receives owner metrics. */
+  includeOwnerData?: boolean;
 };
 
 export async function runScan(rawInput: string, options: ScanOptions = {}): Promise<ScanResult> {
@@ -670,7 +672,9 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
         );
 
   // Real clicks and impressions, but only when the operator connected an account.
-  const searchConsole = light
+  // Environment credentials identify the server operator, not the web caller.
+  // Keep owner-only performance out of unauthenticated web/API scan results.
+  const searchConsole = light || !options.includeOwnerData
     ? null
     : buildSearchConsoleInsights(await fetchSearchConsoleData(host).catch(() => []), serpQueries);
 

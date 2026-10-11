@@ -108,3 +108,13 @@ node bin/rankproof.mjs scan example.com --quiet --format json \
 ```
 
 Rank history is written on every scan, so the next one will show gains and drops.
+
+## Owner-only Search Console and Bing Webmaster data
+
+Public scans never include private performance data. On the trusted local CLI, opt in with `RANKPROOF_CLI_OWNER_DATA=1` and configured credentials:
+
+```bash
+RANKPROOF_CLI_OWNER_DATA=1 node bin/rankproof.mjs scan example.com --format json --out private-report.json
+```
+
+Keep exported reports private. This flag is intentionally ignored by the web app and standalone API.

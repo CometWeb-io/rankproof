@@ -115,6 +115,8 @@ async function runScanCommand(options, log) {
     engines: options.engines.length > 0 ? options.engines : undefined,
     depth: options.depth,
     skipSiteAudit: options.skipAudit,
+    // Opt in locally. Never expose owner credentials through HTTP or the web UI.
+    includeOwnerData: process.env.RANKPROOF_CLI_OWNER_DATA === "1",
   });
   if (!result.ok) throw new Error(result.error);
   const report = result.report;
