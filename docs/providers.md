@@ -19,12 +19,13 @@ To measure competitor Google SERPs, run a self-hosted JSON provider (e.g. [OpenS
 
 ```bash
 export RANKPROOF_GOOGLE_PROVIDER_URL=http://127.0.0.1:7000
+export RANKPROOF_GOOGLE_ALLOW_LOOPBACK=1 # explicit local provider trust
 # legacy alias still accepted: OPENVIS_GOOGLE_PROVIDER_URL
 ```
 
 Expected request:
 
-`GET {base}/google/search?q=…&gl=pl&device=desktop`
+`GET {base}/google/search?text=…&region=pl&lang=pl&limit=10`
 
 Expected JSON (any of):
 
@@ -44,3 +45,7 @@ rankproof doctor
 ```
 
 Registry code: `src/lib/backlinks/serp-providers.ts`.
+
+### Security and accuracy
+
+Loopback access is opt-in **only** for the administrator-selected Google provider. The scanner's user-controlled URL/redirect guard still blocks local addresses. External providers must resolve exclusively to public addresses. OpenSERP v2 responses can contain ads; the adapter includes organic results only and preserves `position.absolute`. Provider results are not guaranteed to reproduce localized mobile rankings: OpenSERP v2 does not define a `device` query parameter in its documented request contract. Treat the device as unspecified until a provider explicitly supports it.

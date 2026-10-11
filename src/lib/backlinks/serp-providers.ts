@@ -82,6 +82,14 @@ export function isEngineConfigured(engine: SerpEngine): boolean {
  * targets — same policy as crawl (`guardUrl` / `guardUrlWithDns`).
  */
 export async function assertProviderUrlAllowed(raw: string, resolve?: Resolver): Promise<void> {
+  // Deliberately restricted to an operator-configured loopback provider.
+  // Never apply this exception to site URLs, redirects or caller-supplied hosts.
+  const configured = new URL(raw);
+  const hostname = configured.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (process.env.RANKPROOF_GOOGLE_ALLOW_LOOPBACK === "1" &&
+      configured.protocol === "http:" &&
+      (hostname === "127.0.0.1" || hostname === "::1")) return;
+
   const staticVerdict = guardUrl(raw);
   if (!staticVerdict.allowed) {
     throw new Error(`Google provider URL blocked: ${staticVerdict.reason}`);
@@ -129,31 +137,53 @@ export async function fetchGoogleOrganicViaProvider(
   const base = options.baseUrl.replace(/\/$/, "");
   const page = options.page ?? 0;
   const url = new URL(`${base}/google/search`);
-  url.searchParams.set("q", keyword);
-  if (options.market) url.searchParams.set("gl", options.market);
-  if (options.device) url.searchParams.set("device", options.device);
+  // OpenSERP v2 uses text/lang/region/start, not Google HTML parameters q/gl.
+  url.searchParams.set("text", keyword);
+  const languages: Record<string, string> = { pl: "pl", us: "en", gb: "en", de: "de", fr: "fr", es: "es" };
+  if (options.market) {
+    url.searchParams.set("region", options.market);
+    url.searchParams.set("lang", languages[options.market] ?? "en");
+  }
   if (page > 0) url.searchParams.set("start", String(page * 10));
+  url.searchParams.set("limit", "10");
 
   // Fail closed before any network I/O — env-configured provider URLs are as
   // dangerous as crawl targets when they point at metadata or loopback.
   await assertProviderUrlAllowed(url.href, options.resolve);
 
   const fetchImpl = options.fetchImpl ?? fetch;
-  // Node's fetch has no default timeout: without this, one stalled provider
-  // hangs `doctor` and every scan that includes the google engine.
-  const abort = new AbortController();
-  const timer = setTimeout(() => abort.abort(), options.timeoutMs ?? 10_000);
-  let res: Response;
-  try {
-    res = await fetchImpl(url.href, {
-      headers: { Accept: "application/json", "User-Agent": "RankProof/google-provider" },
-      signal: options.signal ?? abort.signal,
-    });
-  } finally {
-    clearTimeout(timer);
-  }
+  // The deadline covers headers AND body. Reading all bytes before slicing is
+  // unsafe when a remote provider returns an unexpectedly large response.
+  const deadline = AbortSignal.timeout(Math.max(500, options.timeoutMs ?? 10_000));
+  const signal = options.signal ? AbortSignal.any([options.signal, deadline]) : deadline;
+  const res = await fetchImpl(url.href, {
+    headers: { Accept: "application/json", "User-Agent": "RankProof/google-provider" },
+    signal,
+  });
   if (!res.ok) throw new Error(`Google provider HTTP ${res.status}`);
-  const text = (await res.text()).slice(0, 2_000_000);
+  if (!(res.headers.get("content-type") ?? "").includes("json")) {
+    throw new Error("Google provider returned non-JSON content-type");
+  }
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error("Google provider response is empty");
+  const decoder = new TextDecoder();
+  let text = "";
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > 2_000_000) {
+        await reader.cancel().catch(() => undefined);
+        throw new Error("Google provider response exceeds 2 MB limit");
+      }
+      text += decoder.decode(value, { stream: true });
+    }
+    text += decoder.decode();
+  } finally {
+    reader.releaseLock();
+  }
   let data: unknown;
   try {
     data = JSON.parse(text);
@@ -163,10 +193,14 @@ export async function fetchGoogleOrganicViaProvider(
   const rows = extractProviderRows(data);
   const hits: OrganicHit[] = [];
   for (const row of rows) {
+    if (typeof row.type === "string" && row.type !== "organic") continue;
     const href = String(row.link ?? row.url ?? "").trim();
     if (!/^https?:\/\//i.test(href)) continue;
+    const positionRecord = isRecord(row.position) ? row.position : null;
+    const explicitPosition = Number(positionRecord?.absolute ?? row.rank);
     hits.push({
-      position: hits.length + 1,
+      position: Number.isInteger(explicitPosition) && explicitPosition > 0
+        ? explicitPosition : page * 10 + hits.length + 1,
       url: href,
       title: String(row.title ?? "").slice(0, 200),
       snippet: String(row.snippet ?? row.description ?? "").slice(0, 400),

@@ -1973,7 +1973,7 @@ test("Google provider adapter parses OpenSERP-style JSON", async () => {
             { url: "https://b.example/y", title: "B", description: "two" },
           ],
         }),
-        { status: 200 },
+        { status: 200, headers: { "content-type": "application/json" } },
       )) as typeof fetch,
   });
   assert.equal(hits.length, 2);
@@ -2062,4 +2062,31 @@ test("SERP visibility is monotone for ranks 1..20 and beats no rank", async () =
   }
   assert.ok(visibilityScore([query(20) as never]).visibility >
     visibilityScore([query(null) as never]).visibility);
+});
+
+test("OpenSERP v2 contract uses text/lang/region and preserves absolute rank", async () => {
+  const { fetchGoogleOrganicViaProvider } = await import("./serp-providers.ts");
+  let requested = "";
+  const out = await fetchGoogleOrganicViaProvider("audit seo", {
+    baseUrl: "https://provider.example",
+    market: "pl",
+    page: 1,
+    resolve: async () => ["93.184.216.34"],
+    fetchImpl: (async (url: string | URL | Request) => {
+      requested = String(url);
+      return new Response(JSON.stringify({ results: [
+        { url: "https://ads.example", type: "ad", position: { absolute: 10 }, title: "Ad" },
+        { url: "https://organic.example", type: "organic", position: { absolute: 12 }, title: "Organic" }
+      ] }), { status: 200, headers: { "content-type": "application/json" } });
+    }) as typeof fetch
+  });
+  const url = new URL(requested);
+  assert.equal(url.pathname, "/google/search");
+  assert.equal(url.searchParams.get("text"), "audit seo");
+  assert.equal(url.searchParams.get("q"), null);
+  assert.equal(url.searchParams.get("region"), "pl");
+  assert.equal(url.searchParams.get("lang"), "pl");
+  assert.equal(url.searchParams.get("start"), "10");
+  assert.equal(out.hits.length, 1);
+  assert.equal(out.hits[0]?.position, 12);
 });

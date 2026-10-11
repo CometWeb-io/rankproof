@@ -100,6 +100,7 @@ Scraping Google from RankProof is intentionally unsupported. For competitor Goog
 
 ```bash
 export RANKPROOF_GOOGLE_PROVIDER_URL=http://127.0.0.1:7000
+export RANKPROOF_GOOGLE_ALLOW_LOOPBACK=1 # trust only the administrator-configured local provider
 ```
 
 See [`providers.md`](providers.md).
