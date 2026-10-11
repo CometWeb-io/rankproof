@@ -65,6 +65,15 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
   const [query, setQuery] = useState("");
 
   const { analytics, stats, target } = report;
+  let coverageSummary: string | null = null;
+  if (report.coverage) {
+    const sample = report.coverage;
+    coverageSummary = `Bounded backlink sample: ${sample.reportedLinks} links displayed.`;
+    coverageSummary += ` ${sample.htmlVerified} HTML-verified.`;
+    coverageSummary += ` ${sample.apiObserved} API observations.`;
+    if (sample.truncated) coverageSummary += " The result set was capped.";
+    coverageSummary += " This is not an exhaustive link index.";
+  }
 
   // A diff computed server-side (persistent history) takes precedence over
   // the localStorage comparison.
@@ -449,15 +458,7 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
               )}
             </section>
           ) : null}
-          {report.coverage ? (
-            <p className="text-xs text-subtle">
-              Bounded backlink sample: {report.coverage.reportedLinks} links displayed.{" "}
-              {report.coverage.htmlVerified} HTML-verified.{" "}
-              {report.coverage.apiObserved} API observations.
-              {report.coverage.truncated ? " The result set was capped." : ""}
-              {" This is not an exhaustive link index."}
-            </p>
-          ) : null}
+          {coverageSummary ? <p className="text-xs text-subtle">{coverageSummary}</p> : null}
           <SerpOverviewHint />
 
           {report.notes.length > 0 ? (
