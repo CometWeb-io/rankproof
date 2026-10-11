@@ -232,6 +232,7 @@ export async function verifyPages(pages: Candidate[], opts: VerifyOptions): Prom
             sitewide: false,
             discoveredVia: page.via,
             verified: true,
+            evidenceKind: "source-html",
             firstSeen: null,
             httpStatus: res.status,
             targetStatus: null,
@@ -296,6 +297,21 @@ export async function verifyPages(pages: Candidate[], opts: VerifyOptions): Prom
   return { backlinks, mentions, deeper, checked, edges, unlinkedPages };
 }
 
+/** A link is only 'lost' when the current original page was fetched and
+ * independently found to contain no target-domain anchors. Errors, blocked
+ * pages and HTML too small for meaningful extraction stay unknown. */
+export function isConfirmedLostBacklink(
+  status: number,
+  currentHtml: string,
+  currentUrl: string,
+  targetHost: string,
+): boolean {
+  if (status < 200 || status >= 300 || currentHtml.length < 500) return false;
+  return !parseAnchors(currentHtml, currentUrl).some((anchor) =>
+    isTargetHost(hostFromUrl(anchor.href), targetHost),
+  );
+}
+
 /**
  * Lost backlinks: a page used to link (visible in the Internet Archive) and no
  * longer does. These are the best
@@ -325,6 +341,18 @@ export async function findLostLinks(
         isTargetHost(hostFromUrl(a.href), opts.host),
       );
       if (anchors.length === 0) return;
+      // Archive observation alone does not prove the backlink is lost today.
+      // Fail closed on blocked/unavailable/short current pages rather than
+      // promising a link-recovery opportunity with no fresh evidence.
+      const live = await fetchUsefulHtml(
+        pageUrl,
+        opts.budget.timeout(6000),
+        opts.budget.signal,
+        opts.budget,
+      );
+      if (!isConfirmedLostBacklink(live.status, live.text, live.finalUrl || pageUrl, opts.host)) {
+        return;
+      }
       const anchor = anchors[0]!;
       const sourceHost = hostFromUrl(pageUrl);
       const targetUrl = normalizeUrl(anchor.href);
@@ -346,7 +374,8 @@ export async function findLostLinks(
         placement: anchor.placement,
         sitewide: false,
         discoveredVia: "archive",
-        verified: true,
+        verified: false,
+        evidenceKind: "archived-html",
         firstSeen: null,
         httpStatus: null,
         targetStatus: null,

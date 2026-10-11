@@ -403,7 +403,7 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
 
   /* --- Phase 4: lost links from the archive ----------------------------- */
   let lostLinks: Backlink[] = [];
-  if (!light && !budget.spent(0.72) && unlinkedPages.length > 0) {
+  if (!light && !quick && !budget.spent(0.72) && unlinkedPages.length > 0) {
     lostLinks = await findLostLinks(unlinkedPages, {
       host,
       brandTokens: tokens,

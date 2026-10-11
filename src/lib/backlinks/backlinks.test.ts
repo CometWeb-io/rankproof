@@ -2201,3 +2201,15 @@ test("scan profile parsing is deterministic and fails safe to standard", async (
   assert.equal(parseScanProfile("experimental"), "standard");
   assert.equal(parseScanProfile(undefined), "standard");
 });
+
+test("archive links require independently verified live-page absence", async () => {
+  const { isConfirmedLostBacklink } = await import("./verify.server.ts");
+  const source = "https://example-news.pl/article";
+  const padding = "<main>" + "Useful source text ".repeat(35) + "</main>";
+  const withLink = padding + '<a href="https://cel.pl/offer">Still linked</a>';
+  assert.equal(isConfirmedLostBacklink(200, withLink, source, "cel.pl"), false);
+  assert.equal(isConfirmedLostBacklink(200, padding, source, "cel.pl"), true);
+  assert.equal(isConfirmedLostBacklink(403, padding, source, "cel.pl"), false);
+  assert.equal(isConfirmedLostBacklink(500, padding, source, "cel.pl"), false);
+  assert.equal(isConfirmedLostBacklink(200, "short HTML", source, "cel.pl"), false);
+});

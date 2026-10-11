@@ -138,3 +138,7 @@ Grades: A ≥80, B ≥65, C ≥48, D ≥32, E below.
 `priority = impact × effort weight`, where the weight is 1.0 (low), 0.75 (medium), 0.55 (high). That is why recovering a lost link outranks expensive outreach of similar impact.
 
 Actions derived from Search Console data carry higher impact than modelled ones, because the upside behind them is measured rather than inferred.
+
+## Confirmed lost backlinks versus unobserved links
+
+An archived backlink is **not** automatically a lost backlink. RankProof only marks it lost after retrieving readable current HTML from the original source URL and confirming that no target-domain anchor remains. A 403, 429, network timeout, inaccessible page or very short response is **unknown**, not a lost link. An archived snapshot is historical evidence (`evidenceKind=archived-html`) and is not falsely presented as a currently verified backlink. Quick scans skip this extra network-intensive confirmation.
