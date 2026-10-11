@@ -2269,3 +2269,35 @@ test("Unicode and punycode TLDs resolve to the same registrable domain", () => {
   assert.equal(registrableDomain("www.пример.рф"), "xn--e1afmkfd.xn--p1ai");
   assert.equal(parseTarget("https://пример.рф/").domain, "xn--e1afmkfd.xn--p1ai");
 });
+
+test("workload profile changes resource and SERP defaults without manual caps", async () => {
+  const { config, resetConfig } = await import("./config.ts");
+  const keys = [
+    "RANKPROOF_SCAN_PROFILE",
+    "RANKPROOF_SCAN_BUDGET_MS",
+    "RANKPROOF_SERP_DEPTH",
+    "RANKPROOF_MAX_BACKLINKS",
+    "RANKPROOF_MAX_VERIFY",
+  ] as const;
+  const original = new Map(keys.map((key) => [key, process.env[key]]));
+  try {
+    for (const key of keys) delete process.env[key];
+    process.env.RANKPROOF_SCAN_PROFILE = "quick";
+    resetConfig();
+    assert.equal(config().scanBudgetMs, 20_000);
+    assert.equal(config().serpDepth, 10);
+    assert.equal(config().maxVerify, 24);
+    process.env.RANKPROOF_SCAN_PROFILE = "deep";
+    resetConfig();
+    assert.equal(config().scanBudgetMs, 180_000);
+    assert.equal(config().serpDepth, 20);
+    assert.equal(config().maxBacklinks, 1_200);
+  } finally {
+    for (const key of keys) {
+      const value = original.get(key);
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    resetConfig();
+  }
+});
