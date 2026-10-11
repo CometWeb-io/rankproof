@@ -318,6 +318,7 @@ export async function findLostLinks(
         snapshot.url,
         opts.budget.timeout(8000),
         opts.budget.signal,
+        opts.budget,
       );
       if (res.status >= 400 || res.text.length < 500) return;
       const anchors = parseAnchors(res.text, pageUrl).filter((a) =>

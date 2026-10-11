@@ -173,12 +173,14 @@ export async function robotsFor(
     });
     // 4xx means "no rules"; 5xx means the host is unhappy — back off politely.
     if (status >= 200 && status < 300 && text.trim()) rules = parseRobots(text, agent);
-    else if (status >= 500) {
+    else if (status === 429 || status >= 500) {
       rules = { ...ALLOW_ALL, missing: false, disallow: ["/"] };
       ttl = ERROR_TTL_MS;
     }
   } catch {
-    rules = ALLOW_ALL;
+    // RFC 9309: unreachable robots.txt is not the same as a missing 404.
+    // A network/TLS/timeout failure must not grant crawl permission.
+    rules = { ...ALLOW_ALL, missing: false, disallow: ["/"] };
     ttl = ERROR_TTL_MS;
   }
 

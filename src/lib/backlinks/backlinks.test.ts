@@ -2090,3 +2090,21 @@ test("OpenSERP v2 contract uses text/lang/region and preserves absolute rank", a
   assert.equal(out.hits.length, 1);
   assert.equal(out.hits[0]?.position, 12);
 });
+
+test("robots policy fails closed after transport errors, not open", async () => {
+  const { robotsFor, clearRobotsCache, isAllowed } = await import("./robots.server.ts");
+  const { Budget, clearNetCache } = await import("./net.server.ts");
+  const oldFetch = globalThis.fetch;
+  try {
+    clearNetCache();
+    clearRobotsCache();
+    globalThis.fetch = (async () => { throw new Error("connection reset"); }) as typeof fetch;
+    const rules = await robotsFor("https://robots-unavailable.example", new Budget(5_000));
+    assert.equal(rules.missing, false);
+    assert.equal(isAllowed(rules, "/page"), false);
+  } finally {
+    globalThis.fetch = oldFetch;
+    clearRobotsCache();
+    clearNetCache();
+  }
+});
