@@ -21,6 +21,7 @@ import { existsSync } from "node:fs";
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
+import { boundedInteger, createRateLimiter, createConcurrencyGate, validBearer } from "./api-guards.mjs";
 
 // See bin/rankproof.mjs: an installed package loads the compiled engine,
 // a clone runs the TypeScript sources.
@@ -50,22 +51,6 @@ function flag(name, fallback) {
   return inline ? inline.slice(name.length + 3) : fallback;
 }
 
-/** A simple limiter: N requests per time window, counted per client address. */
-function createLimiter(max, windowMs) {
-  const hits = new Map();
-  return (key) => {
-    const now = Date.now();
-    const entry = hits.get(key);
-    if (!entry || now > entry.reset) {
-      hits.set(key, { count: 1, reset: now + windowMs });
-      return true;
-    }
-    if (entry.count >= max) return false;
-    entry.count += 1;
-    return true;
-  };
-}
-
 async function readJson(req, limitBytes = 64_000) {
   const chunks = [];
   let size = 0;
@@ -83,9 +68,17 @@ async function start() {
   loadDotEnv();
   const port = Number(flag("port", process.env.PORT ?? "8787"));
   const host = flag("host", process.env.HOST ?? "127.0.0.1");
-  const allow = createLimiter(
-    Number(process.env.RANKPROOF_RATE_LIMIT ?? 20),
-    Number(process.env.RANKPROOF_RATE_WINDOW_MS ?? 60_000),
+  const exposed = !["127.0.0.1", "localhost", "::1"].includes(host);
+  const secret = process.env.RANKPROOF_API_TOKEN?.trim() || null;
+  if (exposed && !secret) {
+    throw new Error("Binding the HTTP API publicly requires RANKPROOF_API_TOKEN.");
+  }
+  const allow = createRateLimiter(
+    boundedInteger(process.env.RANKPROOF_RATE_LIMIT ?? 20, 20, 1, 500),
+    boundedInteger(process.env.RANKPROOF_RATE_WINDOW_MS ?? 60_000, 60_000, 1_000, 3_600_000),
+  );
+  const acquire = createConcurrencyGate(
+    boundedInteger(process.env.RANKPROOF_MAX_ACTIVE_SCANS ?? 2, 2, 1, 16),
   );
 
   const server = createServer(async (req, res) => {
@@ -104,11 +97,21 @@ async function start() {
       send(200, { ok: true, service: "rankproof", uptime: Math.round(process.uptime()) });
       return;
     }
+    if (!validBearer(req.headers.authorization, secret)) {
+      send(401, { ok: false, error: "Authorization required." });
+      return;
+    }
+
     if (req.method === "GET" && url.pathname === "/doctor") {
       // /doctor probes five engines sequentially, so it is rate-limited like
       // the POST endpoints. /health above stays free: it is a liveness probe.
       if (!allow(req.socket.remoteAddress ?? "unknown")) {
         send(429, { ok: false, error: "Too many requests. Try again shortly." });
+        return;
+      }
+      const release = acquire();
+      if (!release) {
+        send(503, { ok: false, error: "Scan capacity exhausted." });
         return;
       }
       try {
@@ -120,6 +123,8 @@ async function start() {
           ok: false,
           error: error instanceof Error ? error.message : "Doctor failed.",
         });
+      } finally {
+        release();
       }
       return;
     }
@@ -135,22 +140,33 @@ async function start() {
       return;
     }
 
+    if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
+      send(415, { ok: false, error: "Expected application/json request body." });
+      return;
+    }
+    const release = acquire();
+    if (!release) {
+      send(503, { ok: false, error: "Scan capacity exhausted." });
+      return;
+    }
     try {
       const body = await readJson(req);
       const result = await route(url.pathname, body);
       send(result.ok ? 200 : 400, result);
     } catch (error) {
       send(400, { ok: false, error: error instanceof Error ? error.message : "Request error." });
+    } finally {
+      release();
     }
   });
+  server.requestTimeout = 15_000;
+  server.headersTimeout = 10_000;
 
   server.listen(port, host, () => {
     console.log(`RankProof API: http://${host}:${port}`);
     console.log("Endpoints: GET /health /doctor · POST /scan /serp /ideas /gap");
-    if (host !== "127.0.0.1" && host !== "localhost") {
-      console.log(
-        "WARNING: the server is listening beyond localhost. Put a reverse proxy with authentication in front of it.",
-      );
+    if (exposed) {
+      console.log("Public binding: Bearer authentication enabled. Put TLS and a reverse proxy in front.");
     }
   });
 }

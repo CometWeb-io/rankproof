@@ -6,11 +6,11 @@ A standalone JSON server, independent of the web application.
 npm run api -- --port 8787 --host 127.0.0.1
 ```
 
-**By default it listens on `127.0.0.1` only.** These endpoints query other people's servers, and — if you have connected Search Console — they expose your own performance data. Exposing them publicly without a reverse proxy and authentication means anyone can use your machine as a proxy and read your analytics. See [`SECURITY.md`](../SECURITY.md).
+**By default it listens on `127.0.0.1` only.** Owner-only Search Console and Bing Webmaster data are never included in web/API responses. Public binding requires `RANKPROOF_API_TOKEN`, and all endpoints except `GET /health` require `Authorization: Bearer <token>` when the token is configured. Put TLS and a reverse proxy in front of externally reachable instances. See [`SECURITY.md`](../SECURITY.md).
 
 ## Rate limits
 
-20 requests per minute per client address by default, across every endpoint except `GET /health` (`RANKPROOF_RATE_LIMIT`, `RANKPROOF_RATE_WINDOW_MS`). Beyond that: `429`.
+20 requests per minute per socket client address by default, across every endpoint except `GET /health` (`RANKPROOF_RATE_LIMIT`, `RANKPROOF_RATE_WINDOW_MS`). Beyond that: `429`. The limiter has a bounded client table. `RANKPROOF_MAX_ACTIVE_SCANS=2` prevents concurrent expensive scans from exhausting machine resources; when full the API returns `503`. There is no paid queue service.
 
 ## Endpoints
 
@@ -102,3 +102,6 @@ It scans the competitors as well, so a response can take several minutes. Set a 
 | `400` | Invalid input, or the scan failed                                          |
 | `405` | Wrong method (`/health` and `/doctor` accept GET; everything else is POST) |
 | `429` | Rate limit exceeded                                                        |
+| `401` | Missing or invalid bearer credential                                       |
+| `415` | POST body is not JSON                                                       |
+| `503` | Scan capacity exhausted or unavailable                                      |

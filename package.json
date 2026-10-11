@@ -34,6 +34,7 @@
     "dist",
     "bin",
     "scripts/load-dotenv.mjs",
+    "scripts/api-guards.mjs",
     "scripts/node-version.mjs",
     "scripts/serve-api.mjs",
     "!src/lib/backlinks/**/*.test.ts",
@@ -77,7 +78,7 @@
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install chromium",
     "smoke": "node bin/rankproof.mjs doctor && node bin/rankproof.mjs version && node bin/rankproof.mjs help >/dev/null",
-    "test:scaffold": "node --test scripts/check-auth-invariant.test.mjs scripts/migration-plan.test.mjs scripts/sign-out-plan.test.mjs scripts/with-app-env.test.mjs scripts/node-version.test.mjs",
+    "test:scaffold": "node --test scripts/check-auth-invariant.test.mjs scripts/migration-plan.test.mjs scripts/sign-out-plan.test.mjs scripts/with-app-env.test.mjs scripts/node-version.test.mjs scripts/api-guards.test.mjs",
     "dev:lan": "node scripts/with-app-env.mjs vite dev --host 0.0.0.0 --port 8080",
     "build:cli": "tsc -p tsconfig.build.json",
     "prepack": "npm run build:cli"
