@@ -2696,3 +2696,29 @@ test("history deltas compare only link IDs that could have been persisted", asyn
   assert.equal(local?.newLinks, 0);
   assert.equal(local?.notRediscoveredLinks, 0);
 });
+
+test("failed or missing SERP measurements never create invented position losses", async () => {
+  const { buildRankMoves } = await import("./serp-intel.ts");
+  const previous = [{ keyword: "example keyword", engine: "bing", position: 5 }];
+  const query = {
+    keyword: "example keyword",
+    engine: "bing" as const,
+    targetPosition: null,
+    status: "blocked" as const,
+    results: [],
+    features: [],
+    related: [],
+    questions: [],
+    depth: 10,
+    difficulty: 0,
+    market: "pl" as const,
+    device: "desktop" as const,
+    ms: 5,
+  };
+  assert.deepEqual(buildRankMoves([query], previous), []);
+  assert.deepEqual(buildRankMoves([], previous), []);
+  const measured = { ...query, status: "ok" as const };
+  assert.equal(buildRankMoves([measured], previous)[0]?.state, "lost");
+  const improved = { ...measured, targetPosition: 3 };
+  assert.equal(buildRankMoves([improved], previous)[0]?.state, "up");
+});

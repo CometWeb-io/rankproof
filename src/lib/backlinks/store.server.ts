@@ -62,7 +62,10 @@ export async function saveSerpPositions(
 ): Promise<void> {
   if (queries.length === 0 || !scopeKey) return;
   const sql = await getSql();
-  for (const query of queries.slice(0, 60)) {
+  const measured = queries.filter(
+    (query) => query.status === "ok" || query.status === "no-results",
+  );
+  for (const query of measured.slice(0, 60)) {
     await sql`
       insert into serp_rank_history (
         host, keyword, engine, position, difficulty, queried_at, scan_scope

@@ -245,11 +245,12 @@ export function buildRankMoves(queries: SerpQuery[], previous: PositionRow[]): R
     before.set(`${row.engine}|${row.keyword}`, row.position);
   }
   const out: RankMove[] = [];
-  const seen = new Set<string>();
 
   for (const query of queries) {
+    // A blocked, timed-out or otherwise unmeasured SERP says nothing about
+    // movement. Never turn source failure into a claimed ranking loss.
+    if (query.status !== "ok" && query.status !== "no-results") continue;
     const key = `${query.engine}|${query.keyword}`;
-    seen.add(key);
     if (!before.has(key)) {
       if (query.targetPosition === null) continue;
       out.push({
@@ -298,18 +299,6 @@ export function buildRankMoves(queries: SerpQuery[], previous: PositionRow[]): R
     });
   }
 
-  for (const [key, position] of before) {
-    if (seen.has(key) || position === null) continue;
-    const [engine, ...rest] = key.split("|");
-    out.push({
-      keyword: rest.join("|"),
-      engine: (engine ?? "bing") as RankMove["engine"],
-      previous: position,
-      current: null,
-      change: null,
-      state: "lost",
-    });
-  }
 
   const rank = (state: RankMove["state"]) =>
     state === "lost" ? 0 : state === "down" ? 1 : state === "up" ? 2 : state === "new" ? 3 : 4;
