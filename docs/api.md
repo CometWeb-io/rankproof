@@ -121,3 +121,7 @@ All JSON API inputs are validated before invoking scanner work. Scans accept an 
 ### Local HTTP contract test
 
 `npm run test:scaffold` exercises the standalone API using an ephemeral localhost port with no external scans. It checks unauthenticated health, Bearer authorization, malformed payload handling and method errors. The test uses no external services; it is not a replacement for a public-deployment penetration test or heavy-load measurement.
+
+### Google/OpenSERP provider egress
+
+An operator-configured **public** Google/OpenSERP JSON provider now uses DNS-validated, IP-pinned HTTP(S) transport. Automatic redirects are rejected (including metadata and private-network redirects), and the response is bounded to 2 MB with a deadline. An explicitly enabled localhost provider uses native fetch with manual redirect rejection. This protects against hostname re-resolution after validation but does not replace a host-level egress firewall.

@@ -12,6 +12,7 @@ import { lookup } from "node:dns/promises";
 import type { SerpEngine } from "./types.ts";
 import type { OrganicHit } from "./serp.ts";
 import { guardUrl, guardUrlWithDns, type Resolver } from "./ssrf.ts";
+import { fetchPinnedProviderJson } from "./net.server.ts";
 
 export type ProviderKind = "builtin-scrape" | "owner-api" | "http-json" | "unimplemented";
 
@@ -162,16 +163,32 @@ export async function fetchGoogleOrganicViaProvider(
   // dangerous as crawl targets when they point at metadata or loopback.
   await assertProviderUrlAllowed(url.href, options.resolve);
 
-  const fetchImpl = options.fetchImpl ?? fetch;
-  // The deadline covers headers AND body. Reading all bytes before slicing is
-  // unsafe when a remote provider returns an unexpectedly large response.
+  // The deadline covers headers AND body. Native fetch is used only for the
+  // explicitly configured loopback provider or injected test doubles. Public
+  // providers use a pinned TCP connection to prevent DNS rebinding.
   const deadline = AbortSignal.timeout(Math.max(500, options.timeoutMs ?? 10_000));
   const signal = options.signal ? AbortSignal.any([options.signal, deadline]) : deadline;
-  const res = await fetchImpl(url.href, {
-    headers: { Accept: "application/json", "User-Agent": "RankProof/google-provider" },
-    signal,
-  });
-  if (!res.ok) throw new Error(`Google provider HTTP ${res.status}`);
+  const localHost = url.hostname.replace(/^\[|\]$/g, "");
+  const localProvider =
+    process.env.RANKPROOF_GOOGLE_ALLOW_LOOPBACK === "1" &&
+    url.protocol === "http:" &&
+    (localHost === "127.0.0.1" || localHost === "::1");
+  const res =
+    options.fetchImpl || localProvider
+      ? await (options.fetchImpl ?? fetch)(url.href, {
+          headers: { Accept: "application/json", "User-Agent": "RankProof/google-provider" },
+          signal,
+          redirect: "manual",
+        })
+      : await fetchPinnedProviderJson(url.href, signal);
+  if (res.status >= 300 && res.status < 400) {
+    await res.body?.cancel().catch(() => undefined);
+    throw new Error("Google provider redirects are not allowed");
+  }
+  if (!res.ok) {
+    await res.body?.cancel().catch(() => undefined);
+    throw new Error(`Google provider HTTP ${res.status}`);
+  }
   if (!(res.headers.get("content-type") ?? "").includes("json")) {
     throw new Error("Google provider returned non-JSON content-type");
   }

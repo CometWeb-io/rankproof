@@ -2764,3 +2764,25 @@ test("target crawler identifies itself to robots.txt", async () => {
     clearRobotsCache();
   }
 });
+
+test("Google provider rejects redirects without visiting private metadata endpoints", async () => {
+  const { fetchGoogleOrganicViaProvider } = await import("./serp-providers.ts");
+  let calls = 0;
+  const provider = async (_url: string | URL | Request, init?: RequestInit) => {
+    calls += 1;
+    assert.equal(init?.redirect, "manual");
+    return new Response(null, {
+      status: 302,
+      headers: { location: "http://169.254.169.254/latest/meta-data/" },
+    });
+  };
+  await assert.rejects(
+    fetchGoogleOrganicViaProvider("test", {
+      baseUrl: "https://provider.example",
+      resolve: async () => ["93.184.216.34"],
+      fetchImpl: provider as typeof fetch,
+    }),
+    /redirects are not allowed/,
+  );
+  assert.equal(calls, 1);
+});

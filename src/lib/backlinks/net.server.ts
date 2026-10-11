@@ -263,6 +263,32 @@ function pinnedRequest(
   });
 }
 
+/** Fetch a configured public JSON provider through the same validated and
+ * pinned IP transport as the production crawler. Redirects are never followed. */
+export async function fetchPinnedProviderJson(
+  url: string,
+  signal: AbortSignal,
+  maxBytes = 2_000_000,
+): Promise<Response> {
+  signal.throwIfAborted();
+  const addresses = await assertFetchable(url);
+  const release = await acquireTransport(new URL(url).hostname, signal);
+  try {
+    return await pinnedRequest(url, addresses, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "Accept-Encoding": "identity",
+        "User-Agent": "RankProof/google-provider",
+      },
+      signal,
+      maxBytes,
+    });
+  } finally {
+    release();
+  }
+}
+
 /** Per-origin reservations for robots.txt Crawl-delay. */
 const NEXT_ALLOWED_AT = new Map<string, number>();
 const MAX_CRAWL_DELAY_WAIT_MS = 10_000;
