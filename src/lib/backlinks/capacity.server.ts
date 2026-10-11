@@ -26,9 +26,7 @@ const globalRef = globalThis as typeof globalThis & {
   __rankproofWebCapacity__?: ReturnType<typeof createScanCapacity>;
 };
 const configured = Number(process.env.RANKPROOF_WEB_MAX_ACTIVE_SCANS ?? 2);
-const maxActive = Number.isSafeInteger(configured)
-  ? Math.min(8, Math.max(1, configured))
-  : 2;
+const maxActive = Number.isSafeInteger(configured) ? Math.min(8, Math.max(1, configured)) : 2;
 const shared = (globalRef.__rankproofWebCapacity__ ??= createScanCapacity(maxActive));
 
 export async function withScanCapacity<T>(operation: () => Promise<T>): Promise<T> {
