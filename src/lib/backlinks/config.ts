@@ -7,7 +7,15 @@ import type { SerpDevice, SerpEngine, SerpMarket } from "./types.ts";
  * The default limits are deliberately cautious: this tool queries other
  * people's servers, so aggressive concurrency hurts them and you (bans) alike.
  */
+export type ScanProfile = "quick" | "standard" | "deep";
+
+export function parseScanProfile(value: string | undefined): ScanProfile {
+  return value === "quick" || value === "deep" ? value : "standard";
+}
+
 export type RuntimeConfig = {
+  /** Workload profile, intended to reduce source load and operator cost. */
+  profile: ScanProfile;
   /** Total time budget for a full scan, in ms. */
   scanBudgetMs: number;
   /** Budget for a secondary scan (a competitor during gap analysis). */
@@ -79,7 +87,17 @@ export function parseDevice(raw: string | undefined, fallback: SerpDevice): Serp
   return value === "mobile" || value === "desktop" ? value : fallback;
 }
 
+const PROFILE_LIMITS = {
+  quick: { scanBudgetMs: 20_000, lightBudgetMs: 8_000, hostConcurrency: 2,
+    maxBacklinks: 160, maxVerify: 24, serpDepth: 10 },
+  standard: { scanBudgetMs: 58_000, lightBudgetMs: 20_000, hostConcurrency: 3,
+    maxBacklinks: 400, maxVerify: 64, serpDepth: 10 },
+  deep: { scanBudgetMs: 180_000, lightBudgetMs: 30_000, hostConcurrency: 2,
+    maxBacklinks: 1_200, maxVerify: 200, serpDepth: 20 },
+} as const;
+
 export const DEFAULT_CONFIG: RuntimeConfig = {
+  profile: "standard",
   scanBudgetMs: 58_000,
   lightBudgetMs: 20_000,
   hostConcurrency: 3,
@@ -98,16 +116,19 @@ let cached: RuntimeConfig | null = null;
 /** Configuration from ENV, with sensible defaults. */
 export function config(): RuntimeConfig {
   if (cached) return cached;
+  const profile = parseScanProfile(env("RANKPROOF_SCAN_PROFILE")?.toLowerCase());
+  const limits = PROFILE_LIMITS[profile];
   cached = {
-    scanBudgetMs: num("RANKPROOF_SCAN_BUDGET_MS", DEFAULT_CONFIG.scanBudgetMs, 8_000, 300_000),
-    lightBudgetMs: num("RANKPROOF_LIGHT_BUDGET_MS", DEFAULT_CONFIG.lightBudgetMs, 5_000, 120_000),
-    hostConcurrency: num("RANKPROOF_HOST_CONCURRENCY", DEFAULT_CONFIG.hostConcurrency, 1, 8),
-    maxBacklinks: num("RANKPROOF_MAX_BACKLINKS", DEFAULT_CONFIG.maxBacklinks, 20, 5_000),
-    maxVerify: num("RANKPROOF_MAX_VERIFY", DEFAULT_CONFIG.maxVerify, 8, 400),
+    profile,
+    scanBudgetMs: num("RANKPROOF_SCAN_BUDGET_MS", limits.scanBudgetMs, 8_000, 300_000),
+    lightBudgetMs: num("RANKPROOF_LIGHT_BUDGET_MS", limits.lightBudgetMs, 5_000, 120_000),
+    hostConcurrency: num("RANKPROOF_HOST_CONCURRENCY", limits.hostConcurrency, 1, 8),
+    maxBacklinks: num("RANKPROOF_MAX_BACKLINKS", limits.maxBacklinks, 20, 5_000),
+    maxVerify: num("RANKPROOF_MAX_VERIFY", limits.maxVerify, 8, 400),
     engines: parseEngines(env("RANKPROOF_ENGINES"), DEFAULT_CONFIG.engines),
     market: parseMarket(env("RANKPROOF_MARKET"), DEFAULT_CONFIG.market),
     device: parseDevice(env("RANKPROOF_DEVICE"), DEFAULT_CONFIG.device),
-    serpDepth: num("RANKPROOF_SERP_DEPTH", DEFAULT_CONFIG.serpDepth, 10, 20) > 15 ? 20 : 10,
+    serpDepth: num("RANKPROOF_SERP_DEPTH", limits.serpDepth, 10, 20) > 15 ? 20 : 10,
     apiUserAgent: env("RANKPROOF_USER_AGENT") ?? DEFAULT_CONFIG.apiUserAgent,
     persistHistory: bool("RANKPROOF_PERSIST_HISTORY", DEFAULT_CONFIG.persistHistory),
   };

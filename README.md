@@ -73,3 +73,20 @@ npm run build
 ```
 
 [MIT license](LICENSE). Bundled fonts use the [SIL Open Font License](public/fonts/OFL.txt). Maintained at [CometWeb](https://cometweb.io).
+
+## Choose workload and cost
+
+RankProof does not require paid SEO APIs or hosted infrastructure. Set `RANKPROOF_SCAN_PROFILE` to control the amount of work:
+
+| Profile | Time budget | Backlink cap | Verification candidates | Notes |
+| --- | ---: | ---: | ---: | --- |
+| `quick` | 20 s | 160 | 24 | Skips expensive secondary discovery and internal crawl; incomplete by design |
+| `standard` (default) | 58 s | 400 | 64 | Balanced free-data scan |
+| `deep` | 180 s | 1200 | 200 | Wider evidence gathering; run locally |
+
+These are **internal scan budgets and caps, not a guaranteed total runtime or an HTTP request count**. Network operations, optional integrations and the internal audit can extend elapsed time. Compare trends only across equivalent profiles and source coverage.
+
+```bash
+RANKPROOF_SCAN_PROFILE=quick node bin/rankproof.mjs scan example.com --format json --out quick.json
+RANKPROOF_SCAN_PROFILE=deep node bin/rankproof.mjs scan example.com --format html --out deep.html
+```

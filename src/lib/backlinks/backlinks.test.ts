@@ -2150,3 +2150,12 @@ test("rank opportunity is zero when SERP sources did not measure the query", asy
   assert.equal(stats[0]?.opportunity, 0);
   assert.equal(stats[0]?.bestPosition, null);
 });
+
+test("scan profile parsing is deterministic and fails safe to standard", async () => {
+  const { parseScanProfile } = await import("./config.ts");
+  assert.equal(parseScanProfile("quick"), "quick");
+  assert.equal(parseScanProfile("deep"), "deep");
+  assert.equal(parseScanProfile("standard"), "standard");
+  assert.equal(parseScanProfile("experimental"), "standard");
+  assert.equal(parseScanProfile(undefined), "standard");
+});

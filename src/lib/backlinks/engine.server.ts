@@ -208,10 +208,13 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
 
   const { host } = parsed;
   const runtime = config();
+  const quick = runtime.profile === "quick" && !light;
   const budget = new Budget(
     options.budgetMs ?? (light ? runtime.lightBudgetMs : runtime.scanBudgetMs),
   );
-  const notes: string[] = [];
+  const notes: string[] = quick
+    ? ["Quick profile: limited sources, keywords and no internal crawl; results are not exhaustive."]
+    : [];
 
   /* --- Phase 1: target plus sources that need no brand tokens ---------------------- */
   const intelT = timed(() => inspectTarget(host, budget));
@@ -230,18 +233,18 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
   /* --- Phase 2: sources that use the brand name ----------------------- */
   const skip = <T>(value: T) => timed(async () => value);
 
-  const hnT = light
+  const hnT = light || quick
     ? skip({ backlinks: [], mentions: [] })
     : timed(() => scanHackerNews(queries, host, budget.signal));
   const bingT = timed(() => scanBing(host, tokens, budget.signal));
   const ddgT = timed(() => scanDuckDuckGo(host, tokens, budget.signal));
   const mojeekT = timed(() => scanMojeek(host, tokens, budget.signal));
-  const newsT = light
+  const newsT = light || quick
     ? skip({ mentions: [], candidates: [] as Candidate[] })
     : timed(() => scanNews(queries, host, budget.signal));
   const githubT = timed(() => scanGithub(queries, host, budget.signal));
-  const gdeltT = light ? skip([] as Candidate[]) : timed(() => scanGdelt(host, budget.signal));
-  const bskyT = light
+  const gdeltT = light || quick ? skip([] as Candidate[]) : timed(() => scanGdelt(host, budget.signal));
+  const bskyT = light || quick
     ? skip({ backlinks: [], mentions: [] })
     : timed(() => scanBluesky(queries, host, budget.signal));
 
@@ -319,7 +322,7 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
 
   // The brand is a separate query: it shows what a customer who already knows you sees.
   const brandQuery = tokens[0] && tokens[0].length >= 3 ? [tokens[0]] : [];
-  const serpKeywords = [...new Set([...brandQuery, ...seedKeywords])].slice(0, 6);
+  const serpKeywords = [...new Set([...brandQuery, ...seedKeywords])].slice(0, quick ? 3 : 6);
 
   const serpT = light
     ? skip([] as SerpQuery[])
@@ -331,7 +334,7 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
           options.engines?.length ? options.engines : runtime.engines,
           {
             depth: options.depth ?? runtime.serpDepth,
-            maxKeywords: 6,
+            maxKeywords: quick ? 3 : 6,
             market: options.market ?? runtime.market,
             device: options.device ?? runtime.device,
           },
@@ -664,7 +667,7 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
 
   // The internal audit needs its own budget: it crawls the target, not the web.
   const siteAudit =
-    light || options.skipSiteAudit
+    light || quick || options.skipSiteAudit
       ? null
       : await runSiteAudit(
           site.url,

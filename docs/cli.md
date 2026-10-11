@@ -118,3 +118,7 @@ RANKPROOF_CLI_OWNER_DATA=1 node bin/rankproof.mjs scan example.com --format json
 ```
 
 Keep exported reports private. This flag is intentionally ignored by the web app and standalone API.
+
+## Scan workload profiles
+
+Set `RANKPROOF_SCAN_PROFILE=quick|standard|deep` before invoking the command. Quick runs fewer discovery sources, checks fewer keywords and skips the internal crawl; deep raises work limits. These are not hard request quotas or time guarantees. The default remains `standard`. Never compare quick/deep trend deltas as if their discovery coverage were equal.
