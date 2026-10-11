@@ -184,7 +184,8 @@ async function start() {
   server.headersTimeout = 10_000;
 
   server.listen(port, host, () => {
-    console.log(`RankProof API: http://${host}:${port}`);
+    const listeningPort = server.address()?.port ?? port;
+    console.log(`RankProof API: http://${host}:${listeningPort}`);
     console.log("Endpoints: GET /health /doctor · POST /scan /serp /ideas /gap");
     if (exposed) {
       console.log(

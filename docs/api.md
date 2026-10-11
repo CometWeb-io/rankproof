@@ -117,3 +117,7 @@ When the standalone API binds beyond loopback, it requires a Bearer secret **and
 ### Bounded request payloads
 
 All JSON API inputs are validated before invoking scanner work. Scans accept an explicit URL up to 400 characters and enumerated market/device/engine values; SERP checks accept at most 10 keywords and depths 10 or 20; keyword ideas accept at most 5 seeds and 100 returned ideas; backlink-gap scans accept at most 5 competitors. Rejecting excessive input helps limit accidental or adversarial resource usage. HTTP disconnect signals propagate into the SERP, ideas and gap scan budgets as well as full scans, though some remote operations may remain non-cancellable.
+
+### Local HTTP contract test
+
+`npm run test:scaffold` exercises the standalone API using an ephemeral localhost port with no external scans. It checks unauthenticated health, Bearer authorization, malformed payload handling and method errors. The test uses no external services; it is not a replacement for a public-deployment penetration test or heavy-load measurement.
