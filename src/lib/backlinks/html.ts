@@ -177,7 +177,7 @@ function eachTag(
   const re = new RegExp(`<${tagName}\\b([^>]*)>`, "gi");
   let match: RegExpExecArray | null;
   let count = 0;
-  while ((match = re.exec(visible)) && count < limit) {
+  while ((match = re.exec(html)) && count < limit) {
     count += 1;
     if (visit(parseTagAttrs(match[1] ?? "")) === false) break;
   }
@@ -426,7 +426,7 @@ export function parseAnchors(
   const re = /<a\b((?:"[^"]*"|'[^']*'|[^'">]){0,1200})>/gi;
   let match: RegExpExecArray | null;
   let count = 0;
-  while ((match = re.exec(html)) && count < limit) {
+  while ((match = re.exec(visible)) && count < limit) {
     count += 1;
     const attrs = parseTagAttrs(match[1] ?? "");
     // Only the exact "href" attribute counts, never "data-href" or "x-href".
