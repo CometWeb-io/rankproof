@@ -2251,3 +2251,20 @@ test("database deltas refuse missing and incompatible collection scopes", async 
     null,
   );
 });
+
+test("PSL isolates private-hosting tenants and wildcard exceptions", () => {
+  assert.equal(registrableDomain("blog.sklep.com.pl"), "sklep.com.pl");
+  assert.equal(registrableDomain("a.github.io"), "a.github.io");
+  assert.equal(registrableDomain("b.a.github.io"), "a.github.io");
+  assert.equal(tldOf("a.github.io"), "github.io");
+  assert.equal(registrableDomain("city.kawasaki.jp"), "city.kawasaki.jp");
+  assert.equal(tldOf("city.kawasaki.jp"), "kawasaki.jp");
+  assert.equal(registrableDomain("github.io"), "");
+  assert.equal(isTargetHost("b.github.io", "a.github.io"), false);
+  assert.equal(isTargetHost("blog.a.github.io", "a.github.io"), true);
+});
+
+test("Unicode and punycode TLDs resolve to the same registrable domain", () => {
+  assert.equal(registrableDomain("www.пример.рф"), "xn--e1afmkfd.xn--p1ai");
+  assert.equal(parseTarget("https://пример.рф/").domain, "xn--e1afmkfd.xn--p1ai");
+});
