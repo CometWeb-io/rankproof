@@ -51,6 +51,19 @@ function cacheKey(url: string, method: string, opts: FetchOptions): string {
   ]);
 }
 
+/** Respect response-level cache privacy and variant semantics. */
+export function isResponseCacheable(res: Response): boolean {
+  if (res.status < 200 || res.status >= 300) return false;
+  if (res.headers.has("set-cookie")) return false;
+  const policy = res.headers.get("cache-control") ?? "";
+  if (/(?:^|,)\s*(?:private|no-store)\b/i.test(policy)) return false;
+  const vary = res.headers.get("vary") ?? "";
+  if (vary.split(",").some((header) =>
+    header.trim() !== "" && !["accept", "accept-language", "user-agent"].includes(header.trim().toLowerCase())
+  )) return false;
+  return true;
+}
+
 function remember(key: string, value: FetchResult) {
   if (CACHE.size >= CACHE_LIMIT) {
     const first = CACHE.keys().next().value;
@@ -348,7 +361,7 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
         headers: res.headers,
         fromCache: true,
       };
-      if (cacheAllowed && res.status >= 200 && res.status < 300) remember(key, result);
+      if (cacheAllowed && isResponseCacheable(res)) remember(key, result);
       return result;
     }
 
@@ -361,7 +374,7 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
         headers: res.headers,
         fromCache: false,
       };
-      if (cacheAllowed && res.status >= 200 && res.status < 300) remember(key, result);
+      if (cacheAllowed && isResponseCacheable(res)) remember(key, result);
       return result;
     }
 
@@ -375,7 +388,7 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
         headers: res.headers,
         fromCache: false,
       };
-      if (cacheAllowed && res.status >= 200 && res.status < 300) remember(key, result);
+      if (cacheAllowed && isResponseCacheable(res)) remember(key, result);
       return result;
     }
 
@@ -418,8 +431,8 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
       headers: res.headers,
       fromCache: false,
     };
-    if (cacheAllowed && res.status >= 200 && res.status < 300) remember(key, result);
-    if (cacheable) {
+    if (cacheAllowed && isResponseCacheable(res)) remember(key, result);
+    if (cacheable && isResponseCacheable(res)) {
       await cache.set(key, {
         url,
         status: res.status,

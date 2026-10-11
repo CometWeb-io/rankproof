@@ -2349,3 +2349,51 @@ test("cross-origin redirects never forward caller credentials", async () => {
     clearNetCache();
   }
 });
+
+test("private, no-store, cookie and unknown Vary responses are not cached", async () => {
+  const { isResponseCacheable } = await import("./net.server.ts");
+  assert.equal(isResponseCacheable(new Response("public")), true);
+  assert.equal(
+    isResponseCacheable(new Response("secret", { headers: { "cache-control": "private, max-age=60" } })),
+    false,
+  );
+  assert.equal(
+    isResponseCacheable(new Response("secret", { headers: { "cache-control": "no-store" } })),
+    false,
+  );
+  assert.equal(
+    isResponseCacheable(new Response("secret", { headers: { "set-cookie": "token=secret" } })),
+    false,
+  );
+  assert.equal(
+    isResponseCacheable(new Response("unknown", { headers: { vary: "X-Experiment" } })),
+    false,
+  );
+  assert.equal(
+    isResponseCacheable(new Response("language", { headers: { vary: "Accept-Language" } })),
+    true,
+  );
+});
+
+test("no-store network responses never enter the in-memory cache", async () => {
+  const { fetchText, clearNetCache } = await import("./net.server.ts");
+  const previous = globalThis.fetch;
+  let calls = 0;
+  try {
+    clearNetCache();
+    globalThis.fetch = (async () => {
+      calls += 1;
+      return new Response("private body", {
+        status: 200,
+        headers: { "cache-control": "no-store" },
+      });
+    }) as typeof fetch;
+    const options = { timeoutMs: 4000, maxBytes: 200, skipRobots: true };
+    await fetchText("https://noncache.example/page", options);
+    await fetchText("https://noncache.example/page", options);
+    assert.equal(calls, 2);
+  } finally {
+    globalThis.fetch = previous;
+    clearNetCache();
+  }
+});
