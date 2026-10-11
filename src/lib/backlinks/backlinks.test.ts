@@ -2541,3 +2541,18 @@ test("DNS-pinned HTTP transport decodes gzip, deflate and Brotli within strict l
   assert.throws(() => decodePinnedBody(gzipSync(body), "gzip", 8));
   assert.throws(() => decodePinnedBody(body, "unknown", 1_000), /Unsupported/);
 });
+
+test("disavow drafts require a separate explicit manual-review acknowledgement", async () => {
+  const { parseArgs } = await import("./cli.ts");
+  const blocked = parseArgs(["scan", "example.com", "--format", "disavow"]);
+  assert.match(blocked.error ?? "", /reviewed-disavow/);
+  const allowed = parseArgs([
+    "scan",
+    "example.com",
+    "--format",
+    "disavow",
+    "--reviewed-disavow",
+  ]);
+  assert.equal(allowed.error, undefined);
+  assert.equal(allowed.reviewedDisavow, true);
+});

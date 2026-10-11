@@ -147,10 +147,12 @@ async function runSerpCommand(options, log) {
   if (!result.ok) throw new Error(result.error);
   if (options.format === "json") return JSON.stringify(result, null, 2);
   if (options.format === "csv") {
+    const { csvCell } = await import(engine("export"));
     const header = "keyword,engine,position,difficulty";
-    const rows = result.snapshot.queries.map(
-      (query) =>
-        `"${query.keyword}","${query.engine}",${query.targetPosition ?? ""},${query.difficulty}`,
+    const rows = result.snapshot.queries.map((query) =>
+      [query.keyword, query.engine, query.targetPosition ?? "", query.difficulty]
+        .map(csvCell)
+        .join(","),
     );
     return [header, ...rows].join("\n");
   }

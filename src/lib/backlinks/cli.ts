@@ -19,6 +19,7 @@ export type CliOptions = {
   quiet: boolean;
   /** Skips the internal crawl during `scan`. */
   skipAudit: boolean;
+  reviewedDisavow: boolean;
   error?: string;
 };
 
@@ -56,6 +57,7 @@ export function parseArgs(argv: string[]): CliOptions {
     out: null,
     quiet: false,
     skipAudit: false,
+    reviewedDisavow: false,
   };
 
   const args = [...argv];
@@ -163,6 +165,9 @@ export function parseArgs(argv: string[]): CliOptions {
       case "quiet":
         options.quiet = true;
         break;
+      case "reviewed-disavow":
+        options.reviewedDisavow = true;
+        break;
       case "no-audit":
       case "skip-audit":
         options.skipAudit = true;
@@ -214,6 +219,12 @@ function validate(options: CliOptions): CliOptions {
       error: 'The `gap` command requires competitors: --competitors "a.com,b.com".',
     };
   }
+  if (options.command === "scan" && options.format === "disavow" && !options.reviewedDisavow) {
+    return {
+      ...options,
+      error: "Disavow drafts require explicit --reviewed-disavow after manual review.",
+    };
+  }
   if (options.command !== "scan" && (options.format === "html" || options.format === "disavow")) {
     return {
       ...options,
@@ -248,12 +259,13 @@ OPTIONS
   -o, --out <file>           Write the result to a file instead of stdout.
   -q, --quiet                No progress output or commentary.
       --no-audit             Skip the crawl of your own site (faster scan).
+      --reviewed-disavow     Acknowledge manual review before disavow export.
 
 EXAMPLES
   rankproof scan example.com --market us --format json --out report.json
   rankproof serp example.com "packshot,product photography" --depth 20
   rankproof gap example.com --competitors "rival.com,other.com" --format csv
-  rankproof scan example.com --format disavow --out disavow.txt
+  rankproof scan example.com --format disavow --reviewed-disavow --out disavow.txt
   rankproof doctor
 
 ENVIRONMENT VARIABLES
