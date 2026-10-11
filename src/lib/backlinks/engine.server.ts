@@ -717,7 +717,9 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
       );
       const mediaType = res.headers?.get("content-type") ?? "";
       const appearsHtml = /html|xhtml/i.test(mediaType) || /<html|<!doctype/i.test(res.text);
-      const usable = res.status >= 200 && res.status < 300 && res.text.length >= 100 && appearsHtml;
+      const sameSite = isTargetHost(hostFromUrl(res.finalUrl), host);
+      const usable =
+        res.status >= 200 && res.status < 300 && res.text.length >= 100 && appearsHtml && sameSite;
       requestedPage = {
         url: parsed.requestedUrl,
         finalUrl: res.finalUrl,
@@ -730,7 +732,11 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
               https: res.finalUrl.startsWith("https://"),
             })
           : null,
-        error: usable ? null : "Requested page was not successfully retrieved as HTML.",
+        error: usable
+          ? null
+          : !sameSite
+            ? "Requested page redirects outside the audited site."
+            : "Requested page was not successfully retrieved as HTML.",
       };
     } catch (error) {
       requestedPage = {
