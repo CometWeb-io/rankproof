@@ -162,3 +162,5 @@ A bounded response sets `FetchResult.truncated` whenever the byte or useful-HTML
 ## Scope-consistent historical trends and rank moves
 
 Persistent charts and before/after deltas now query only rows with the **same scan scope key**. Previously, a newer scan in a different market, profile or keyword set could hide an older comparable scan, and mixed scopes could appear on the same trend chart. Rank positions are stored and compared by collection scope; legacy position records without that key are not interpreted as rank moves. The local browser history retains separate entries for different scopes of the same host (within its 12-entry cap).
+
+A source article redirecting to a different final URL (such as a homepage, login page or replacement article) cannot by itself establish that a backlink was **removed** from the original article. Link-loss confirmation therefore requires the readable current page to retain the original page identity. An unresolved redirect yields an unknown observation instead of a recovery recommendation.

@@ -2640,3 +2640,18 @@ test("robots empty named group overrides wildcard rules even with no directives"
   const text = ["User-agent: *", "Disallow: /", "User-agent: RankProof"].join("\n");
   assert.equal(isAllowed(parseRobots(text), "/anything"), true);
 });
+
+test("an archived backlink cannot be declared lost from a redirected source page", async () => {
+  const { isConfirmedLostBacklink } = await import("./verify.server.ts");
+  const original = "https://source.example/stories/old";
+  const moved = "https://source.example/";
+  const body = "<html><body>" + "Current home page text. ".repeat(40) + "</body></html>";
+  assert.equal(
+    isConfirmedLostBacklink(200, body, moved, "target.example", false, original),
+    false,
+  );
+  assert.equal(
+    isConfirmedLostBacklink(200, body, original, "target.example", false, original),
+    true,
+  );
+});

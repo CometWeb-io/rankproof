@@ -306,8 +306,12 @@ export function isConfirmedLostBacklink(
   currentUrl: string,
   targetHost: string,
   truncated = false,
+  originalSourceUrl?: string,
 ): boolean {
   if (truncated || status < 200 || status >= 300 || currentHtml.length < 500) return false;
+  // A different final page (including a homepage, login page or moved article)
+  // is not the original document. Its missing link proves nothing about loss.
+  if (originalSourceUrl && pageKey(currentUrl) !== pageKey(originalSourceUrl)) return false;
   return !parseAnchors(currentHtml, currentUrl).some((anchor) =>
     isTargetHost(hostFromUrl(anchor.href), targetHost),
   );
@@ -358,6 +362,7 @@ export async function findLostLinks(
           live.finalUrl || pageUrl,
           opts.host,
           live.truncated,
+          pageUrl,
         )
       ) {
         return;
