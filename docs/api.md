@@ -113,3 +113,7 @@ The standalone HTTP server forwards response-close cancellation to the domain sc
 ### DNS-pinned public HTTP API
 
 When the standalone API binds beyond loopback, it requires a Bearer secret **and** enforces DNS-pinned outbound requests even when Node is not running in production mode. The explicit insecure override `RANKPROOF_PIN_DNS=0` causes startup to fail for public bindings. This does not replace egress firewalling or a TLS reverse proxy.
+
+### Bounded request payloads
+
+All JSON API inputs are validated before invoking scanner work. Scans accept an explicit URL up to 400 characters and enumerated market/device/engine values; SERP checks accept at most 10 keywords and depths 10 or 20; keyword ideas accept at most 5 seeds and 100 returned ideas; backlink-gap scans accept at most 5 competitors. Rejecting excessive input helps limit accidental or adversarial resource usage. HTTP disconnect signals propagate into the SERP, ideas and gap scan budgets as well as full scans, though some remote operations may remain non-cancellable.

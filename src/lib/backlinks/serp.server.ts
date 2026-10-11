@@ -528,6 +528,7 @@ export type KeywordSerpOptions = {
   brandTokens?: string[];
   /** Earlier positions (from the database) used to compute gains and drops. */
   previous?: PositionRow[];
+  signal?: AbortSignal;
 };
 
 /** Manual keyword checking — the "check your own keywords" panel. */
@@ -554,7 +555,7 @@ export async function runKeywordSerp(
       : (["bing", "duckduckgo", "mojeek"] as SerpEngine[]);
   const depth = options.depth ?? 10;
 
-  const budget = new Budget(depth > 10 || unique.length > 5 ? 30_000 : 18_000);
+  const budget = new Budget(depth > 10 || unique.length > 5 ? 30_000 : 18_000, options.signal);
   const timedRun = await timed(() =>
     runSerpQueries(host, unique, budget, engines, {
       depth,

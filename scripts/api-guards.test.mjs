@@ -6,6 +6,7 @@ import {
   createConcurrencyGate,
   validBearer,
   isExternallyBound,
+  validateApiBody,
 } from "./api-guards.mjs";
 
 test("invalid rate and concurrency settings fail to safe defaults", () => {
@@ -48,4 +49,33 @@ test("non-loopback bind detection requires defensive egress transport", () => {
   assert.equal(isExternallyBound("localhost"), false);
   assert.equal(isExternallyBound("0.0.0.0"), true);
   assert.equal(isExternallyBound("192.168.1.50"), true);
+});
+
+test("HTTP API validates bounded workloads before starting scans", () => {
+  const scan = validateApiBody("/scan", { url: " example.com " });
+  assert.equal(scan.url, "example.com");
+  assert.equal(scan.skipSiteAudit, false);
+  assert.equal(validateApiBody("/serp", {
+    url: "example.com",
+    keywords: ["audit"],
+    depth: 20,
+  }).depth, 20);
+  assert.equal(validateApiBody("/ideas", { keywords: ["seo"], limit: 5 }).limit, 5);
+  assert.equal(validateApiBody("/gap", {
+    url: "example.com",
+    competitors: ["competitor.com"],
+  }).competitors.length, 1);
+  assert.throws(() => validateApiBody("/scan", []), /object/);
+  assert.throws(() => validateApiBody("/scan", { url: "example.com", skipSiteAudit: "no" }), /boolean/);
+  assert.throws(() => validateApiBody("/serp", { url: "example.com", keywords: ["seo"], depth: 999 }), /depth/);
+  assert.throws(() => validateApiBody("/ideas", { keywords: ["seo"], limit: 1_000_000 }), /limit/);
+  assert.throws(() => validateApiBody("/gap", {
+    url: "example.com",
+    competitors: Array(6).fill("competitor.com"),
+  }), /competitors/);
+  assert.throws(() => validateApiBody("/serp", {
+    url: "example.com",
+    keywords: ["seo"],
+    engines: ["unknown"],
+  }), /engine/);
 });

@@ -27,6 +27,7 @@ import {
   createConcurrencyGate,
   validBearer,
   isExternallyBound,
+  validateApiBody,
 } from "./api-guards.mjs";
 
 // See bin/rankproof.mjs: an installed package loads the compiled engine,
@@ -169,7 +170,7 @@ async function start() {
     };
     res.once("close", onClose);
     try {
-      const body = await readJson(req);
+      const body = validateApiBody(url.pathname, await readJson(req));
       const result = await route(url.pathname, body, clientAbort.signal);
       send(result.ok ? 200 : 400, result);
     } catch (error) {
@@ -212,15 +213,16 @@ async function route(pathname, body, signal) {
         depth: body.depth,
         market: body.market,
         device: body.device,
+        signal,
       });
     }
     case "/ideas": {
       const { suggestKeywords } = await import(engine("suggest.server"));
-      return suggestKeywords(body.keywords ?? [], { limit: body.limit ?? 60 });
+      return suggestKeywords(body.keywords ?? [], { limit: body.limit ?? 60, signal });
     }
     case "/gap": {
       const { runLinkGap } = await import(engine("gap.server"));
-      return runLinkGap(String(body.url ?? ""), body.competitors ?? []);
+      return runLinkGap(String(body.url ?? ""), body.competitors ?? [], signal);
     }
     default:
       return { ok: false, error: `Unknown endpoint: ${pathname}` };
