@@ -18,7 +18,7 @@ npm ci
 npm run dev
 ```
 
-Open **http://localhost:8080**. Local history uses embedded PGLite when `DATABASE_URL` is unset. The development server binds to localhost.
+Open **http://localhost:8080**. Local history uses embedded PGLite when `DATABASE_URL` is unset (in memory by default; set `RANKPROOF_PGLITE_DIR` for disk persistence). The development server binds to localhost.
 
 ![The local RankProof app with domain, market and device controls, before running a scan.](docs/media/app.png)
 

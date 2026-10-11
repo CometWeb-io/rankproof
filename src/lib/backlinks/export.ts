@@ -13,7 +13,7 @@ export function csvCell(value: unknown): string {
   const text = String(value ?? "");
   // Spreadsheet applications may evaluate cells starting with formula sigils.
   // Prefix only untrusted strings, not real negative numbers.
-  const safe = typeof value === "string" && /^[\\s\\uFEFF]*[=+@-]/.test(text) ? `'${text}` : text;
+  const safe = typeof value === "string" && /^[\s\uFEFF]*[=+@-]/.test(text) ? `'${text}` : text;
   return `"${safe.replaceAll('"', '""')}"`;
 }
 

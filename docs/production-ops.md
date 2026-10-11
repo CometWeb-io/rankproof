@@ -132,3 +132,7 @@ See [`providers.md`](providers.md).
 ### Safe outbound requests
 
 Production scans pin connections to previously validated public DNS addresses. Keep `RANKPROOF_PIN_DNS` unset (or `1`); setting it to `0` is unsafe on a publicly reachable scanner. The network layer enforces per-response byte limits and rechecks robots directives after redirects. HTTPS-to-HTTP fallback is disabled by default. The 60-second in-memory response cache is for reducing duplicate work, not proof that a page is still current.
+
+### No-cost durable local history
+
+By default PGLite runs in memory: it does not persist across process restarts. On a local machine, set `RANKPROOF_PGLITE_DIR=./.local/rankproof-db` to store the database on disk. Keep that directory private, backed up and out of source control. Do not share a single PGLite data directory across simultaneously running processes or use it as a network filesystem service. For multi-instance hosting use PostgreSQL instead.

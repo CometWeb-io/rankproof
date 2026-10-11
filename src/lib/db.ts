@@ -104,6 +104,9 @@ async function createPgliteSql(): Promise<Sql> {
   globalRef.__pgliteInstance__ ??= (async () => {
     const { PGlite } = await import("@electric-sql/pglite");
     const pg = new PGlite({
+      // Optional local disk persistence without running an external database.
+      // Serverless/preview installs keep the existing in-memory default.
+      dataDir: process.env.RANKPROOF_PGLITE_DIR?.trim() || undefined,
       parsers: {
         [OID_INT8]: Number,
         [OID_DATE]: identity,
