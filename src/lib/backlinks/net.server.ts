@@ -246,7 +246,7 @@ function pinnedRequest(
               }
             }
             resolve(
-              new Response(payload, {
+              new Response(payload === null ? null : new Uint8Array(payload), {
                 status: res.statusCode ?? 200,
                 statusText: res.statusMessage,
                 headers: headerInit,
