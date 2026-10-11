@@ -247,6 +247,12 @@ async function respectCrawlDelay(origin: string, delaySeconds: number | null): P
 
 export async function fetchText(url: string, opts: FetchOptions): Promise<FetchResult> {
   const method = opts.method ?? "GET";
+  // Validate input and client cancellation BEFORE reading any cached result:
+  // cached crawl evidence must not bypass the active security policy.
+  opts.signal?.throwIfAborted();
+  const staticVerdict = guardUrl(url);
+  if (!staticVerdict.allowed) throw new BlockedUrlError(staticVerdict.reason);
+
   const key = cacheKey(url, method, opts);
   const cacheAllowed =
     opts.cache !== false &&
@@ -256,18 +262,25 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
   if (cacheAllowed) {
     const hit = CACHE.get(key);
     if (hit && Date.now() - hit.storedAt < CACHE_TTL_MS) {
+      // Robots rules may have changed since this page was cached. Recheck the
+      // requested URL and the final redirect destination before reusing it.
+      if (!opts.skipRobots && opts.budget) {
+        const urls = new Set([url, hit.value.finalUrl]);
+        for (const checkedUrl of urls) {
+          const parsed = new URL(checkedUrl);
+          const rules = await robotsFor(parsed.origin, opts.budget);
+          if (!isAllowed(rules, parsed.pathname + parsed.search)) {
+            throw new RobotsDisallowedError(checkedUrl);
+          }
+        }
+      }
+      opts.signal?.throwIfAborted();
       return { ...hit.value, fromCache: true };
     }
     if (hit) CACHE.delete(key);
   }
 
-  // Fail closed: an unparseable or non-public URL never reaches the network.
-  const staticVerdict = guardUrl(url);
-  if (!staticVerdict.allowed) throw new BlockedUrlError(staticVerdict.reason);
-
-  // guardUrl validated the syntax and protocol above.
-
-  // Crawl rules must also be enforced for every redirect destination.
+  // Crawl rules must be enforced for every redirect destination.
   const cache = diskCache();
   const cacheable = method === "GET" && cacheAllowed && cache.enabled;
   const stored: CachedResponse | null = cacheable ? await cache.get(key) : null;
@@ -355,6 +368,13 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
 
     // 304: the stored body is still valid, so nothing crosses the wire.
     if (res.status === 304 && stored) {
+      if (!opts.skipRobots && opts.budget) {
+        const prior = new URL(stored.finalUrl);
+        const rules = await robotsFor(prior.origin, opts.budget);
+        if (!isAllowed(rules, prior.pathname + prior.search)) {
+          throw new RobotsDisallowedError(stored.finalUrl);
+        }
+      }
       const result: FetchResult = {
         status: stored.status,
         text: stored.text,

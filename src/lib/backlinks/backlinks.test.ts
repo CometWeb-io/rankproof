@@ -2425,3 +2425,66 @@ test("external client abort cancels a scan time budget immediately", async () =>
   alreadyClosed.abort();
   assert.equal(new Budget(60_000, alreadyClosed.signal).signal.aborted, true);
 });
+
+test("in-memory cache rechecks robots after policy change", async () => {
+  const { Budget, fetchText, clearNetCache } = await import("./net.server.ts");
+  const { clearRobotsCache } = await import("./robots.server.ts");
+  const previousFetch = globalThis.fetch;
+  let allow = true;
+  let pageFetches = 0;
+  const pageUrl = "https://robots-cache.example/private/page";
+  try {
+    clearNetCache();
+    clearRobotsCache();
+    globalThis.fetch = (async (raw: string | URL | Request) => {
+      const url = String(raw);
+      if (url.endsWith("/robots.txt")) {
+        return new Response(
+          allow ? "User-agent: *\nAllow: /" : "User-agent: *\nDisallow: /private",
+          { status: 200, headers: { "cache-control": "no-store" } },
+        );
+      }
+      pageFetches += 1;
+      return new Response("<html><body>Public demonstration page.</body></html>", {
+        status: 200,
+      });
+    }) as typeof fetch;
+    const budget = new Budget(30_000);
+    const options = { timeoutMs: 5_000, maxBytes: 10_000, budget };
+    await fetchText(pageUrl, options);
+    assert.equal(pageFetches, 1);
+    allow = false;
+    clearRobotsCache();
+    await assert.rejects(fetchText(pageUrl, options), /robots\.txt disallows/);
+    assert.equal(pageFetches, 1, "blocked cached pages must not trigger a fresh page request");
+  } finally {
+    globalThis.fetch = previousFetch;
+    clearNetCache();
+    clearRobotsCache();
+  }
+});
+
+test("aborted callers cannot retrieve an otherwise warm cache entry", async () => {
+  const { fetchText, clearNetCache } = await import("./net.server.ts");
+  const original = globalThis.fetch;
+  try {
+    clearNetCache();
+    globalThis.fetch = (async () => new Response("cached")) as typeof fetch;
+    const url = "https://cache-abort.example/";
+    await fetchText(url, { timeoutMs: 2_000, maxBytes: 100, skipRobots: true });
+    const controller = new AbortController();
+    controller.abort();
+    await assert.rejects(
+      fetchText(url, {
+        timeoutMs: 2_000,
+        maxBytes: 100,
+        skipRobots: true,
+        signal: controller.signal,
+      }),
+      /abort/i,
+    );
+  } finally {
+    globalThis.fetch = original;
+    clearNetCache();
+  }
+});
