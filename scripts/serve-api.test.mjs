@@ -7,7 +7,15 @@ test("standalone API health and authentication", { timeout: 20_000 }, async () =
   const project = fileURLToPath(new URL("../", import.meta.url));
   const child = spawn(
     process.execPath,
-    ["--no-warnings", "scripts/serve-api.mjs", "--host", "127.0.0.1", "--port", "0"],
+    [
+      "--no-warnings",
+      "--experimental-strip-types",
+      "scripts/serve-api.mjs",
+      "--host",
+      "127.0.0.1",
+      "--port",
+      "0",
+    ],
     {
       cwd: project,
       stdio: ["ignore", "pipe", "pipe"],
