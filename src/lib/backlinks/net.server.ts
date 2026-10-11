@@ -5,6 +5,7 @@ import type { IncomingMessage } from "node:http";
 
 import { usefulHtml } from "./html.ts";
 import { config } from "./config.ts";
+import { createHostLimiter } from "./host-limiter.ts";
 import { diskCache, type CachedResponse } from "./disk-cache.server.ts";
 import { guardUrl, guardUrlWithDns, isPrivateAddress } from "./ssrf.ts";
 import { isAllowed, robotsFor } from "./robots.server.ts";
@@ -27,36 +28,7 @@ const CACHE_LIMIT = 64; // predictable memory budget on small local machines
 const CACHE_TTL_MS = 60_000;
 
 /** A simple limiter: at most N parallel requests to a single host. */
-const HOST_SLOTS = new Map<string, number>();
-const HOST_QUEUE = new Map<string, (() => void)[]>();
-const HOST_CONCURRENCY = config().hostConcurrency;
-
-async function acquireHost(host: string): Promise<() => void> {
-  const used = HOST_SLOTS.get(host) ?? 0;
-  if (used < HOST_CONCURRENCY) {
-    HOST_SLOTS.set(host, used + 1);
-    return () => releaseHost(host);
-  }
-  await new Promise<void>((resolve) => {
-    const queue = HOST_QUEUE.get(host) ?? [];
-    queue.push(resolve);
-    HOST_QUEUE.set(host, queue);
-  });
-  return () => releaseHost(host);
-}
-
-function releaseHost(host: string) {
-  const queue = HOST_QUEUE.get(host);
-  if (queue && queue.length > 0) {
-    const next = queue.shift();
-    if (queue.length === 0) HOST_QUEUE.delete(host);
-    next?.();
-    return;
-  }
-  const used = HOST_SLOTS.get(host) ?? 1;
-  if (used <= 1) HOST_SLOTS.delete(host);
-  else HOST_SLOTS.set(host, used - 1);
-}
+const acquireHost = createHostLimiter(config().hostConcurrency);
 
 /**
  * The cache key must include language and user-agent: the same SERP URL returns
@@ -289,7 +261,9 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), opts.timeoutMs);
   const onOuterAbort = () => controller.abort();
-  opts.signal?.addEventListener("abort", onOuterAbort);
+  opts.signal?.addEventListener("abort", onOuterAbort, { once: true });
+  if (opts.signal?.aborted) controller.abort();
+  let releaseHost: (() => void) | null = null;
 
   try {
     let current = url;
@@ -314,28 +288,25 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
         ...cache.conditionalHeaders(stored),
         ...opts.headers,
       };
-      const releaseHost = await acquireHost(hopUrl.hostname);
-      let response: Response;
-      try {
-        const pin =
-          process.env.RANKPROOF_PIN_DNS === "1" ||
-          (process.env.NODE_ENV === "production" && process.env.RANKPROOF_PIN_DNS !== "0");
-        response = pin
-          ? await pinnedRequest(current, addresses, {
-              method,
-              signal: controller.signal,
-              headers,
-              maxBytes: opts.maxBytes,
-            })
-          : await fetch(current, {
-              method,
-              signal: controller.signal,
-              redirect: "manual",
-              headers,
-            });
-      } finally {
-        releaseHost();
-      }
+      // The slot is held until the response BODY is read or cancelled, not
+      // merely until headers arrive. Otherwise slow peers bypass concurrency.
+      releaseHost = await acquireHost(hopUrl.hostname, controller.signal);
+      const pin =
+        process.env.RANKPROOF_PIN_DNS === "1" ||
+        (process.env.NODE_ENV === "production" && process.env.RANKPROOF_PIN_DNS !== "0");
+      const response = pin
+        ? await pinnedRequest(current, addresses, {
+            method,
+            signal: controller.signal,
+            headers,
+            maxBytes: opts.maxBytes,
+          })
+        : await fetch(current, {
+            method,
+            signal: controller.signal,
+            redirect: "manual",
+            headers,
+          });
 
       const location = response.headers.get("location");
       if (response.status >= 300 && response.status < 400 && location) {
@@ -343,6 +314,11 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
           res = response;
           break;
         }
+        // Release the unused redirect body and the previous host's slot.
+        // The next hop will be revalidated before connecting.
+        await response.body?.cancel().catch(() => undefined);
+        releaseHost();
+        releaseHost = null;
         current = new URL(location, current).href;
         continue;
       }
@@ -366,6 +342,7 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
     }
 
     if (method === "HEAD") {
+      await res.body?.cancel().catch(() => undefined);
       const result: FetchResult = {
         status: res.status,
         text: "",
@@ -379,6 +356,7 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
 
     const contentType = res.headers.get("content-type") ?? "";
     if (/^(image|video|audio|font)\//i.test(contentType)) {
+      await res.body?.cancel().catch(() => undefined);
       const result: FetchResult = {
         status: res.status,
         text: "",
@@ -443,6 +421,7 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
     }
     return result;
   } finally {
+    releaseHost?.();
     clearTimeout(timer);
     opts.signal?.removeEventListener("abort", onOuterAbort);
   }
