@@ -451,11 +451,11 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
           ) : null}
           {report.coverage ? (
             <p className="text-xs text-subtle">
-              Bounded backlink sample: {report.coverage.reportedLinks} links displayed,
-              {" "}{report.coverage.htmlVerified} HTML-verified,
-              {" "}{report.coverage.apiObserved} API observations.
+              Bounded backlink sample: {report.coverage.reportedLinks} links displayed.{" "}
+              {report.coverage.htmlVerified} HTML-verified.{" "}
+              {report.coverage.apiObserved} API observations.
               {report.coverage.truncated ? " The result set was capped." : ""}
-              {" "}This is not an exhaustive link index.
+              {" This is not an exhaustive link index."}
             </p>
           ) : null}
           <SerpOverviewHint />
