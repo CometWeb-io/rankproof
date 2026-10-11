@@ -101,7 +101,8 @@ It scans the competitors as well, so a response can take several minutes. Set a 
 | `200` | Success                                                                    |
 | `400` | Invalid input, or the scan failed                                          |
 | `405` | Wrong method (`/health` and `/doctor` accept GET; everything else is POST) |
-| `429` | Rate limit exceeded                                                        |
 | `401` | Missing or invalid bearer credential                                       |
-| `415` | POST body is not JSON                                                       |
-| `503` | Scan capacity exhausted or unavailable                                      |
+| `405` | Wrong method (`/health` and `/doctor` accept GET; everything else is POST) |
+| `415` | POST body is not JSON                                                      |
+| `429` | Rate limit exceeded                                                        |
+| `503` | Scan capacity exhausted or unavailable                                     |

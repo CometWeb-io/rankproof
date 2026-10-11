@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { boundedInteger, createRateLimiter, createConcurrencyGate, validBearer } from "./api-guards.mjs";
+import {
+  boundedInteger,
+  createRateLimiter,
+  createConcurrencyGate,
+  validBearer,
+} from "./api-guards.mjs";
 
 test("invalid rate and concurrency settings fail to safe defaults", () => {
   assert.equal(boundedInteger("NaN", 2, 1, 10), 2);

@@ -21,7 +21,12 @@ import { existsSync } from "node:fs";
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
-import { boundedInteger, createRateLimiter, createConcurrencyGate, validBearer } from "./api-guards.mjs";
+import {
+  boundedInteger,
+  createRateLimiter,
+  createConcurrencyGate,
+  validBearer,
+} from "./api-guards.mjs";
 
 // See bin/rankproof.mjs: an installed package loads the compiled engine,
 // a clone runs the TypeScript sources.
@@ -140,7 +145,11 @@ async function start() {
       return;
     }
 
-    if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
+    if (
+      !String(req.headers["content-type"] ?? "")
+        .toLowerCase()
+        .startsWith("application/json")
+    ) {
       send(415, { ok: false, error: "Expected application/json request body." });
       return;
     }
@@ -166,7 +175,9 @@ async function start() {
     console.log(`RankProof API: http://${host}:${port}`);
     console.log("Endpoints: GET /health /doctor · POST /scan /serp /ideas /gap");
     if (exposed) {
-      console.log("Public binding: Bearer authentication enabled. Put TLS and a reverse proxy in front.");
+      console.log(
+        "Public binding: Bearer authentication enabled. Put TLS and a reverse proxy in front.",
+      );
     }
   });
 }
