@@ -27,9 +27,9 @@ export function scanScopeKey(input: ScanScope): string {
     serpDepth: input.serpDepth,
     keywords: [...new Set(input.keywords.map((x) => x.trim().toLowerCase()))].sort(),
     engines: [...new Set(input.engines)].sort(),
-    sources: input.sources.map((s) => [s.id, s.status]).sort(([a], [b]) =>
-      a.localeCompare(b),
-    ),
+    sources: input.sources
+      .map((s) => [s.id, s.status])
+      .sort(([a], [b]) => a.localeCompare(b)),
     siteAudit: input.siteAudit,
     backlinkCap: input.backlinkCap,
     verifyCap: input.verifyCap,

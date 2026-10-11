@@ -68,9 +68,7 @@ export function rowToDelta(report: ScanReport, row: ScanRow | undefined): ScanDe
     notRediscoveredLinks: [...prevIds].filter((id) => !currentIdSet.has(id)).length,
     newDomains: currentDomains.filter((d) => !prevDomains.has(d)).slice(0, 40),
     lostDomains: [],
-    notRediscoveredDomains: [...prevDomains]
-      .filter((d) => !currentDomainSet.has(d))
-      .slice(0, 40),
+    notRediscoveredDomains: [...prevDomains].filter((d) => !currentDomainSet.has(d)).slice(0, 40),
     backlinkDelta: report.stats.backlinks - row.backlinks,
     domainDelta: report.stats.referringDomains - row.referring_domains,
     healthDelta: report.analytics.health.total - row.health,

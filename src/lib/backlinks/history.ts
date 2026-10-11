@@ -91,9 +91,7 @@ export function diffReport(report: ScanReport, previous: HistoryItem | null): Sc
     notRediscoveredLinks,
     newDomains: currentDomains.filter((d) => !prevDomains.has(d)).slice(0, 30),
     lostDomains: [],
-    notRediscoveredDomains: [...prevDomains]
-      .filter((d) => !currentDomainSet.has(d))
-      .slice(0, 30),
+    notRediscoveredDomains: [...prevDomains].filter((d) => !currentDomainSet.has(d)).slice(0, 30),
     backlinkDelta: report.stats.backlinks - previous.backlinks,
     domainDelta: report.stats.referringDomains - previous.referringDomains,
     healthDelta: report.analytics.health.total - (previous.health ?? 0),
