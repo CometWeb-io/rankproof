@@ -59,7 +59,8 @@ console.log(
       runtime: process.version,
       platform: process.platform,
       architecture: process.arch,
-      disclaimer: "Synthetic, single-process microbenchmarks; not live crawl latency or SEO accuracy.",
+      disclaimer:
+        "Synthetic, single-process microbenchmarks; not live crawl latency or SEO accuracy.",
       results,
     },
     null,
