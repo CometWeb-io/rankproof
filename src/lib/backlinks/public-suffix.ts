@@ -1,8 +1,9 @@
 import { ICANN_RULES, PRIVATE_RULES } from "./public-suffix-data.ts";
 
 function asciiHost(host: string): string {
+  if (typeof host !== "string") return "";
   const clean = host.trim().toLowerCase().replace(/\.$/, "");
-  if (!clean) return "";
+  if (!clean || clean.startsWith(".") || clean.includes("..")) return "";
   try {
     return new URL(`https://${clean}`).hostname.toLowerCase().replace(/\.$/, "");
   } catch {
