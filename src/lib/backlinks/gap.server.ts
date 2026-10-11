@@ -11,11 +11,7 @@ type Profile = {
   error?: string;
 };
 
-async function profileOf(
-  input: string,
-  light: boolean,
-  signal?: AbortSignal,
-): Promise<Profile> {
+async function profileOf(input: string, light: boolean, signal?: AbortSignal): Promise<Profile> {
   const host = parseTarget(input).host;
   const result = await runScan(input, light ? { mode: "light", signal } : { signal });
   if (!result.ok) {

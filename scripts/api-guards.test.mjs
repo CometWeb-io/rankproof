@@ -55,27 +55,29 @@ test("HTTP API validates bounded workloads before starting scans", () => {
   const scan = validateApiBody("/scan", { url: " example.com " });
   assert.equal(scan.url, "example.com");
   assert.equal(scan.skipSiteAudit, false);
-  assert.equal(validateApiBody("/serp", {
+  const serp = validateApiBody("/serp", {
     url: "example.com",
     keywords: ["audit"],
     depth: 20,
-  }).depth, 20);
+  });
+  assert.equal(serp.depth, 20);
   assert.equal(validateApiBody("/ideas", { keywords: ["seo"], limit: 5 }).limit, 5);
-  assert.equal(validateApiBody("/gap", {
+  const gap = validateApiBody("/gap", {
     url: "example.com",
     competitors: ["competitor.com"],
-  }).competitors.length, 1);
+  });
+  assert.equal(gap.competitors.length, 1);
   assert.throws(() => validateApiBody("/scan", []), /object/);
-  assert.throws(() => validateApiBody("/scan", { url: "example.com", skipSiteAudit: "no" }), /boolean/);
-  assert.throws(() => validateApiBody("/serp", { url: "example.com", keywords: ["seo"], depth: 999 }), /depth/);
+  const invalidScan = { url: "example.com", skipSiteAudit: "no" };
+  assert.throws(() => validateApiBody("/scan", invalidScan), /boolean/);
+  const invalidSerp = { url: "example.com", keywords: ["seo"], depth: 999 };
+  assert.throws(() => validateApiBody("/serp", invalidSerp), /depth/);
   assert.throws(() => validateApiBody("/ideas", { keywords: ["seo"], limit: 1_000_000 }), /limit/);
-  assert.throws(() => validateApiBody("/gap", {
+  const excessiveGap = {
     url: "example.com",
     competitors: Array(6).fill("competitor.com"),
-  }), /competitors/);
-  assert.throws(() => validateApiBody("/serp", {
-    url: "example.com",
-    keywords: ["seo"],
-    engines: ["unknown"],
-  }), /engine/);
+  };
+  assert.throws(() => validateApiBody("/gap", excessiveGap), /competitors/);
+  const unknownEngine = { url: "example.com", keywords: ["seo"], engines: ["unknown"] };
+  assert.throws(() => validateApiBody("/serp", unknownEngine), /engine/);
 });
