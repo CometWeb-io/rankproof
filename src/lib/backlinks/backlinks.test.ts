@@ -2846,7 +2846,7 @@ test("script strings and HTML comments cannot create verified backlinks", () => 
   const page = [
     "<html><body>",
     "<script>const fake = '<a href=\"https://target.example/script\">X</a>';</script>",
-    '<-- <a href="https://target.example/comment">X</a> -->',
+    '<!-- <a href="https://target.example/comment">X</a> -->',
     '<template><a href="https://target.example/template">X</a></template>',
     '<a title="Text 3 > 2" href="https://target.example/live">Live</a>',
     "</body></html>",
