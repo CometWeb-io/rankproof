@@ -109,3 +109,7 @@ It scans the competitors as well, so a response can take several minutes. Set a 
 ### Cancellation on client disconnect
 
 The standalone HTTP server forwards response-close cancellation to the domain scan's internal `Budget`, allowing cooperative sources and waiting host queues to stop when the client disconnects. This limits avoidable external traffic; not every third-party call or CPU-bound task is currently cancellable. Admission capacity remains a per-process control, not a distributed queue.
+
+### DNS-pinned public HTTP API
+
+When the standalone API binds beyond loopback, it requires a Bearer secret **and** enforces DNS-pinned outbound requests even when Node is not running in production mode. The explicit insecure override `RANKPROOF_PIN_DNS=0` causes startup to fail for public bindings. This does not replace egress firewalling or a TLS reverse proxy.

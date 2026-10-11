@@ -52,3 +52,8 @@ export function validBearer(header, secret) {
   const actualHash = createHash("sha256").update(actual).digest();
   return timingSafeEqual(expectedHash, actualHash);
 }
+
+/** Publicly bound instances must pin outbound DNS, even in development mode. */
+export function isExternallyBound(host) {
+  return !["127.0.0.1", "localhost", "::1", "[::1]"].includes(host.toLowerCase());
+}

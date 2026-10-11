@@ -26,6 +26,7 @@ import {
   createRateLimiter,
   createConcurrencyGate,
   validBearer,
+  isExternallyBound,
 } from "./api-guards.mjs";
 
 // See bin/rankproof.mjs: an installed package loads the compiled engine,
@@ -73,11 +74,15 @@ async function start() {
   loadDotEnv();
   const port = Number(flag("port", process.env.PORT ?? "8787"));
   const host = flag("host", process.env.HOST ?? "127.0.0.1");
-  const exposed = !["127.0.0.1", "localhost", "::1"].includes(host);
+  const exposed = isExternallyBound(host);
   const secret = process.env.RANKPROOF_API_TOKEN?.trim() || null;
   if (exposed && !secret) {
     throw new Error("Binding the HTTP API publicly requires RANKPROOF_API_TOKEN.");
   }
+  if (exposed && process.env.RANKPROOF_PIN_DNS === "0") {
+    throw new Error("Public HTTP API refuses unsafe RANKPROOF_PIN_DNS=0.");
+  }
+  if (exposed) process.env.RANKPROOF_PIN_DNS = "1";
   const allow = createRateLimiter(
     boundedInteger(process.env.RANKPROOF_RATE_LIMIT ?? 20, 20, 1, 500),
     boundedInteger(process.env.RANKPROOF_RATE_WINDOW_MS ?? 60_000, 60_000, 1_000, 3_600_000),

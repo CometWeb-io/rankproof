@@ -5,6 +5,7 @@ import {
   createRateLimiter,
   createConcurrencyGate,
   validBearer,
+  isExternallyBound,
 } from "./api-guards.mjs";
 
 test("invalid rate and concurrency settings fail to safe defaults", () => {
@@ -39,4 +40,12 @@ test("bearer authentication rejects absent and mismatched secrets", () => {
   assert.equal(validBearer("Basic correct", "correct"), false);
   assert.equal(validBearer("Bearer correct", "correct"), true);
   assert.equal(validBearer(undefined, null), true);
+});
+
+test("non-loopback bind detection requires defensive egress transport", () => {
+  assert.equal(isExternallyBound("127.0.0.1"), false);
+  assert.equal(isExternallyBound("::1"), false);
+  assert.equal(isExternallyBound("localhost"), false);
+  assert.equal(isExternallyBound("0.0.0.0"), true);
+  assert.equal(isExternallyBound("192.168.1.50"), true);
 });
