@@ -61,6 +61,7 @@ import {
   runSerpQueries,
   snapshotFromQueries,
 } from "./serp.server.ts";
+import { scanScopeKey } from "./scan-coverage.ts";
 import type {
   Backlink,
   Mention,
@@ -76,7 +77,7 @@ import type {
   SourceStatus,
 } from "./types.ts";
 
-export const REPORT_VERSION = 6;
+export const REPORT_VERSION = 7;
 
 const MAX_MENTIONS = 120;
 const MAX_DEEP = 28;
@@ -811,6 +812,19 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
 
   const report: ScanReport = {
     version: REPORT_VERSION,
+    scopeKey: scanScopeKey({
+      host,
+      profile: runtime.profile,
+      market: options.market ?? runtime.market,
+      device: options.device ?? runtime.device,
+      serpDepth: options.depth ?? runtime.serpDepth,
+      keywords: serpKeywords,
+      engines: options.engines?.length ? options.engines : runtime.engines,
+      sources: sources.map(({ id, status }) => ({ id, status })),
+      siteAudit: siteAudit !== null,
+      backlinkCap: runtime.maxBacklinks,
+      verifyCap: runtime.maxVerify,
+    }),
     queriedAt: new Date().toISOString(),
     input: rawInput.trim(),
     target: site,

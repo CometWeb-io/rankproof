@@ -4,6 +4,7 @@ export type HistoryItem = {
   host: string;
   input: string;
   at: string;
+  scopeKey?: string;
   backlinks: number;
   referringDomains: number;
   health: number;
@@ -14,6 +15,9 @@ export type HistoryItem = {
 
 export type ScanDiff = {
   previousAt: string;
+  /** Only a verified archived-vs-live comparison proves loss. */
+  notRediscoveredLinks?: number;
+  notRediscoveredDomains?: string[];
   newLinks: number;
   lostLinks: number;
   newDomains: string[];
@@ -52,6 +56,7 @@ export function toHistoryItem(report: ScanReport, input: string): HistoryItem {
     host: report.target.host,
     input,
     at: report.queriedAt,
+    scopeKey: report.scopeKey,
     backlinks: report.stats.backlinks,
     referringDomains: report.stats.referringDomains,
     health: report.analytics.health.total,
@@ -68,6 +73,7 @@ export function findPrevious(host: string): HistoryItem | null {
 export function diffReport(report: ScanReport, previous: HistoryItem | null): ScanDiff | null {
   if (!previous || previous.host !== report.target.host) return null;
   if (previous.at === report.queriedAt) return null;
+  if (!report.scopeKey || report.scopeKey !== previous.scopeKey) return null;
 
   const prevIds = new Set(previous.ids ?? []);
   const prevDomains = new Set(previous.domains ?? []);
@@ -76,14 +82,18 @@ export function diffReport(report: ScanReport, previous: HistoryItem | null): Sc
   const currentDomainSet = new Set(currentDomains);
 
   const newIds = new Set(currentIds.filter((id) => !prevIds.has(id)));
-  const lostLinks = [...prevIds].filter((id) => !currentIds.includes(id)).length;
+  const notRediscoveredLinks = [...prevIds].filter((id) => !currentIds.includes(id)).length;
 
   return {
     previousAt: previous.at,
     newLinks: newIds.size,
-    lostLinks,
+    lostLinks: 0,
+    notRediscoveredLinks,
     newDomains: currentDomains.filter((d) => !prevDomains.has(d)).slice(0, 30),
-    lostDomains: [...prevDomains].filter((d) => !currentDomainSet.has(d)).slice(0, 30),
+    lostDomains: [],
+    notRediscoveredDomains: [...prevDomains]
+      .filter((d) => !currentDomainSet.has(d))
+      .slice(0, 30),
     backlinkDelta: report.stats.backlinks - previous.backlinks,
     domainDelta: report.stats.referringDomains - previous.referringDomains,
     healthDelta: report.analytics.health.total - (previous.health ?? 0),

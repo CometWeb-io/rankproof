@@ -423,6 +423,7 @@ test("scoreBacklink downgrades off-topic and lost links", async () => {
 test("a database delta counts new and lost links", async () => {
   const { rowToDelta } = await import("./history-diff.ts");
   const report = {
+    scopeKey: "scope-a",
     backlinks: [link({}), link({ sourceUrl: "https://nowy.pl/a", sourceDomain: "nowy.pl" })],
     analytics: {
       referringDomains: [{ domain: "partner.pl" }, { domain: "nowy.pl" }],
@@ -433,6 +434,7 @@ test("a database delta counts new and lost links", async () => {
 
   const delta = rowToDelta(report, {
     queried_at: "2026-01-01T00:00:00.000Z",
+    scan_scope: "scope-a",
     backlinks: 1,
     referring_domains: 1,
     dofollow: 1,
@@ -445,9 +447,11 @@ test("a database delta counts new and lost links", async () => {
   });
   assert.ok(delta);
   assert.equal(delta!.newLinks, 1);
-  assert.equal(delta!.lostLinks, 1);
+  assert.equal(delta!.lostLinks, 0);
+  assert.equal(delta!.notRediscoveredLinks, 1);
   assert.deepEqual(delta!.newDomains, ["nowy.pl"]);
-  assert.deepEqual(delta!.lostDomains, ["znikla.pl"]);
+  assert.deepEqual(delta!.lostDomains, []);
+  assert.deepEqual(delta!.notRediscoveredDomains, ["znikla.pl"]);
   assert.equal(delta!.ratingDelta, 10);
   assert.equal(delta!.visibilityDelta, 0);
 });
@@ -2212,4 +2216,35 @@ test("archive links require independently verified live-page absence", async () 
   assert.equal(isConfirmedLostBacklink(403, padding, source, "cel.pl"), false);
   assert.equal(isConfirmedLostBacklink(500, padding, source, "cel.pl"), false);
   assert.equal(isConfirmedLostBacklink(200, "short HTML", source, "cel.pl"), false);
+});
+
+test("scope fingerprints reject different markets, sources and keywords", async () => {
+  const { scanScopeKey } = await import("./scan-coverage.ts");
+  const base = {
+    host: "example.com",
+    profile: "standard",
+    market: "pl",
+    device: "desktop",
+    serpDepth: 10,
+    keywords: ["SEO", "audit"],
+    engines: ["bing", "duckduckgo"],
+    sources: [{ id: "bing", status: "ok" }],
+    siteAudit: true,
+    backlinkCap: 400,
+    verifyCap: 64,
+  };
+  const initial = scanScopeKey(base);
+  assert.equal(initial, scanScopeKey({ ...base, keywords: ["audit", "seo", "SEO"] }));
+  assert.notEqual(initial, scanScopeKey({ ...base, market: "us" }));
+  assert.notEqual(initial, scanScopeKey({ ...base, profile: "quick" }));
+  assert.notEqual(initial, scanScopeKey({ ...base, sources: [{ id: "bing", status: "error" }] }));
+  assert.notEqual(initial, scanScopeKey({ ...base, keywords: ["different"] }));
+});
+
+test("database deltas refuse missing and incompatible collection scopes", async () => {
+  const { rowToDelta } = await import("./history-diff.ts");
+  const report = { scopeKey: "scope-current" } as Parameters<typeof rowToDelta>[0];
+  const previous = { scan_scope: "scope-previous" } as Parameters<typeof rowToDelta>[1];
+  assert.equal(rowToDelta(report, previous), null);
+  assert.equal(rowToDelta(report, { ...previous, scan_scope: null }), null);
 });

@@ -13,6 +13,7 @@ export type ScanRow = {
   spam_domains: number;
   lost_links: number;
   visibility?: number | null;
+  scan_scope?: string | null;
   link_ids: string[] | null;
   domains: string[] | null;
 };
@@ -49,7 +50,9 @@ export function rowsToTrend(rows: ScanRow[]): TrendPoint[] {
 
 /** The difference against the previous stored scan of the same domain. */
 export function rowToDelta(report: ScanReport, row: ScanRow | undefined): ScanDelta | null {
-  if (!row) return null;
+  // Legacy rows and unlike collection scopes are not comparable. A source
+  // outage or a different keyword/market/profile cannot mean lost backlinks.
+  if (!row || !report.scopeKey || row.scan_scope !== report.scopeKey) return null;
   const prevIds = new Set(asList(row.link_ids));
   const prevDomains = new Set(asList(row.domains));
   const currentIds = report.backlinks.map((b) => b.id);
@@ -61,9 +64,13 @@ export function rowToDelta(report: ScanReport, row: ScanRow | undefined): ScanDe
   return {
     previousAt: toIso(row.queried_at),
     newLinks: newIds.length,
-    lostLinks: [...prevIds].filter((id) => !currentIdSet.has(id)).length,
+    lostLinks: 0,
+    notRediscoveredLinks: [...prevIds].filter((id) => !currentIdSet.has(id)).length,
     newDomains: currentDomains.filter((d) => !prevDomains.has(d)).slice(0, 40),
-    lostDomains: [...prevDomains].filter((d) => !currentDomainSet.has(d)).slice(0, 40),
+    lostDomains: [],
+    notRediscoveredDomains: [...prevDomains]
+      .filter((d) => !currentDomainSet.has(d))
+      .slice(0, 40),
     backlinkDelta: report.stats.backlinks - row.backlinks,
     domainDelta: report.stats.referringDomains - row.referring_domains,
     healthDelta: report.analytics.health.total - row.health,

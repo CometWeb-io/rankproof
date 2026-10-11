@@ -16,7 +16,7 @@ export async function loadScanRows(host: string, limit = TREND_LIMIT): Promise<S
   return sql<ScanRow>`
     select queried_at, backlinks, referring_domains, dofollow, domain_rating,
            health, spam_domains, lost_links, link_ids, domains,
-           coalesce(visibility, 0) as visibility
+           coalesce(visibility, 0) as visibility, scan_scope
     from scan_history
     where host = ${host}
     order by queried_at desc
@@ -65,7 +65,7 @@ export async function saveScan(report: ScanReport): Promise<void> {
   await sql`
     insert into scan_history (
       host, queried_at, backlinks, referring_domains, dofollow, domain_rating,
-      health, spam_domains, lost_links, visibility, link_ids, domains
+      health, spam_domains, lost_links, visibility, link_ids, domains, scan_scope
     ) values (
       ${report.target.host},
       ${report.queriedAt},
@@ -78,7 +78,8 @@ export async function saveScan(report: ScanReport): Promise<void> {
       ${report.stats.lostLinks},
       ${report.stats.serpVisibility},
       ${JSON.stringify(report.backlinks.slice(0, MAX_HISTORY_IDS).map((b) => b.id))}::jsonb,
-      ${JSON.stringify(report.analytics.referringDomains.map((d) => d.domain))}::jsonb
+      ${JSON.stringify(report.analytics.referringDomains.map((d) => d.domain))}::jsonb,
+      ${report.scopeKey ?? null}
     )
   `;
 }

@@ -892,6 +892,8 @@ export type ScanStats = {
 
 export type ScanReport = {
   version: number;
+  /** Exact scope of requested parameters and source coverage; required for trend deltas. */
+  scopeKey?: string;
   queriedAt: string;
   input: string;
   target: SiteSnapshot;
@@ -938,9 +940,13 @@ export type TrendPoint = {
 export type ScanDelta = {
   previousAt: string;
   newLinks: number;
+  /** Not re-discovered links are NOT confirmed lost. This remains zero. */
   lostLinks: number;
+  /** Previously observed identifiers absent from today's bounded sample. */
+  notRediscoveredLinks?: number;
   newDomains: string[];
   lostDomains: string[];
+  notRediscoveredDomains?: string[];
   backlinkDelta: number;
   domainDelta: number;
   healthDelta: number;

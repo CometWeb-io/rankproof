@@ -142,3 +142,7 @@ Actions derived from Search Console data carry higher impact than modelled ones,
 ## Confirmed lost backlinks versus unobserved links
 
 An archived backlink is **not** automatically a lost backlink. RankProof only marks it lost after retrieving readable current HTML from the original source URL and confirming that no target-domain anchor remains. A 403, 429, network timeout, inaccessible page or very short response is **unknown**, not a lost link. An archived snapshot is historical evidence (`evidenceKind=archived-html`) and is not falsely presented as a currently verified backlink. Quick scans skip this extra network-intensive confirmation.
+
+## Comparison of bounded scans (report format 7)
+
+`scopeKey` describes profile, market, device, search engines and keywords, source health, crawl inclusion and scan caps. Persisted scan history stores the same scope in `scan_history.scan_scope`. The web and database diff return **no delta** for incompatible or legacy records. In a comparable scan, a link missing from the newly sampled results is counted as `notRediscoveredLinks`, **not** as a confirmed lost backlink (`lostLinks`). Real lost links require the separately verified archive-versus-live process. Cross-scan metrics can still fluctuate with a changing live index or adaptive time budget; compare trends as observed samples rather than census estimates.
