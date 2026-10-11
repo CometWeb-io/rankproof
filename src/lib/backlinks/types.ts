@@ -64,7 +64,10 @@ export type Backlink = {
   sitewide: boolean;
   discoveredVia: DiscoverySource;
   wikiLang?: string;
+  /** True only when the source HTML has been independently checked. */
   verified: boolean;
+  /** Distinguishes source API observations from HTML or archive evidence. */
+  evidenceKind?: "source-api" | "source-html" | "archived-html";
   /** First sighting of the source page in the Internet Archive (YYYY-MM-DD). */
   firstSeen: string | null;
   httpStatus: number | null;
@@ -453,6 +456,8 @@ export type SerpSnapshot = {
   ranked: number;
   top3: number;
   top10: number;
+  measured?: number;
+  unmeasured?: number;
   /** Average position across keywords the target ranks for at all. */
   avgPosition: number;
   /** Sum of estimated CTR shares — a proxy for organic traffic. */

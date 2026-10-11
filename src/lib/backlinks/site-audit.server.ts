@@ -284,7 +284,9 @@ export async function runSiteAudit(
     }
 
     // True orphans: known from inventory, never reached via internal links from home.
-    const orphanUrls = [...inventory].filter((url) => !reachable.has(url));
+    // A bounded/aborted crawl cannot establish a page has no inbound links.
+    const crawlIncomplete = pages.length >= limit || budget.spent(0.85);
+    const orphanUrls = crawlIncomplete ? [] : [...inventory].filter((url) => !reachable.has(url));
 
     // Backlinks tell us which pages carry external authority worth spreading.
     const backlinksByPath = new Map<string, number>();
@@ -328,6 +330,11 @@ export async function runSiteAudit(
     }
 
     const issues: SiteIssue[] = [];
+    if (crawlIncomplete) {
+      issues.push(issue("crawl-incomplete", "info",
+        "Orphan analysis withheld: crawl reached page or time limit",
+        "The explored graph is incomplete. Unvisited inventory pages are not proven orphans.", []));
+    }
     const orphans = orphanUrls;
 
     if (orphans.length > 0) {

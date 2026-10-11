@@ -423,6 +423,7 @@ export type AnalyticsExtras = DomainExtras & {
   lostLinks?: Backlink[];
   visibility?: number;
   rankedKeywords?: number;
+  measuredKeywords?: number;
   keywordCount?: number;
   onPageIssues?: Issue[];
 };
@@ -540,7 +541,7 @@ function buildIssues(
       severity: "high",
       title: "Broken backlinks",
       detail:
-        "Someone links to a URL that returns an error. A 301 redirect to a working page recovers the full value of those links.",
+        "A source points to a broken target URL. Restore the destination or redirect to a genuinely relevant working page; validate the final hop.",
       count: broken.length,
       samples: broken.slice(0, 5).map((b) => `${b.sourceHost} → ${b.targetPath}`),
     });
@@ -721,7 +722,7 @@ function buildIssues(
 
   const keywordCount = extras.keywordCount ?? 0;
   const ranked = extras.rankedKeywords ?? 0;
-  if (keywordCount >= 2 && ranked === 0) {
+  if (keywordCount >= 2 && (extras.measuredKeywords ?? 0) >= 2 && ranked === 0) {
     issues.push({
       id: "serp-invisible",
       severity: "medium",

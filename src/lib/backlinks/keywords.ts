@@ -189,6 +189,7 @@ export function buildKeywordStats(
 ): KeywordStat[] {
   return seeds.slice(0, 16).map((seed) => {
     const related = queries.filter((q) => q.keyword === seed.keyword);
+    const measured = related.filter((q) => q.status === "ok" || q.status === "no-results");
     const engines: { engine: SerpEngine; position: number | null }[] = [];
     for (const engine of ["bing", "duckduckgo", "mojeek", "brave"] as const) {
       const hit = related.find((q) => q.engine === engine);
@@ -205,14 +206,14 @@ export function buildKeywordStats(
     const linkEquity = matching.reduce((sum, a) => sum + a.domains * 12 + a.count * 4, 0);
 
     let opportunity = 20;
-    if (bestPosition === null) opportunity += 35;
+    if (bestPosition === null && measured.length > 0) opportunity += 35;
     else if (bestPosition > 3) opportunity += Math.round((bestPosition - 1) * 4);
     opportunity += Math.min(25, Math.round(linkEquity / 8));
     opportunity += Math.min(15, Math.round(seed.weight / 8));
     if (bestPosition === 1) opportunity = Math.min(opportunity, 18);
 
     // Difficulty is taken from the richest SERP we managed to fetch.
-    const richest = related.slice().sort((a, b) => b.results.length - a.results.length)[0];
+    const richest = measured.slice().sort((a, b) => b.results.length - a.results.length)[0];
     const difficulty = richest ? richest.difficulty || keywordDifficulty(richest) : 0;
     const trafficShare = richest ? adjustedCtr(bestPosition, richest.features) : 0;
 
@@ -230,7 +231,8 @@ export function buildKeywordStats(
       difficulty,
       trafficShare,
       intent: classifyIntent(seed.keyword, brandTokens),
-      opportunity: Math.max(0, Math.min(100, opportunity)),
+      // No successful SERP evidence => no actionable rank opportunity.
+      opportunity: measured.length === 0 ? 0 : Math.max(0, Math.min(100, opportunity)),
     };
   });
 }

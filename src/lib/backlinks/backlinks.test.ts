@@ -2131,3 +2131,22 @@ test("network cache does not reuse responses with different byte limits", async 
     clearNetCache();
   }
 });
+
+test("CSV exporter neutralizes formula-leading untrusted text", async () => {
+  const { csvCell } = await import("./export.ts");
+  assert.equal(csvCell('=HYPERLINK("https://example.com")'), `"'=HYPERLINK(""https://example.com"")"`);
+  assert.equal(csvCell("   +SUM(1,2)"), `"'   +SUM(1,2)"`);
+  assert.equal(csvCell(-42), '"-42"');
+});
+
+test("rank opportunity is zero when SERP sources did not measure the query", async () => {
+  const { buildKeywordStats } = await import("./keywords.ts");
+  const seeds = [{ keyword: "missing keyword", source: "content" as const, weight: 70 }];
+  const q = { keyword: "missing keyword", engine: "bing" as const,
+    status: "blocked" as const, targetPosition: null, results: [], features: [],
+    depth: 0, difficulty: 0, market: "pl" as const, device: "desktop" as const,
+    related: [], questions: [], ms: 10 };
+  const stats = buildKeywordStats(seeds, [q], [], []);
+  assert.equal(stats[0]?.opportunity, 0);
+  assert.equal(stats[0]?.bestPosition, null);
+});

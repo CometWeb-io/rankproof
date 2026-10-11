@@ -76,7 +76,7 @@ import type {
   SourceStatus,
 } from "./types.ts";
 
-export const REPORT_VERSION = 5;
+export const REPORT_VERSION = 6;
 
 const MAX_MENTIONS = 120;
 const MAX_DEEP = 28;
@@ -119,7 +119,9 @@ function hydrate(partial: Partial<Backlink>, host: string, tokens: string[]): Ba
     sitewide: false,
     discoveredVia: partial.discoveredVia ?? "lookup",
     wikiLang: partial.wikiLang,
-    verified: partial.verified ?? false,
+    // API observations must never masquerade as HTML-verified evidence.
+    verified: false,
+    evidenceKind: "source-api",
     firstSeen: null,
     httpStatus: partial.httpStatus ?? null,
     targetStatus: null,
@@ -635,6 +637,7 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
     lostLinks: ranked.filter((b) => b.state === "lost"),
     visibility: serpSnapshot.visibility,
     rankedKeywords: serpSnapshot.ranked,
+    measuredKeywords: serpSnapshot.measured ?? 0,
     keywordCount: keywordSeeds.length,
     onPageIssues: onPage?.issues,
   });

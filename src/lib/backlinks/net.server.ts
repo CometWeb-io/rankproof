@@ -22,7 +22,7 @@ export type FetchResult = {
 };
 
 const CACHE = new Map<string, { value: FetchResult; storedAt: number }>();
-const CACHE_LIMIT = 400;
+const CACHE_LIMIT = 64; // predictable memory budget on small local machines
 // Short lifetime: backlink verification must reflect changes within a session.
 const CACHE_TTL_MS = 60_000;
 
@@ -263,15 +263,7 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
   const staticVerdict = guardUrl(url);
   if (!staticVerdict.allowed) throw new BlockedUrlError(staticVerdict.reason);
 
-  let host = "";
-  let origin = "";
-  try {
-    const parsed = new URL(url);
-    host = parsed.hostname.toLowerCase();
-    origin = parsed.origin;
-  } catch {
-    throw new BlockedUrlError("Malformed source URL.");
-  }
+  // guardUrl validated the syntax and protocol above.
 
   // Crawl rules must also be enforced for every redirect destination.
   const cache = diskCache();

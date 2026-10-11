@@ -305,6 +305,8 @@ export function emptySerp(
     ranked: 0,
     top3: 0,
     top10: 0,
+    measured: 0,
+    unmeasured: 0,
     avgPosition: 0,
     trafficScore: 0,
     engines: [],

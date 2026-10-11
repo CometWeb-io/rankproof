@@ -40,7 +40,7 @@ _Animated excerpt of actual local command output. [Static version](docs/media/cl
 | Area              | Output                                                            |
 | ----------------- | ----------------------------------------------------------------- |
 | Search visibility | Positions, keyword ideas, SERP overlap and scan history           |
-| Backlinks         | Discovered links checked against source-page HTML                 |
+| Backlinks         | HTML-verified links distinguished from source-API observations   |
 | Site structure    | Internal links, redirects, canonical issues and orphan candidates |
 | Comparison        | Link gaps and changes between scans                               |
 | Reporting         | JSON, CSV and a standalone HTML report                            |
