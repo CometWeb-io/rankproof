@@ -2546,13 +2546,7 @@ test("disavow drafts require a separate explicit manual-review acknowledgement",
   const { parseArgs } = await import("./cli.ts");
   const blocked = parseArgs(["scan", "example.com", "--format", "disavow"]);
   assert.match(blocked.error ?? "", /reviewed-disavow/);
-  const allowed = parseArgs([
-    "scan",
-    "example.com",
-    "--format",
-    "disavow",
-    "--reviewed-disavow",
-  ]);
+  const allowed = parseArgs(["scan", "example.com", "--format", "disavow", "--reviewed-disavow"]);
   assert.equal(allowed.error, undefined);
   assert.equal(allowed.reviewedDisavow, true);
 });
