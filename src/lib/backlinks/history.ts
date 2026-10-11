@@ -90,7 +90,10 @@ export function diffReport(report: ScanReport, previous: HistoryItem | null): Sc
   // The UI starts a scan before knowing its scope; an unrelated latest
   // observation must not hide an older comparable observation.
   const comparable =
-    previous?.scopeKey === report.scopeKey && previous.host === report.target.host
+    previous !== null &&
+    report.scopeKey &&
+    previous.scopeKey === report.scopeKey &&
+    previous.host === report.target.host
       ? previous
       : previousForScope(loadHistory(), report.target.host, report.scopeKey);
   if (!comparable || comparable.at === report.queriedAt) return null;
