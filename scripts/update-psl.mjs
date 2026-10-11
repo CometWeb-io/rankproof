@@ -42,5 +42,9 @@ const out = [
   "`;",
   "",
 ].join("\n");
-await writeFile(new URL("../src/lib/backlinks/public-suffix-data.ts", import.meta.url), out, "utf8");
+await writeFile(
+  new URL("../src/lib/backlinks/public-suffix-data.ts", import.meta.url),
+  out,
+  "utf8",
+);
 console.log(`PSL updated: ${groups.icann.length} ICANN + ${groups.private.length} private rules`);
