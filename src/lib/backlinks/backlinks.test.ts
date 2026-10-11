@@ -2246,5 +2246,8 @@ test("database deltas refuse missing and incompatible collection scopes", async 
   const report = { scopeKey: "scope-current" } as Parameters<typeof rowToDelta>[0];
   const previous = { scan_scope: "scope-previous" } as Parameters<typeof rowToDelta>[1];
   assert.equal(rowToDelta(report, previous), null);
-  assert.equal(rowToDelta(report, { ...previous, scan_scope: null }), null);
+  assert.equal(
+    rowToDelta(report, { ...previous, scan_scope: null } as Parameters<typeof rowToDelta>[1]),
+    null,
+  );
 });
