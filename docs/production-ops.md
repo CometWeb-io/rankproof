@@ -62,7 +62,7 @@ Put a reverse proxy (Caddy, nginx, Cloudflare Tunnel) in front with:
 - Authentication if exposed publicly (the scan endpoints accept URLs from callers)
 - Rate limiting on `/scan`, `/doctor`, and related POST routes
 
-Set `DATABASE_URL` for persistent scan history across restarts. Without it, embedded PGLite stores data locally inside the process working directory.
+Set `DATABASE_URL` for server-backed persistence. Without it, PGLite uses in-memory storage by default; set `RANKPROOF_PGLITE_DIR` to persist a single local instance on disk.
 
 ### Required environment
 
