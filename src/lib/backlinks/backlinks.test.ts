@@ -2555,19 +2555,16 @@ test("HTML anti-bot challenges and incomplete robots are not treated as allow-al
   const { Budget, clearNetCache } = await import("./net.server.ts");
   const { robotsFor, isAllowed, clearRobotsCache } = await import("./robots.server.ts");
   const original = globalThis.fetch;
+  const response = (body: string) =>
+    new Response(body, { status: 200, headers: { "cache-control": "no-store" } });
   try {
-    globalThis.fetch = (async () => new Response("<!doctype html><html>Bot challenge</html>", {
-      status: 200,
-      headers: { "cache-control": "no-store" },
-    })) as typeof fetch;
+    globalThis.fetch = (async () => response("<!doctype html><html>Bot challenge</html>")) as typeof fetch;
     clearNetCache();
     clearRobotsCache();
     const challenge = await robotsFor("https://robots-challenge.example", new Budget(8_000));
     assert.equal(isAllowed(challenge, "/private"), false);
-    globalThis.fetch = (async () => new Response(
-      "User-agent: *\nAllow: /\n" + "# padding\n".repeat(15_000),
-      { status: 200, headers: { "cache-control": "no-store" } },
-    )) as typeof fetch;
+    const oversized = "User-agent: *\nAllow: /\n" + "# padding\n".repeat(15_000);
+    globalThis.fetch = (async () => response(oversized)) as typeof fetch;
     clearRobotsCache();
     const partial = await robotsFor("https://robots-challenge.example", new Budget(8_000));
     assert.equal(isAllowed(partial, "/private"), false);
