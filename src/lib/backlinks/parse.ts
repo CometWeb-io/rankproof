@@ -233,7 +233,8 @@ export function pageKey(raw: string): string {
   const normalized = normalizeUrl(raw);
   try {
     const u = new URL(normalized);
-    return `${stripWww(u.hostname)}${u.pathname}${u.search}`.toLowerCase();
+    // Hostnames are case-insensitive; paths and query values are not.
+    return `${stripWww(u.hostname)}${u.pathname}${u.search}`;
   } catch {
     return normalized.toLowerCase();
   }

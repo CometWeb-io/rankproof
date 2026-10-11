@@ -166,7 +166,9 @@ export function visibilityScore(queries: SerpQuery[]): {
     ranked += 1;
     if (agg.best <= 3) top3 += 1;
     if (agg.best <= 10) top10 += 1;
-    points += Math.round((11 - agg.best) * (100 / 10));
+    // Positive, monotone top-20 curve: rank 1 = 100, rank 20 = 5,
+    // confirmed outside top 20 = 0. Rank 20 must never score below "not ranked".
+    points += Math.round((Math.max(0, 21 - agg.best) / 20) * 100);
   }
   const denominator = Math.max(1, measured);
   return {

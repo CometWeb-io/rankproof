@@ -2028,3 +2028,38 @@ test("Google provider URL is refused for loopback and metadata before fetch", as
   );
   assert.equal(fetched, false);
 });
+
+/* ----------- Evidence correctness regression tests (2026-10) ----------- */
+
+test("parseAnchors does not treat data-href or data-rel as real link attributes", () => {
+  const html = '<a data-href="https://fake.example/target" data-rel="nofollow" href="https://real.example/target" rel="sponsored">Actual</a>';
+  const links = parseAnchors(html, "https://source.example/page", { withPlacement: false });
+  assert.equal(links.length, 1);
+  assert.equal(links[0]?.href, "https://real.example/target");
+  assert.equal(links[0]?.rel, "sponsored");
+});
+
+test("pageKey preserves case-sensitive paths and query values", () => {
+  assert.notEqual(pageKey("https://example.com/Products"), pageKey("https://example.com/products"));
+  assert.notEqual(pageKey("https://example.com/item?sku=A"), pageKey("https://example.com/item?sku=a"));
+  assert.equal(pageKey("https://EXAMPLE.com/item?sku=A"), pageKey("https://example.com/item?sku=A"));
+});
+
+test("SERP visibility is monotone for ranks 1..20 and beats no rank", async () => {
+  const { visibilityScore } = await import("./keywords.ts");
+  const query = (position: number | null) => ({
+    keyword: "sample keyword",
+    engine: "bing" as const,
+    targetPosition: position,
+    status: "ok" as const,
+  });
+  let previous = Infinity;
+  for (let rank = 1; rank <= 20; rank++) {
+    const current = visibilityScore([query(rank) as never]).visibility;
+    assert.ok(current >= 0 && current <= 100);
+    assert.ok(current <= previous, `rank ${rank} should not outrank rank ${rank - 1}`);
+    previous = current;
+  }
+  assert.ok(visibilityScore([query(20) as never]).visibility >
+    visibilityScore([query(null) as never]).visibility);
+});

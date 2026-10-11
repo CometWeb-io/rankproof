@@ -418,11 +418,10 @@ export function parseAnchors(
   let count = 0;
   while ((match = re.exec(html)) && count < limit) {
     count += 1;
-    const attrs = match[1] ?? "";
-    const hrefMatch =
-      attrs.match(/href\s*=\s*["']([^"']{1,2000})["']/i) ?? attrs.match(/href\s*=\s*([^\s>]+)/i);
-    if (!hrefMatch?.[1]) continue;
-    const rawHref = decodeText(hrefMatch[1].trim());
+    const attrs = parseTagAttrs(match[1] ?? "");
+    // Only the exact "href" attribute counts, never "data-href" or "x-href".
+    const rawHref = decodeText((attrs.href ?? "").trim());
+    if (!rawHref || rawHref.length > 2000) continue;
     if (
       !rawHref ||
       rawHref.startsWith("#") ||
@@ -442,7 +441,7 @@ export function parseAnchors(
     } catch {
       continue;
     }
-    const relMatch = attrs.match(/rel\s*=\s*["']([^"']+)["']/i);
+    const rel = attrs.rel ?? "";
     const afterStart = match.index + match[0].length;
     const after = html.slice(afterStart, afterStart + 600);
     const close = after.search(/<\s*\/\s*a\s*>/i);
@@ -452,15 +451,15 @@ export function parseAnchors(
     const rawText = decodeText(inner.replace(/<[^>]+>/g, " "))
       .replace(/\s+/g, " ")
       .trim();
-    const ariaLabel = attrs.match(/aria-label\s*=\s*["']([^"']{1,140})["']/i)?.[1];
-    const titleAttr = attrs.match(/title\s*=\s*["']([^"']{1,140})["']/i)?.[1];
+    const ariaLabel = attrs["aria-label"]?.slice(0, 140);
+    const titleAttr = attrs.title?.slice(0, 140);
     const text = (rawText || decodeText(imgAlt) || ariaLabel || titleAttr || "")
       .replace(/\s+/g, " ")
       .trim()
       .slice(0, 160);
     out.push({
       href,
-      rel: relMatch?.[1] ?? "",
+      rel,
       text,
       isImage,
       index: match.index,
