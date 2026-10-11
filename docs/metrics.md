@@ -158,3 +158,7 @@ Passing `https://example.com/product?sku=A` now preserves the requested URL and 
 ## Truncated page evidence
 
 A bounded response sets `FetchResult.truncated` whenever the byte or useful-HTML limit ends the read before the response is complete. Truncated HTTP bodies are **not cached** as complete evidence. An incomplete source cannot be used as a confirmed unlinked-brand mention or to prove an archived backlink was removed. An explicitly requested subpage that exceeds its measurement limit yields an unknown/error state rather than an on-page score.
+
+## Scope-consistent historical trends and rank moves
+
+Persistent charts and before/after deltas now query only rows with the **same scan scope key**. Previously, a newer scan in a different market, profile or keyword set could hide an older comparable scan, and mixed scopes could appear on the same trend chart. Rank positions are stored and compared by collection scope; legacy position records without that key are not interpreted as rank moves. The local browser history retains separate entries for different scopes of the same host (within its 12-entry cap).

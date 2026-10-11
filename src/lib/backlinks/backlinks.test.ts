@@ -2575,3 +2575,30 @@ test("HTML anti-bot challenges and incomplete robots are not treated as allow-al
     clearNetCache();
   }
 });
+
+test("historical comparisons select the latest matching scope, not the latest host scan", async () => {
+  const { previousForScope } = await import("./history.ts");
+  const entry = (scopeKey: string, at: string) => ({
+    host: "example.com",
+    input: "example.com",
+    at,
+    scopeKey,
+    backlinks: 1,
+    referringDomains: 1,
+    health: 50,
+    ids: [],
+    domains: [],
+  });
+  const rows = [
+    entry("market-us", "2026-10-10T00:00:00Z"),
+    entry("market-pl", "2026-10-08T00:00:00Z"),
+    entry("market-pl", "2026-10-09T00:00:00Z"),
+  ];
+  assert.equal(
+    previousForScope(rows, "example.com", "market-pl")?.at,
+    "2026-10-09T00:00:00Z",
+  );
+  assert.equal(previousForScope(rows, "example.com", "market-gb"), null);
+  assert.equal(previousForScope(rows, "another.com", "market-pl"), null);
+  assert.equal(previousForScope(rows, "example.com", undefined), null);
+});
