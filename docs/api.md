@@ -125,3 +125,7 @@ All JSON API inputs are validated before invoking scanner work. Scans accept an 
 ### Google/OpenSERP provider egress
 
 An operator-configured **public** Google/OpenSERP JSON provider now uses DNS-validated, IP-pinned HTTP(S) transport. Automatic redirects are rejected (including metadata and private-network redirects), and the response is bounded to 2 MB with a deadline. An explicitly enabled localhost provider uses native fetch with manual redirect rejection. This protects against hostname re-resolution after validation but does not replace a host-level egress firewall.
+
+### Fail-closed OpenSERP result interpretation
+
+OpenSERP v2 uses the `results` array and `meta.engines_failed`/engine error metadata. A successful HTTP response with an unknown JSON schema or reported Google engine failure **must not** become a fake zero-ranking observation. Empty `results: []` is accepted only when the provider returned a recognized envelope without a reported Google failure. External provider connections require HTTPS; explicitly opt-in loopback providers remain the exception.

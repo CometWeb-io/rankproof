@@ -99,6 +99,9 @@ export async function assertProviderUrlAllowed(raw: string, resolve?: Resolver):
   if (!staticVerdict.allowed) {
     throw new Error(`Google provider URL blocked: ${staticVerdict.reason}`);
   }
+  if (configured.protocol !== "https:") {
+    throw new Error("Public Google provider connections must use HTTPS.");
+  }
 
   // Prefer DNS validation when a resolver is available (tests inject one;
   // production uses node:dns). Literal IPs already passed through guardUrl.
@@ -241,12 +244,25 @@ export async function fetchGoogleOrganicViaProvider(
 
 function extractProviderRows(data: unknown): Record<string, unknown>[] {
   if (Array.isArray(data)) return data.filter(isRecord);
-  if (!isRecord(data)) return [];
+  if (!isRecord(data)) throw new Error("Google provider returned an invalid JSON envelope.");
+  const meta = data.meta;
+  if (isRecord(meta)) {
+    const failures = meta.engines_failed;
+    if (Array.isArray(failures) && failures.includes("google")) {
+      throw new Error("Google provider reported that the Google engine failed.");
+    }
+    const errors = meta.engine_errors;
+    if (isRecord(errors) && errors.google) {
+      throw new Error("Google provider returned a Google engine error.");
+    }
+  }
   for (const key of ["organic", "results", "organic_results", "items"]) {
     const value = data[key];
     if (Array.isArray(value)) return value.filter(isRecord);
   }
-  return [];
+  // Do not turn a changed API contract or a 200 error envelope into
+  // 'the target does not rank'. The absence of evidence is not zero results.
+  throw new Error("Google provider returned no supported results field.");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

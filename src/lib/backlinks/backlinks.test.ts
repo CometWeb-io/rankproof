@@ -2786,3 +2786,33 @@ test("Google provider rejects redirects without visiting private metadata endpoi
   );
   assert.equal(calls, 1);
 });
+
+test("OpenSERP refuses HTTP public providers but allows secure public URLs", async () => {
+  const { assertProviderUrlAllowed } = await import("./serp-providers.ts");
+  const resolver = async () => ["93.184.216.34"];
+  await assert.rejects(
+    assertProviderUrlAllowed("http://provider.example/google/search", resolver),
+    /HTTPS/,
+  );
+  await assertProviderUrlAllowed("https://provider.example/google/search", resolver);
+});
+
+test("OpenSERP malformed envelopes and engine failures never become zero rankings", async () => {
+  const { fetchGoogleOrganicViaProvider } = await import("./serp-providers.ts");
+  const provider = (data: unknown) =>
+    fetchGoogleOrganicViaProvider("brand", {
+      baseUrl: "https://provider.example",
+      resolve: async () => ["93.184.216.34"],
+      fetchImpl: (async () =>
+        new Response(JSON.stringify(data), {
+          headers: { "content-type": "application/json" },
+        })) as typeof fetch,
+    });
+  await assert.rejects(provider({ error: "all_engines_failed" }), /results field/);
+  await assert.rejects(
+    provider({ meta: { engines_failed: ["google"] }, results: [] }),
+    /engine failed/,
+  );
+  const empty = await provider({ meta: { engines_failed: [] }, results: [] });
+  assert.deepEqual(empty.hits, []);
+});
