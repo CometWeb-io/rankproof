@@ -25,17 +25,19 @@ for (const line of text.split(/\r?\n/)) {
 if (groups.icann.length < 5_000 || groups.private.length < 1_000) {
   throw new Error("Unexpectedly small PSL response");
 }
-const out = `// Generated from the Public Suffix List (MPL-2.0).
-// Source: https://publicsuffix.org/list/public_suffix_list.dat
-// Generated manually at: ${new Date().toISOString().slice(0, 10)}
-// This data includes ICANN and PRIVATE sections, including wildcard/exception rules.
-// Edit via "npm run psl:update", not manually. Source data license: MPL-2.0.
-export const ICANN_RULES = \\`
-${groups.icann.join("\n")}
-\\`;
-export const PRIVATE_RULES = \\`
-${groups.private.join("\n")}
-\\`;
-`;
+const out = [
+  "// Generated from the Public Suffix List (MPL-2.0).",
+  "// Source: https://publicsuffix.org/list/public_suffix_list.dat",
+  `// Generated manually at: ${new Date().toISOString().slice(0, 10)}`,
+  "// This data includes ICANN and PRIVATE sections, including wildcard/exception rules.",
+  '// Edit via "npm run psl:update", not manually. Source data license: MPL-2.0.',
+  "export const ICANN_RULES = `",
+  ...groups.icann,
+  "`;",
+  "export const PRIVATE_RULES = `",
+  ...groups.private,
+  "`;",
+  "",
+].join("\n");
 await writeFile(new URL("../src/lib/backlinks/public-suffix-data.ts", import.meta.url), out, "utf8");
 console.log(`PSL updated: ${groups.icann.length} ICANN + ${groups.private.length} private rules`);

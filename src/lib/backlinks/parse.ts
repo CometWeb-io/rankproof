@@ -1,6 +1,6 @@
 import { publicSuffix, registeredDomain } from "./public-suffix.ts";
 
-const HOST_RE = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+(?:[a-z]{2,63}|xn--[a-z0-9-]{2,59})$/i;
+const HOST_RE = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:[a-z]{2,63}|xn--[a-z0-9-]{2,59})$/i;
 
 /** Tracking parameters — stripped during normalisation to avoid duplicates. */
 const TRACKING_PARAM_RE =
