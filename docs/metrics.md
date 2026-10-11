@@ -168,3 +168,7 @@ A source article redirecting to a different final URL (such as a homepage, login
 Historical 'new link' identifiers are compared **within the same persisted sample cap**. The database stores at most 800 link IDs and local browser history stores at most 500; comparing additional unsaved IDs used to produce false 'new links' for every repeat scan in deep mode. Values outside the stored sample are neither confirmed new nor lost.
 
 Rank movement requires a **successfully measured SERP**. Missing keyword rows, blocked search engines and timeouts do not constitute evidence of a ranking drop. Only `ok` and `no-results` records enter the persistent position history; an absent keyword is never automatically marked lost. A `lost` rank move means outside the checked result window in a completed measurement, not proof that the page disappeared from the search index.
+
+## SERP evidence boundaries
+
+The report retains every attempted query and its provider health, but competitors, keyword clusters, content gaps, featured opportunities, page-position summaries and SERP overlap use only queries whose status is `ok` or `no-results`. Partial HTML returned alongside a blocked, rate-limited or failed query must not create competitor leads or dilute keyword overlap denominators.

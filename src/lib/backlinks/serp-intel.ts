@@ -139,10 +139,13 @@ export function buildSerpCompetitors(
   options: { linkingDomains?: Set<string>; limit?: number } = {},
 ): SerpCompetitor[] {
   const acc = new Map<string, CompetitorAcc>();
-  const keywordCount = new Set(queries.map((q) => q.keyword)).size || 1;
+  const measured = queries.filter(
+    (query) => query.status === "ok" || query.status === "no-results",
+  );
+  const keywordCount = new Set(measured.map((q) => q.keyword)).size || 1;
   let totalVoice = 0;
 
-  for (const query of queries) {
+  for (const query of measured) {
     for (const hit of query.results) {
       if (hit.isTarget || !hit.domain) continue;
       const voice = adjustedCtr(hit.position, query.features);
@@ -174,7 +177,7 @@ export function buildSerpCompetitors(
     }
   }
 
-  const targetVoice = queries.reduce((sum, query) => {
+  const targetVoice = measured.reduce((sum, query) => {
     const hit = query.results.find((item) => item.isTarget);
     return sum + (hit ? adjustedCtr(hit.position, query.features) : 0);
   }, 0);

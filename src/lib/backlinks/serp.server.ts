@@ -335,25 +335,30 @@ export function snapshotFromQueries(
     targetText?: string;
   } = {},
 ): SerpSnapshot {
+  // Keep source failures in engine health, but never use blocked, timed-out
+  // or parser-failed HTML as evidence for SERP competitors or opportunities.
+  const measuredQueries = queries.filter(
+    (query) => query.status === "ok" || query.status === "no-results",
+  );
   const vis = visibilityScore(queries);
-  const aggregates = serpAggregates(queries);
-  const extras = collectSerpExtras(queries);
+  const aggregates = serpAggregates(measuredQueries);
+  const extras = collectSerpExtras(measuredQueries);
   return {
     queries,
     ...vis,
     ...aggregates,
     engines: [...new Set(queries.map((q) => q.engine))],
-    competitors: buildSerpCompetitors(queries, { linkingDomains: options.linkingDomains }),
-    cannibalization: detectCannibalization(queries),
+    competitors: buildSerpCompetitors(measuredQueries, { linkingDomains: options.linkingDomains }),
+    cannibalization: detectCannibalization(measuredQueries),
     engineHealth: engineHealth(queries),
     moves: options.moves ?? [],
     market: queries[0]?.market ?? DEFAULT_MARKET,
     device: queries[0]?.device ?? "desktop",
-    clusters: clusterKeywords(queries, { brandTokens: options.brandTokens }),
-    contentGaps: options.targetText ? contentGapTerms(queries, options.targetText) : [],
-    featured: featuredOpportunities(queries),
-    buckets: positionBuckets(queries),
-    consensus: engineConsensus(queries),
+    clusters: clusterKeywords(measuredQueries, { brandTokens: options.brandTokens }),
+    contentGaps: options.targetText ? contentGapTerms(measuredQueries, options.targetText) : [],
+    featured: featuredOpportunities(measuredQueries),
+    buckets: positionBuckets(measuredQueries),
+    consensus: engineConsensus(measuredQueries),
     ...extras,
   };
 }
