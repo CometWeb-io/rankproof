@@ -2301,3 +2301,51 @@ test("workload profile changes resource and SERP defaults without manual caps", 
     resetConfig();
   }
 });
+
+test("malformed DNS records fail closed instead of being pinned as hostnames", async () => {
+  const { isPrivateAddress, guardUrlWithDns } = await import("./ssrf.ts");
+  assert.equal(isPrivateAddress("internal.example"), true);
+  assert.equal(isPrivateAddress("999.999.1.1"), true);
+  assert.equal(isPrivateAddress("127.0.0.1"), true);
+  for (const address of ["internal.example", "999.999.1.1", "fe80::gggg"]) {
+    const decision = await guardUrlWithDns("https://example.com/", async () => [address]);
+    assert.equal(decision.allowed, false);
+  }
+});
+
+test("cross-origin redirects never forward caller credentials", async () => {
+  const { fetchText, clearNetCache } = await import("./net.server.ts");
+  const original = globalThis.fetch;
+  const calls: { url: string; headers: Record<string, string> }[] = [];
+  try {
+    clearNetCache();
+    globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({
+        url: String(url),
+        headers: (init?.headers ?? {}) as Record<string, string>,
+      });
+      if (calls.length === 1) {
+        return new Response(null, {
+          status: 302,
+          headers: { location: "https://redirect-source.example/new" },
+        });
+      }
+      return new Response("ok", { status: 200 });
+    }) as typeof fetch;
+    const result = await fetchText("https://source.example/start", {
+      timeoutMs: 5_000,
+      maxBytes: 100,
+      skipRobots: true,
+      cache: false,
+      headers: { authorization: "Bearer sensitive", cookie: "session=private" },
+    });
+    assert.equal(result.text, "ok");
+    assert.equal(calls.length, 2);
+    assert.equal(calls[0]?.headers.authorization, "Bearer sensitive");
+    assert.equal(calls[1]?.headers.authorization, undefined);
+    assert.equal(calls[1]?.headers.cookie, undefined);
+  } finally {
+    globalThis.fetch = original;
+    clearNetCache();
+  }
+});

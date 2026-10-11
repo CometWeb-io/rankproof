@@ -268,6 +268,7 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
   try {
     let current = url;
     let res: Response | null = null;
+    const initialOrigin = new URL(url).origin;
 
     // Production pins validated IPs; development allows fetch-based test doubles.
     // RANKPROOF_PIN_DNS=0 is an unsafe explicit override for local debugging only.
@@ -281,12 +282,22 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
         }
         await respectCrawlDelay(hopUrl.origin, rules.crawlDelay);
       }
+      // Conditional validators belong to the exact cached URL. Do not send
+      // operator/API credentials or cookies to an unrelated redirect host.
+      const sameOrigin = hopUrl.origin === initialOrigin;
+      const extraHeaders = Object.fromEntries(
+        Object.entries(opts.headers ?? {}).filter(
+          ([name]) =>
+            !/^(host|connection|proxy-authorization)$/i.test(name) &&
+            (sameOrigin || !/^(authorization|cookie)$/i.test(name)),
+        ),
+      );
       const headers = {
         "User-Agent": opts.ua ?? BROWSER_UA,
         Accept: opts.accept ?? "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8",
         "Accept-Language": opts.acceptLanguage ?? "en,pl;q=0.8",
-        ...cache.conditionalHeaders(stored),
-        ...opts.headers,
+        ...(current === url ? cache.conditionalHeaders(stored) : {}),
+        ...extraHeaders,
       };
       // The slot is held until the response BODY is read or cancelled, not
       // merely until headers arrive. Otherwise slow peers bypass concurrency.

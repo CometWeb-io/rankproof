@@ -1,3 +1,5 @@
+import { isIP } from "node:net";
+
 /**
  * SSRF protection.
  *
@@ -170,6 +172,9 @@ export function isPrivateIpv6(ip: string): boolean {
 }
 
 export function isPrivateAddress(ip: string): boolean {
+  // Fail closed for malformed DNS answers. Treating a hostname returned by an
+  // injected/compromised resolver as a public IP reintroduces DNS rebinding.
+  if (isIP(ip.replace(/^\[|\]$/g, "")) === 0) return true;
   return ip.includes(":") ? isPrivateIpv6(ip) : isPrivateIpv4(ip);
 }
 
@@ -249,8 +254,8 @@ export async function guardUrlWithDns(raw: string, resolve: Resolver): Promise<G
   } catch {
     return { allowed: false, reason: `Cannot resolve ${hostname}.` };
   }
-  if (addresses.length === 0) {
-    return { allowed: false, reason: `${hostname} has no DNS records.` };
+  if (addresses.length === 0 || addresses.length > 32) {
+    return { allowed: false, reason: `${hostname} has no usable DNS records.` };
   }
   for (const address of addresses) {
     if (isPrivateAddress(address)) {
