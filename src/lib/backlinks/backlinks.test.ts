@@ -2646,14 +2646,10 @@ test("an archived backlink cannot be declared lost from a redirected source page
   const original = "https://source.example/stories/old";
   const moved = "https://source.example/";
   const body = "<html><body>" + "Current home page text. ".repeat(40) + "</body></html>";
-  assert.equal(
-    isConfirmedLostBacklink(200, body, moved, "target.example", false, original),
-    false,
-  );
-  assert.equal(
-    isConfirmedLostBacklink(200, body, original, "target.example", false, original),
-    true,
-  );
+  const notLost = isConfirmedLostBacklink(200, body, moved, "target.example", false, original);
+  const lost = isConfirmedLostBacklink(200, body, original, "target.example", false, original);
+  assert.equal(notLost, false);
+  assert.equal(lost, true);
 });
 
 test("history deltas compare only link IDs that could have been persisted", async () => {
