@@ -213,7 +213,9 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
     options.budgetMs ?? (light ? runtime.lightBudgetMs : runtime.scanBudgetMs),
   );
   const notes: string[] = quick
-    ? ["Quick profile: limited sources, keywords and no internal crawl; results are not exhaustive."]
+    ? [
+        "Quick profile: limited sources, keywords and no internal crawl; results are not exhaustive.",
+      ]
     : [];
 
   /* --- Phase 1: target plus sources that need no brand tokens ---------------------- */
