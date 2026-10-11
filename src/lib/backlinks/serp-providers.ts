@@ -85,10 +85,10 @@ export async function assertProviderUrlAllowed(raw: string, resolve?: Resolver):
   // Deliberately restricted to an operator-configured loopback provider.
   // Never apply this exception to site URLs, redirects or caller-supplied hosts.
   const configured = new URL(raw);
-  const hostname = configured.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  const localHostname = configured.hostname.toLowerCase().replace(/^\[|\]$/g, "");
   if (process.env.RANKPROOF_GOOGLE_ALLOW_LOOPBACK === "1" &&
       configured.protocol === "http:" &&
-      (hostname === "127.0.0.1" || hostname === "::1")) return;
+      (localHostname === "127.0.0.1" || localHostname === "::1")) return;
 
   const staticVerdict = guardUrl(raw);
   if (!staticVerdict.allowed) {

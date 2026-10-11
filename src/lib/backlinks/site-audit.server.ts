@@ -331,7 +331,7 @@ export async function runSiteAudit(
 
     const issues: SiteIssue[] = [];
     if (crawlIncomplete) {
-      issues.push(issue("crawl-incomplete", "info",
+      issues.push(issue("crawl-incomplete", "low",
         "Orphan analysis withheld: crawl reached page or time limit",
         "The explored graph is incomplete. Unvisited inventory pages are not proven orphans.", []));
     }

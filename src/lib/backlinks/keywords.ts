@@ -207,7 +207,7 @@ export function buildKeywordStats(
 
     let opportunity = 20;
     if (bestPosition === null && measured.length > 0) opportunity += 35;
-    else if (bestPosition > 3) opportunity += Math.round((bestPosition - 1) * 4);
+    else if (bestPosition !== null && bestPosition > 3) opportunity += Math.round((bestPosition - 1) * 4);
     opportunity += Math.min(25, Math.round(linkEquity / 8));
     opportunity += Math.min(15, Math.round(seed.weight / 8));
     if (bestPosition === 1) opportunity = Math.min(opportunity, 18);
