@@ -82,7 +82,8 @@
     "dev:lan": "node scripts/with-app-env.mjs vite dev --host 0.0.0.0 --port 8080",
     "build:cli": "tsc -p tsconfig.build.json",
     "prepack": "npm run build:cli",
-    "psl:update": "node scripts/update-psl.mjs"
+    "psl:update": "node scripts/update-psl.mjs",
+    "bench:local": "node --experimental-strip-types scripts/benchmark-local.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.4",
