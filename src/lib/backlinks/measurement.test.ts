@@ -455,3 +455,35 @@ test("exact HTML attribute references are case-sensitive and decode all valid na
     assert.equal(discovery.backlinks[0]!.targetUrl, expected, raw);
   }
 });
+
+test("unquoted query confirms only the actual destination in exact and discovery paths", async () => {
+  const actual = "https://target.example/offer?sku=ABC&ref=a=b";
+  const truncated = "https://target.example/offer?sku";
+  const raw = "https://target.example/offer?sku=ABC&amp;ref=a=b";
+  serve(`<html><body><a href=${raw}>Offer</a></body></html>`);
+  const exact = await verifyBacklinks({
+    items: [
+      { source_url: fixture.base, target_url: actual },
+      { source_url: fixture.base, target_url: truncated },
+    ],
+  });
+  assert.deepEqual(
+    exact.results.map((row) => row.status),
+    ["confirmed", "not_found"],
+  );
+  assert.equal(exact.results[0]!.raw_href, raw);
+  assert.equal(exact.results[0]!.resolved_href, actual);
+  assert.equal(exact.results[0]!.extraction_version, "html-anchor-v4");
+  const discovery = await verifyPages([{ url: fixture.base, title: "", via: "bing" }], {
+    host: "target.example",
+    brandTokens: [],
+    limit: 2,
+    budget: new Budget(10_000),
+  });
+  assert.deepEqual(
+    discovery.backlinks.map((row) => row.targetUrl),
+    [actual],
+  );
+  assert.equal(discovery.backlinks[0]!.evidence!.rawHref, raw);
+  assert.equal(discovery.backlinks[0]!.evidence!.extractionVersion, "html-anchor-v4");
+});

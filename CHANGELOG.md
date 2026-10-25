@@ -14,6 +14,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semant
 
 ### Changed
 
+- HTML anchor extraction v4 preserves equals signs in unquoted query values and decodes URL attribute entities once in shared parsing.
+
 - Exact HTML URL attributes use the full, case-sensitive runtime entity decoder; discovery revalidates source HTML rather than refreshing cached evidence timestamps.
 - Unknown acquisition remains unknown in the UI, CLI and HTML export; score comparability includes the actual scored subset and selection inputs.
 - Discovery separates provider reports from fetched-HTML confirmation, preserves overlapping source provenance and adds a versioned coverage/score/visibility manifest.

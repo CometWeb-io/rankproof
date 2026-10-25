@@ -4,7 +4,7 @@ import { DOMAIN_POLICY, URL_IDENTITY_POLICY } from "./parse.ts";
 import type { Backlink, DiscoverySource, SerpQuery } from "./types.ts";
 import type { DomainEdge } from "./graph.ts";
 
-export const EXTRACTION_VERSION = "html-anchor-v3";
+export const EXTRACTION_VERSION = "html-anchor-v4";
 export const SCORE_VERSION = "local-graph-heuristic-v1";
 export const sourceRevision = () => process.env.RANKPROOF_SERVICE_REVISION?.trim() || null;
 export const responseHash = (text: string) => createHash("sha256").update(text).digest("hex");

@@ -164,7 +164,7 @@ export function stripTags(html: string): string {
  */
 export function parseTagAttrs(attrText: string): Record<string, string> {
   const out: Record<string, string> = {};
-  const re = /([^\s=/>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'`=<>]+)))?/gi;
+  const re = /([^\s=/>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'`<>]+)))?/gi;
   let match: RegExpExecArray | null;
   while ((match = re.exec(attrText))) {
     const name = (match[1] ?? "").toLowerCase();
@@ -429,7 +429,7 @@ export function parseAnchors(
     if (count++ >= limit) break;
     const attributes = token.attrs;
     if (!("href" in attributes)) continue;
-    const rawHref = (opts.exact ? decodeAttribute : decodeText)(attributes.href!.trim());
+    const rawHref = decodeAttribute(attributes.href!.trim());
     if (
       (!opts.exact && (!rawHref || rawHref.startsWith("#"))) ||
       /^(javascript|mailto|tel|data|sms|whatsapp):/i.test(rawHref)

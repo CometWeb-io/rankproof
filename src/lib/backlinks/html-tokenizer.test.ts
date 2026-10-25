@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseAnchors } from "./html.ts";
+import { parseAnchors, parseTagAttrs } from "./html.ts";
 import { tokenizeHtml } from "./html-tokenizer.ts";
 
 test("shared discovery parser accepts only genuine anchor elements outside inert markup", () => {
@@ -27,4 +27,15 @@ test("shared discovery keeps original offsets across Unicode case-expansion char
     parseAnchors(html, "https://source.example/").map((a) => a.href),
     ["https://target.example/offer"],
   );
+});
+
+test("unquoted values retain equals, duplicate attributes and a single entity decoding pass", () => {
+  const raw = "https://target.example/offer?sku=ABC&amp;x=a=b&amp;again=&amp;amp;";
+  assert.equal(parseTagAttrs(` HREF=${raw} rel=nofollow data-key=a=b href=ignored`).href, raw);
+  const token = tokenizeHtml(`<a href=${raw} rel=nofollow>Offer</a>`, true).tokens[0]!;
+  assert.equal(token.attrs.href, raw);
+  assert.equal(token.attrs.rel, "nofollow");
+  const anchor = parseAnchors(`<a href=${raw}>Offer</a>`, "https://source.example/")[0]!;
+  assert.equal(anchor.href, "https://target.example/offer?sku=ABC&x=a=b&again=&amp;");
+  assert.equal(parseTagAttrs("content=a=b=c data-key='' disabled").content, "a=b=c");
 });
