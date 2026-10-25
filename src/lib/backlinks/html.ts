@@ -1,3 +1,5 @@
+import { decodeHTMLAttribute } from "entities/decode";
+import { tokenizeHtml, type HtmlDocument } from "./html-tokenizer.ts";
 import type { AnchorType, LinkPlacement } from "./types.ts";
 
 const SOCIAL_HOST_RE =
@@ -118,6 +120,11 @@ export function decodeEntities(value: string): string {
     .replace(/&nbsp;/g, " ")
     .replace(/&#(\d+);/g, (_, n) => safeChar(Number(n)))
     .replace(/&#x([0-9a-f]+);/gi, (_, n) => safeChar(parseInt(n, 16)));
+}
+
+/** One HTML tokenization pass, for exact URL attribute comparisons. */
+export function decodeAttribute(value: string): string {
+  return decodeHTMLAttribute(value);
 }
 
 function safeChar(code: number): string {
@@ -397,6 +404,8 @@ export function placementAt(regions: Region[], index: number): LinkPlacement {
 
 export type ParsedAnchor = {
   href: string;
+  rawHref: string;
+  resolvedHref: string;
   rel: string;
   text: string;
   isImage: boolean;
@@ -408,42 +417,38 @@ export type ParsedAnchor = {
 export function parseAnchors(
   html: string,
   baseUrl: string,
-  opts: { limit?: number; withPlacement?: boolean } = {},
+  opts: { limit?: number; withPlacement?: boolean; exact?: boolean; document?: HtmlDocument } = {},
 ): ParsedAnchor[] {
   const limit = opts.limit ?? 1200;
   const regions = opts.withPlacement === false ? [] : buildRegions(html);
   const out: ParsedAnchor[] = [];
-  const re = /<a\b([^>]{0,1200})>/gi;
-  let match: RegExpExecArray | null;
+  const document = opts.document ?? tokenizeHtml(html, opts.exact);
   let count = 0;
-  while ((match = re.exec(html)) && count < limit) {
-    count += 1;
-    const attrs = match[1] ?? "";
-    const hrefMatch =
-      attrs.match(/href\s*=\s*["']([^"']{1,2000})["']/i) ?? attrs.match(/href\s*=\s*([^\s>]+)/i);
-    if (!hrefMatch?.[1]) continue;
-    const rawHref = decodeText(hrefMatch[1].trim());
+  for (const token of document.tokens) {
+    if (token.closing || token.name !== "a") continue;
+    if (count++ >= limit) break;
+    const attributes = token.attrs;
+    if (!("href" in attributes)) continue;
+    const rawHref = (opts.exact ? decodeAttribute : decodeText)(attributes.href!.trim());
     if (
-      !rawHref ||
-      rawHref.startsWith("#") ||
+      (!opts.exact && (!rawHref || rawHref.startsWith("#"))) ||
       /^(javascript|mailto|tel|data|sms|whatsapp):/i.test(rawHref)
-    ) {
+    )
       continue;
-    }
     let href = rawHref;
     try {
       href = new URL(rawHref, baseUrl).href;
     } catch {
       continue;
     }
-    href = unwrapRedirect(href);
+    const resolvedHref = href;
+    if (!opts.exact) href = unwrapRedirect(href);
     try {
       href = new URL(href).href;
     } catch {
       continue;
     }
-    const relMatch = attrs.match(/rel\s*=\s*["']([^"']+)["']/i);
-    const afterStart = match.index + match[0].length;
+    const afterStart = token.end;
     const after = html.slice(afterStart, afterStart + 600);
     const close = after.search(/<\s*\/\s*a\s*>/i);
     const inner = close >= 0 ? after.slice(0, close) : after.slice(0, 200);
@@ -452,19 +457,21 @@ export function parseAnchors(
     const rawText = decodeText(inner.replace(/<[^>]+>/g, " "))
       .replace(/\s+/g, " ")
       .trim();
-    const ariaLabel = attrs.match(/aria-label\s*=\s*["']([^"']{1,140})["']/i)?.[1];
-    const titleAttr = attrs.match(/title\s*=\s*["']([^"']{1,140})["']/i)?.[1];
+    const ariaLabel = attributes["aria-label"];
+    const titleAttr = attributes.title;
     const text = (rawText || decodeText(imgAlt) || ariaLabel || titleAttr || "")
       .replace(/\s+/g, " ")
       .trim()
       .slice(0, 160);
     out.push({
       href,
-      rel: relMatch?.[1] ?? "",
+      rawHref: attributes.href!,
+      resolvedHref,
+      rel: decodeText(attributes.rel ?? ""),
       text,
       isImage,
-      index: match.index,
-      placement: regions.length > 0 ? placementAt(regions, match.index) : "unknown",
+      index: token.index,
+      placement: regions.length > 0 ? placementAt(regions, token.index) : "unknown",
     });
   }
   return out;
@@ -788,4 +795,16 @@ export function countLinks(
     else external += 1;
   }
   return { internal, external };
+}
+
+export function documentBase(document: HtmlDocument, fallback: string): string {
+  const base = document.tokens.find(
+    (token) => !token.closing && token.name === "base" && "href" in token.attrs,
+  );
+  if (!base) return fallback;
+  try {
+    return new URL(decodeAttribute(base.attrs.href!), fallback).href;
+  } catch {
+    return fallback;
+  }
 }

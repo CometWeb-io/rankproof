@@ -2,6 +2,24 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic versioning.
 
+## [Unreleased]
+
+### Added
+
+- **Versioned exact backlink verification:** `POST /v1/backlinks/verify` accepts up to 50 pairs and returns fresh, ordered `confirmed`, `not_found` or `error` observations with timestamps and anchor evidence. HTTP challenges, robots refusals, unsupported content and fetch failures do not count as missing links.
+- HTTP health now advertises contract capabilities, package version and optional `RANKPROOF_SERVICE_REVISION` for source-snapshot compatibility.
+- **Service token for the HTTP API.** With `RANKPROOF_API_TOKEN` set, every endpoint except `GET /health` requires `Authorization: Bearer <token>` and answers `401` otherwise — for running RankProof on a private port behind another service.
+- **`seedUrls` on `POST /scan`.** Up to 150 pages the site owner's webmaster tools (Bing, Yandex) report as linking in. They are prioritized within the available verification budget, and show up as `discoveredVia: "webmaster"` only when the link is confirmed in their HTML.
+- `POST /scan` also accepts `mode`, `budgetMs` (clamped to 8–300 s) and `depth`; request parsing moved to the pure, tested `service-api.ts`.
+
+### Changed
+
+- Exact HTML URL attributes use the full, case-sensitive runtime entity decoder; discovery revalidates source HTML rather than refreshing cached evidence timestamps.
+- Unknown acquisition remains unknown in the UI, CLI and HTML export; score comparability includes the actual scored subset and selection inputs.
+- Discovery separates provider reports from fetched-HTML confirmation, preserves overlapping source provenance and adds a versioned coverage/score/visibility manifest.
+- Exact source-target IDs preserve URL semantics and survive anchor edits. Legacy summary history without comparable manifests no longer emits new-report acquisition/loss or score deltas.
+- Source-domain archive age is separate from link observations; acquisition velocity remains unknown without dated cohorts. Rendered-DOM checking is deferred behind browser network/robots safety requirements.
+
 ## [8.1.0] — 2026-08-30
 
 First stable public release after the RC hardening pass.

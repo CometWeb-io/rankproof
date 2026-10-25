@@ -49,7 +49,8 @@ export function rowsToTrend(rows: ScanRow[]): TrendPoint[] {
 
 /** The difference against the previous stored scan of the same domain. */
 export function rowToDelta(report: ScanReport, row: ScanRow | undefined): ScanDelta | null {
-  if (!row) return null;
+  // Legacy rows lack coverage/identity manifests; comparing them fabricates acquisition and score changes.
+  if (!row || report.measurement) return null;
   const prevIds = new Set(asList(row.link_ids));
   const prevDomains = new Set(asList(row.domains));
   const currentIds = report.backlinks.map((b) => b.id);

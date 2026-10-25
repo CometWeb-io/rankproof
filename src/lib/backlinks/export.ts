@@ -32,6 +32,13 @@ export function backlinksCsv(report: ScanReport): string {
     "language",
     "discovery_source",
     "flags",
+    "domain_first_archived_at",
+    "evidence_kind",
+    "observed_at",
+    "raw_href",
+    "resolved_href",
+    "identity_policy",
+    "source_revision",
   ];
   const rows = report.backlinks.map((row) =>
     [
@@ -52,6 +59,13 @@ export function backlinksCsv(report: ScanReport): string {
       row.sourceLang ?? "",
       row.discoveredVia,
       row.flags.join(" "),
+      row.domainFirstArchivedAt ?? "",
+      row.evidence?.kind ?? "",
+      row.evidence?.observedAt ?? "",
+      row.evidence?.rawHref ?? "",
+      row.evidence?.resolvedHref ?? "",
+      row.evidence?.identityPolicy ?? "",
+      row.evidence?.sourceRevision ?? "",
     ]
       .map(csvCell)
       .join(","),
@@ -72,6 +86,7 @@ export function domainsCsv(report: ScanReport): string {
     "first_seen",
     "sample_url",
     "sources",
+    "domain_first_archived_at",
   ];
   const rows = report.analytics.referringDomains.map((row) =>
     [
@@ -86,6 +101,7 @@ export function domainsCsv(report: ScanReport): string {
       row.firstSeen ?? "",
       row.sampleUrl,
       row.sources.join(" "),
+      row.domainFirstArchivedAt ?? "",
     ]
       .map(csvCell)
       .join(","),
@@ -513,7 +529,10 @@ export function reportHtml(report: ScanReport): string {
     ["Broken links", stats.brokenLinks],
     ["For review (toxic)", stats.toxicDomains],
     ["Footprint", `${report.footprint.score}/100 (${report.footprint.verdict})`],
-    ["Link velocity", `${report.velocity.perMonth}/mo`],
+    [
+      "Link velocity",
+      report.velocity.verdict === "unknown" ? "unknown" : `${report.velocity.perMonth}/mo`,
+    ],
     ["Plan tasks", stats.actions],
   ];
 

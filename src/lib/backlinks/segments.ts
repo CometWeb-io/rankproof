@@ -111,77 +111,16 @@ export function buildSegments(domains: ReferringDomain[], backlinks: Backlink[])
 /* Link acquisition momentum                                        */
 /* ------------------------------------------------------------------ */
 
-/**
- * The pace at which referring domains are gained. We rely on when a domain was
- * first seen in the archive (`firstSeen`) — the only free date signal available.
- * The trend compares the last 12 months with the 12 before; a sudden jump often
- * signals bought links, and a fall to zero signals abandoned marketing.
- */
-export function buildVelocity(domains: ReferringDomain[], trend: TrendPoint[] = []): LinkVelocity {
-  const now = Date.now();
-  const year = 365 * 24 * 3600 * 1000;
-  let last12 = 0;
-  let previous12 = 0;
-  let dated = 0;
-
-  for (const domain of domains) {
-    if (!domain.firstSeen) continue;
-    const time = Date.parse(domain.firstSeen);
-    if (!Number.isFinite(time)) continue;
-    dated += 1;
-    const age = now - time;
-    if (age <= year) last12 += 1;
-    else if (age <= year * 2) previous12 += 1;
-  }
-
+/** Acquisition needs dated relation cohorts; archive age and sampled scan counts cannot supply it. */
+export function buildVelocity(domains: ReferringDomain[], _trend: TrendPoint[] = []): LinkVelocity {
   const lostLinks = domains.reduce((sum, domain) => sum + domain.lostLinks, 0);
-  const totalLinks = Math.max(
-    1,
-    domains.reduce((sum, domain) => sum + domain.links, 0),
-  );
-  const lostRatio = Math.round((lostLinks / (totalLinks + lostLinks)) * 100);
-
-  if (dated < 3) {
-    // Without archive dates, try to read the pace from scan history.
-    if (trend.length >= 2) {
-      const first = trend[0]!;
-      const last = trend[trend.length - 1]!;
-      const delta = last.referringDomains - first.referringDomains;
-      return {
-        last12m: Math.max(0, delta),
-        perMonth: Math.round(Math.max(0, delta) * 10) / 10,
-        trend: 0,
-        lostRatio,
-        verdict: delta > 0 ? "growing" : delta < 0 ? "declining" : "stable",
-        hint: "Velocity computed from scan history — the archive does not know the age of most domains.",
-      };
-    }
-    return {
-      last12m: 0,
-      perMonth: 0,
-      trend: 0,
-      lostRatio,
-      verdict: "unknown",
-      hint: "Too few first-seen dates to compute velocity. Repeat the scan in a few weeks.",
-    };
-  }
-
-  const perMonth = Math.round((last12 / 12) * 10) / 10;
-  const change =
-    previous12 > 0 ? Math.round(((last12 - previous12) / previous12) * 100) : last12 > 0 ? 100 : 0;
-  const verdict: LinkVelocity["verdict"] =
-    change >= 20 ? "growing" : change <= -20 ? "declining" : "stable";
-
-  let hint: string;
-  if (verdict === "growing" && change > 200) {
-    hint = `A sharp jump (${change}%) — make sure the new domains are natural, because growth like this often signals bought links.`;
-  } else if (verdict === "growing") {
-    hint = `Healthy pace: ${perMonth} new domains per month, ${change}% more than a year earlier.`;
-  } else if (verdict === "declining") {
-    hint = `The pace fell by ${Math.abs(change)}%. Competitors who did not slow down will start to pass you.`;
-  } else {
-    hint = `Steady at ${perMonth} new domains per month.`;
-  }
-
-  return { last12m: last12, perMonth, trend: change, lostRatio, verdict, hint };
+  const totalLinks = domains.reduce((sum, domain) => sum + domain.links, 0);
+  return {
+    last12m: 0,
+    perMonth: 0,
+    trend: 0,
+    lostRatio: Math.round((lostLinks / Math.max(1, totalLinks + lostLinks)) * 100),
+    verdict: "unknown",
+    hint: "Acquisition velocity is unknown: domain archive dates and changing discovery samples are not dated link-observation cohorts.",
+  };
 }

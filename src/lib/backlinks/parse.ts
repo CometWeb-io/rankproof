@@ -88,9 +88,10 @@ const MULTI_SUFFIXES = new Set([
   "gov.rs",
 ]);
 
-/** Tracking parameters — stripped during normalisation to avoid duplicates. */
-const TRACKING_PARAM_RE =
-  /^(utm_[a-z_]+|fbclid|gclid|gbraid|wbraid|msclkid|mc_[a-z]+|igshid|yclid|_ga|_gl|ref|ref_src|referrer|source|si|spm|trk|trk_[a-z]+|at_[a-z]+|cmpid|campaign|feature|share|__hstc|__hssc|hsa_[a-z]+|vero_[a-z]+|pk_[a-z]+|piwik_[a-z]+|sc_[a-z]+)$/i;
+/** Exact relation identity: only URL-standard normalization and fragment removal. */
+export const URL_IDENTITY_POLICY = "exact-http-url-v2";
+/** shortcut: this historical suffix subset omits private/wildcard rules; use a maintained PSL before domain counts can claim complete publisher isolation. */
+export const DOMAIN_POLICY = "suffix-subset-v1-not-full-psl";
 
 export type ParsedTarget = {
   host: string;
@@ -197,46 +198,20 @@ export function domainFromUrl(url: string): string {
   return registrableDomain(hostFromUrl(url));
 }
 
-/**
- * The canonical form of a URL: no fragment, no tracking parameters, no
- * `index.html`, no trailing slash, host lowercased.
- */
+/** Preserve path/query case, order, business/tracking parameters and trailing slash. */
 export function normalizeUrl(raw: string): string {
   try {
     const u = new URL(raw);
     u.hash = "";
-    u.hostname = u.hostname.toLowerCase();
-    if (
-      (u.protocol === "https:" && u.port === "443") ||
-      (u.protocol === "http:" && u.port === "80")
-    ) {
-      u.port = "";
-    }
-    const keep: [string, string][] = [];
-    u.searchParams.forEach((value, key) => {
-      if (!TRACKING_PARAM_RE.test(key)) keep.push([key, value]);
-    });
-    keep.sort((a, b) => a[0].localeCompare(b[0]));
-    u.search = "";
-    for (const [key, value] of keep) u.searchParams.append(key, value);
-    u.pathname = u.pathname.replace(/\/(index|default)\.(html?|php|aspx)$/i, "/");
-    if (u.pathname.length > 1) u.pathname = u.pathname.replace(/\/+$/, "");
-    if (!u.pathname) u.pathname = "/";
-    return u.toString();
+    return u.href;
   } catch {
     return raw.split("#")[0] ?? raw;
   }
 }
 
-/** A comparison key for a page — ignores protocol and `www`. */
+/** Exact page key; protocol/www variants require observed redirects to relate them. */
 export function pageKey(raw: string): string {
-  const normalized = normalizeUrl(raw);
-  try {
-    const u = new URL(normalized);
-    return `${stripWww(u.hostname)}${u.pathname}${u.search}`.toLowerCase();
-  } catch {
-    return normalized.toLowerCase();
-  }
+  return normalizeUrl(raw);
 }
 
 export function pathOf(url: string): string {

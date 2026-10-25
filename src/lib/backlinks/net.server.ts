@@ -19,6 +19,8 @@ export type FetchResult = {
   finalUrl: string;
   headers: Headers | null;
   fromCache: boolean;
+  /** Reading stopped at maxBytes; absence cannot be inferred from this body. */
+  truncated?: boolean;
 };
 
 const CACHE = new Map<string, FetchResult>();
@@ -157,6 +159,7 @@ function pinnedRequest(
     method: string;
     headers: Record<string, string>;
     signal?: AbortSignal;
+    maxBytes: number;
   },
 ): Promise<Response> {
   const parsed = new URL(url);
@@ -187,24 +190,36 @@ function pinnedRequest(
         // the request timeout nor the abort signal applies any more.
         res.on("error", reject);
         res.on("aborted", () => reject(new Error("Response aborted by the server.")));
-        res.on("data", (chunk: Buffer) => chunks.push(chunk));
+        let received = 0;
+        res.on("data", (chunk: Buffer) => {
+          received += chunk.length;
+          if (received > init.maxBytes) {
+            res.destroy(new Error("Response exceeds the verification size limit."));
+          } else chunks.push(chunk);
+        });
         res.on("end", () => {
-          const headerInit: [string, string][] = [];
-          for (const [key, value] of Object.entries(res.headers)) {
-            if (value === undefined) continue;
-            if (Array.isArray(value)) {
-              for (const item of value) headerInit.push([key, item]);
-            } else {
-              headerInit.push([key, value]);
+          try {
+            const headerInit: [string, string][] = [];
+            for (const [key, value] of Object.entries(res.headers)) {
+              if (value === undefined) continue;
+              if (Array.isArray(value)) {
+                for (const item of value) headerInit.push([key, item]);
+              } else headerInit.push([key, value]);
             }
+            const status = res.statusCode ?? 0;
+            const nullBody = status === 204 || status === 205 || status === 304;
+            resolve(
+              new Response(nullBody ? null : Buffer.concat(chunks), {
+                status,
+                statusText: res.statusMessage,
+                headers: headerInit,
+              }),
+            );
+          } catch (error) {
+            // Event callbacks run outside the Promise executor. Construction
+            // failures must reject this request, never crash the API process.
+            reject(error);
           }
-          resolve(
-            new Response(Buffer.concat(chunks), {
-              status: res.statusCode ?? 0,
-              statusText: res.statusMessage,
-              headers: headerInit,
-            }),
-          );
         });
       },
     );
@@ -259,7 +274,8 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
   let crawlDelay: number | null = null;
   if (!opts.skipRobots && opts.budget) {
     const rules = await robotsFor(origin, opts.budget);
-    if (!isAllowed(rules, new URL(url).pathname)) throw new RobotsDisallowedError(url);
+    if (!isAllowed(rules, new URL(url).pathname + new URL(url).search))
+      throw new RobotsDisallowedError(url);
     crawlDelay = rules.crawlDelay;
   }
 
@@ -273,6 +289,7 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), opts.timeoutMs);
   const onOuterAbort = () => controller.abort();
+  if (opts.signal?.aborted) controller.abort();
   opts.signal?.addEventListener("abort", onOuterAbort);
 
   try {
@@ -284,7 +301,16 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
     // and close the DNS-rebinding TOCTOU window; default uses fetch so test
     // doubles that stub globalThis.fetch keep working.
     for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+      if (controller.signal.aborted) throw new Error("Request aborted.");
       const addresses = await assertFetchable(current);
+      if (hop > 0 && !opts.skipRobots && opts.budget) {
+        const redirected = new URL(current);
+        const rules = await robotsFor(redirected.origin, opts.budget);
+        if (!isAllowed(rules, redirected.pathname + redirected.search)) {
+          throw new RobotsDisallowedError(current);
+        }
+        await respectCrawlDelay(redirected.origin, rules.crawlDelay);
+      }
       const headers = {
         "User-Agent": opts.ua ?? BROWSER_UA,
         Accept: opts.accept ?? "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8",
@@ -298,6 +324,7 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
               method,
               signal: controller.signal,
               headers,
+              maxBytes: opts.maxBytes,
             })
           : await fetch(current, {
               method,
@@ -361,8 +388,11 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
 
     const reader = res.body?.getReader();
     let text = "";
+    let truncated = false;
     if (!reader) {
-      text = (await res.text()).slice(0, opts.maxBytes);
+      const full = await res.text();
+      truncated = Buffer.byteLength(full) >= opts.maxBytes;
+      text = full.slice(0, opts.maxBytes);
     } else {
       const decoder = new TextDecoder("utf-8", { fatal: false });
       let received = 0;
@@ -379,6 +409,7 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
           break;
         }
       }
+      truncated = received >= opts.maxBytes;
       text += decoder.decode();
       try {
         await reader.cancel();
@@ -394,6 +425,7 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
     const result: FetchResult = {
       status: res.status,
       text,
+      truncated,
       finalUrl,
       headers: res.headers,
       fromCache: false,

@@ -10,6 +10,7 @@ export type DiscoverySource =
   | "duckduckgo"
   | "mojeek"
   | "news"
+  | "gdelt"
   | "urlscan"
   | "github"
   | "commoncrawl"
@@ -17,6 +18,8 @@ export type DiscoverySource =
   | "sitemap"
   | "archive"
   | "lookup"
+  /** Reported by the site owner's webmaster tools (Bing, Yandex), then verified here. */
+  | "webmaster"
   | "page";
 
 export type SourceStatus = "ok" | "empty" | "error" | "skipped";
@@ -44,7 +47,7 @@ export type LinkFlag =
   | "serp-coranker";
 
 export type Backlink = {
-  /** Stable record identifier (host + path + target + anchor). */
+  /** Stable exact source-target relation identifier; anchor edits do not change it. */
   id: string;
   sourceUrl: string;
   sourceHost: string;
@@ -65,7 +68,23 @@ export type Backlink = {
   discoveredVia: DiscoverySource;
   wikiLang?: string;
   verified: boolean;
-  /** First sighting of the source page in the Internet Archive (YYYY-MM-DD). */
+  evidence?: {
+    kind: "provider_report" | "html_anchor" | "archive_anchor";
+    method: "provider_api" | "fetched_html" | "archive_html";
+    observedAt: string;
+    sourceRevision: string | null;
+    extractionVersion: string;
+    identityPolicy: string;
+    requestedSourceUrl: string;
+    resolvedSourceUrl: string | null;
+    rawHref: string | null;
+    resolvedHref: string;
+    responseHash: string | null;
+    absenceScope: "fetched_html_only" | null;
+  };
+  discoverySources?: DiscoverySource[];
+  domainFirstArchivedAt?: string | null;
+  /** Deprecated: unknown link-first-seen date, never a domain archive date. */
   firstSeen: string | null;
   httpStatus: number | null;
   /** Status of the target URL — reveals broken backlinks. */
@@ -78,14 +97,14 @@ export type Backlink = {
   relevance: number;
   /** Final target URL after redirects (when different from the linked one). */
   targetFinalUrl: string | null;
-  /** live = confirmed now, lost = present in the archive but gone today. */
+  /** live = fetched HTML anchor; lost = archive recovery candidate; reported = provider-only assertion. */
   state: LinkState;
   /** Date of the last confirmation (archive) for lost links. */
   lastSeen: string | null;
   flags: LinkFlag[];
 };
 
-export type LinkState = "live" | "lost";
+export type LinkState = "live" | "lost" | "reported";
 
 export type Mention = {
   sourceUrl: string;
@@ -142,6 +161,7 @@ export type ReferringDomain = {
   domainScore: number;
   spamScore: number;
   tld: string;
+  domainFirstArchivedAt?: string | null;
   firstSeen: string | null;
   sources: DiscoverySource[];
   sampleUrl: string;
@@ -245,7 +265,7 @@ export type Analytics = {
   languages: CountStat[];
   sources: CountStat[];
   topTargetPages: CountStat[];
-  /** Distribution of referring domains by first sighting in the archive (by year). */
+  /** Compatibility key: source-domain archive-age distribution, never link acquisition growth. */
   growth: CountStat[];
   targetPages: TargetPageStat[];
   outbound: OutboundDomain[];
@@ -746,7 +766,7 @@ export type SegmentStat = {
 
 /** Link acquisition momentum — pace and direction. */
 export type LinkVelocity = {
-  /** New domains in the last 12 months (from the archive). */
+  /** Compatibility numeric placeholders; only meaningful when verdict is not unknown. */
   last12m: number;
   /** Average number of new domains per month over that period. */
   perMonth: number;
@@ -892,6 +912,9 @@ export type ScanReport = {
   target: SiteSnapshot;
   sources: SourceReport[];
   backlinks: Backlink[];
+  /** Provider assertions awaiting HTML verification, excluded from backlink stats. */
+  providerReports?: Backlink[];
+  measurement?: import("./measurement.server.ts").RunManifest;
   mentions: Mention[];
   stats: ScanStats;
   analytics: Analytics;

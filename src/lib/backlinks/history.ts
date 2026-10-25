@@ -66,7 +66,7 @@ export function findPrevious(host: string): HistoryItem | null {
 
 /** Comparison with the previous scan of the same domain: new and lost links. */
 export function diffReport(report: ScanReport, previous: HistoryItem | null): ScanDiff | null {
-  if (!previous || previous.host !== report.target.host) return null;
+  if (!previous || previous.host !== report.target.host || report.measurement) return null;
   if (previous.at === report.queriedAt) return null;
 
   const prevIds = new Set(previous.ids ?? []);

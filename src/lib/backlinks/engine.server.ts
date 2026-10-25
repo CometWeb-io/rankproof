@@ -1,5 +1,12 @@
 import { classifyAnchor } from "./html.ts";
 import {
+  buildRunManifest,
+  candidateSources,
+  funnel,
+  linkEvidence,
+  type Coverage,
+} from "./measurement.server.ts";
+import {
   hostFromUrl,
   isTargetHost,
   normalizeUrl,
@@ -27,6 +34,7 @@ import {
   type Candidate,
 } from "./sources.server.ts";
 import { inspectTarget } from "./target.server.ts";
+import { seedCandidates } from "./service-api.ts";
 import {
   findLostLinks,
   markSitewide,
@@ -96,7 +104,11 @@ function sourceReport(
 }
 
 /** Fills an API record with the fields the report requires. */
-function hydrate(partial: Partial<Backlink>, host: string, tokens: string[]): Backlink | null {
+export function hydrateProviderReport(
+  partial: Partial<Backlink>,
+  host: string,
+  tokens: string[],
+): Backlink | null {
   if (!partial.sourceUrl || !partial.targetUrl) return null;
   const sourceUrl = normalizeUrl(partial.sourceUrl);
   const targetUrl = normalizeUrl(partial.targetUrl);
@@ -114,12 +126,14 @@ function hydrate(partial: Partial<Backlink>, host: string, tokens: string[]): Ba
     anchor,
     anchorType: partial.anchorType ?? classifyAnchor(anchor, host, tokens, false),
     rel: partial.rel ?? "nofollow",
-    effectiveFollow: partial.effectiveFollow ?? partial.rel === "dofollow",
-    placement: partial.placement ?? "content",
+    effectiveFollow: false,
+    placement: "unknown",
     sitewide: false,
     discoveredVia: partial.discoveredVia ?? "lookup",
     wikiLang: partial.wikiLang,
-    verified: partial.verified ?? false,
+    verified: false,
+    evidence: linkEvidence("provider_report", partial.sourceUrl, sourceUrl, targetUrl),
+    discoverySources: [partial.discoveredVia ?? "lookup"],
     firstSeen: null,
     httpStatus: partial.httpStatus ?? null,
     targetStatus: null,
@@ -127,7 +141,7 @@ function hydrate(partial: Partial<Backlink>, host: string, tokens: string[]): Ba
     spamScore: 0,
     relevance: partial.relevance ?? 50,
     targetFinalUrl: null,
-    state: "live",
+    state: "reported",
     lastSeen: null,
     flags: partial.flags ?? [],
   };
@@ -144,7 +158,14 @@ function mergeBacklinks(list: Backlink[], incoming: Backlink[]) {
     }
     // Keep the HTML-verified version — it knows rel and placement.
     const current = list[at]!;
-    if (!current.verified && item.verified) list[at] = item;
+    const sources = [
+      ...new Set([
+        ...(current.discoverySources ?? [current.discoveredVia]),
+        ...(item.discoverySources ?? [item.discoveredVia]),
+      ]),
+    ];
+    if (!current.verified && item.verified) list[at] = { ...item, discoverySources: sources };
+    else current.discoverySources = sources;
   }
 }
 
@@ -162,13 +183,19 @@ function mergeMentions(list: Mention[], incoming: Mention[], linkedDomains: Set<
   }
 }
 
-function pushCandidates(list: Candidate[], incoming: Candidate[] | undefined) {
+function pushCandidates(list: Candidate[], incoming: Candidate[] | undefined, coverage: Coverage) {
   if (!incoming) return;
-  const seen = new Set(list.map((c) => normalizeUrl(c.url)));
+  const seen = new Map(list.map((c) => [normalizeUrl(c.url), c]));
   for (const item of incoming) {
+    for (const source of candidateSources(item)) funnel(coverage, source).returnedCandidates++;
     const key = normalizeUrl(item.url);
-    if (seen.has(key)) continue;
-    seen.add(key);
+    const existing = seen.get(key);
+    if (existing) {
+      for (const source of candidateSources(item)) funnel(coverage, source).duplicate++;
+      existing.sources = [...new Set([...candidateSources(existing), ...candidateSources(item)])];
+      continue;
+    }
+    seen.set(key, item);
     list.push(item);
   }
 }
@@ -187,6 +214,11 @@ export type ScanOptions = {
   depth?: number;
   /** Skips the internal crawl — useful in CI and for quick lookups. */
   skipSiteAudit?: boolean;
+  /**
+   * Pages the owner's webmaster tools report as linking here. They are
+   * verified first, like every other candidate — never trusted as-is.
+   */
+  seedUrls?: string[];
 };
 
 export async function runScan(rawInput: string, options: ScanOptions = {}): Promise<ScanResult> {
@@ -258,6 +290,8 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
     ]);
 
   const backlinks: Backlink[] = [];
+  const providerReports: Backlink[] = [];
+  const coverage: Coverage = {};
   const mentions: Mention[] = [];
   const candidates: Candidate[] = [];
   const linkedDomains = new Set<string>();
@@ -265,11 +299,20 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
   const addPartials = (items: Partial<Backlink>[] | undefined) => {
     if (!items) return;
     const hydrated = items
-      .map((item) => hydrate(item, host, tokens))
+      .map((item) => hydrateProviderReport(item, host, tokens))
       .filter((item): item is Backlink => item !== null)
       // A link from the same site is not a reciprocal backlink.
       .filter((item) => !isTargetHost(item.sourceHost, host));
-    mergeBacklinks(backlinks, hydrated);
+    mergeBacklinks(providerReports, hydrated);
+    pushCandidates(
+      candidates,
+      hydrated.map((item) => ({
+        url: item.sourceUrl,
+        title: item.sourceTitle,
+        via: item.discoveredVia,
+      })),
+      coverage,
+    );
   };
 
   addPartials(wikiR.value as unknown as Partial<Backlink>[] | undefined);
@@ -283,15 +326,17 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
   mergeMentions(mentions, bskyR.value?.mentions ?? [], linkedDomains);
   mergeMentions(mentions, newsR.value?.mentions ?? [], linkedDomains);
 
-  pushCandidates(candidates, intelR.value?.outbound);
-  pushCandidates(candidates, githubR.value?.candidates);
-  pushCandidates(candidates, bingR.value);
-  pushCandidates(candidates, ddgR.value);
-  pushCandidates(candidates, mojeekR.value);
-  pushCandidates(candidates, urlscanR.value);
-  pushCandidates(candidates, gdeltR.value);
-  pushCandidates(candidates, seR.value);
-  pushCandidates(candidates, newsR.value?.candidates);
+  const seeds = seedCandidates(options.seedUrls, host);
+  pushCandidates(candidates, seeds, coverage);
+  pushCandidates(candidates, intelR.value?.outbound, coverage);
+  pushCandidates(candidates, githubR.value?.candidates, coverage);
+  pushCandidates(candidates, bingR.value, coverage);
+  pushCandidates(candidates, ddgR.value, coverage);
+  pushCandidates(candidates, mojeekR.value, coverage);
+  pushCandidates(candidates, urlscanR.value, coverage);
+  pushCandidates(candidates, gdeltR.value, coverage);
+  pushCandidates(candidates, seR.value, coverage);
+  pushCandidates(candidates, newsR.value?.candidates, coverage);
 
   /* --- Phase 3: HTML verification (waves) + SERP ---------------------- */
   const seen = new Set<string>();
@@ -338,10 +383,12 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
     host,
     brandTokens: tokens,
     topicTerms,
-    limit: budget.scale(runtime.maxVerify, 22_000),
+    // Seeds come on top of the usual allowance, so they do not crowd out discovery.
+    limit: budget.scale(runtime.maxVerify + Math.min(seeds.length, runtime.maxVerify), 22_000),
     perDomain: 3,
     budget,
     seen,
+    coverage,
   });
 
   const [wave1, serpR] = await Promise.all([wave1P, serpT]);
@@ -352,7 +399,12 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
   unlinkedPages.push(...wave1.unlinkedPages);
   checked += wave1.checked;
 
-  const wave2 = await verifyPages(light ? [] : wave1.deeper, {
+  const deeper2: Candidate[] = [];
+  pushCandidates(deeper2, wave1.deeper, coverage);
+  if (light)
+    for (const c of deeper2)
+      for (const source of candidateSources(c)) funnel(coverage, source).skippedWave++;
+  const wave2 = await verifyPages(light ? [] : deeper2, {
     host,
     brandTokens: tokens,
     topicTerms,
@@ -360,6 +412,7 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
     perDomain: 4,
     budget,
     seen,
+    coverage,
   });
   mergeBacklinks(backlinks, wave2.backlinks);
   mergeMentions(mentions, wave2.mentions, linkedDomains);
@@ -367,9 +420,11 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
   unlinkedPages.push(...wave2.unlinkedPages);
   checked += wave2.checked;
 
+  const deeper3: Candidate[] = [];
+  pushCandidates(deeper3, wave2.deeper, coverage);
   let wave3Found = 0;
   if (!light && !budget.spent(0.8)) {
-    const wave3 = await verifyPages(wave2.deeper, {
+    const wave3 = await verifyPages(deeper3, {
       host,
       brandTokens: tokens,
       topicTerms,
@@ -377,6 +432,7 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
       perDomain: 3,
       budget,
       seen,
+      coverage,
     });
     mergeBacklinks(backlinks, wave3.backlinks);
     mergeMentions(mentions, wave3.mentions, linkedDomains);
@@ -385,7 +441,13 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
     checked += wave3.checked;
     wave3Found = wave3.backlinks.length;
   } else {
-    notes.push("Third verification wave skipped — scan time budget reached.");
+    for (const c of deeper3)
+      for (const source of candidateSources(c)) funnel(coverage, source).skippedWave++;
+    notes.push(
+      light
+        ? "Deep verification skipped by light-mode policy."
+        : "Third verification wave skipped — scan time budget reached.",
+    );
   }
 
   /* --- Phase 4: lost links from the archive ----------------------------- */
@@ -474,7 +536,8 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
     if (score >= 75 && !flags.includes("high-authority")) flags.push("high-authority");
     return {
       ...item,
-      firstSeen,
+      firstSeen: null,
+      domainFirstArchivedAt: firstSeen,
       domainScore: score,
       spamScore: spam,
       targetStatus: status,
@@ -722,6 +785,9 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
     result.value === undefined ? 0 : fn(result.value);
 
   const sources: SourceReport[] = [
+    ...(seeds.length > 0
+      ? [sourceReport("webmaster", "Webmaster tools (owner-reported)", seeds.length, 0)]
+      : []),
     sourceReport(
       "graph",
       "Site graph, sitemap and archive",
@@ -792,6 +858,11 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
     ),
   ];
 
+  if (light)
+    for (const source of sources) {
+      if (["hacker-news", "news", "bluesky", "gdelt", "serp"].includes(source.id))
+        source.status = "skipped";
+    }
   const report: ScanReport = {
     version: REPORT_VERSION,
     queriedAt: new Date().toISOString(),
@@ -799,6 +870,29 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
     target: site,
     sources,
     backlinks: ranked,
+    providerReports,
+    measurement: buildRunManifest({
+      startedAt: new Date(startedAt).toISOString(),
+      mode: light ? "light" : "full",
+      budgetMs: options.budgetMs ?? (light ? runtime.lightBudgetMs : runtime.scanBudgetMs),
+      maxVerify: runtime.maxVerify,
+      maxBacklinks: runtime.maxBacklinks,
+      sources: sources.map(({ id, status }) => ({ id, status })),
+      coverage,
+      edges,
+      observed: enriched,
+      displayed: ranked,
+      queries: serpQueries,
+      visibilityCohort: (light ? [] : serpKeywords).flatMap((keyword) =>
+        (options.engines?.length ? options.engines : runtime.engines).map((engine) => ({
+          keyword,
+          engine,
+          market: options.market ?? runtime.market,
+          device: options.device ?? runtime.device,
+          depth: options.depth ?? runtime.serpDepth,
+        })),
+      ),
+    }),
     mentions: mentionList,
     stats: {
       backlinks: ranked.length,
@@ -851,7 +945,14 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
       serpCompetitors: serpSnapshot.competitors.length,
     },
     analytics,
-    notes: [...new Set(notes)].slice(0, 8),
+    notes: [
+      ...new Set([
+        "Discovery is a selected sample, not a backlink census. Provider reports are excluded until confirmed in fetched HTML.",
+        "Scores are uncalibrated run-relative heuristics. Coverage changes prevent interpreting score deltas as progress.",
+        "Domain grouping uses an incomplete suffix subset; private/wildcard suffixes can merge publishers.",
+        ...notes,
+      ]),
+    ].slice(0, 8),
     trend: [],
     delta: null,
     persisted: false,

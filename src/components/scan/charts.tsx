@@ -5,7 +5,7 @@ export function GrowthChart({ stats }: { stats: CountStat[] }) {
   return (
     <div className="rounded-lg border border-border bg-surface p-4">
       <p className="text-xs font-medium tracking-wide text-muted uppercase">
-        Referring domain growth (first seen in the archive)
+        Source-domain archive age (not link acquisition)
       </p>
       {stats.length === 0 ? (
         <p className="mt-3 text-sm text-subtle">No domain-age data yet.</p>
@@ -13,7 +13,7 @@ export function GrowthChart({ stats }: { stats: CountStat[] }) {
         <div
           className="mt-4 flex h-32 items-end gap-1.5"
           role="img"
-          aria-label="Domain growth chart"
+          aria-label="Source-domain archive-age distribution"
         >
           {stats.map((stat) => (
             <div key={stat.key} className="flex flex-1 flex-col items-center gap-1">
@@ -43,7 +43,7 @@ export function TrendChart({ points }: { points: TrendPoint[] }) {
     <div className="rounded-lg border border-border bg-surface p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-xs font-medium tracking-wide text-muted uppercase">
-          Profile trend ({points.length} scans)
+          Discovery samples ({points.length} scans)
         </p>
         <p className="font-mono text-xs text-muted">
           domains {first.referringDomains} → {last.referringDomains} · DR {first.domainRating} →{" "}
@@ -73,8 +73,9 @@ export function TrendChart({ points }: { points: TrendPoint[] }) {
         ))}
       </div>
       <p className="mt-2 text-xs text-subtle">
-        Top bars: referring domains. Bottom: Domain Rating. History is stored server-side, so the
-        trend follows you to another device.
+        Top bars: observed referring domains. Bottom: run-relative heuristic rating. Coverage can
+        change between scans; these differences do not establish link acquisition, loss or authority
+        changes.
       </p>
     </div>
   );

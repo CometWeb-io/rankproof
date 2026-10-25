@@ -157,5 +157,8 @@
   },
   "publishConfig": {
     "tag": "latest"
+  },
+  "dependencies": {
+    "entities": "8.1.0"
   }
 }

@@ -245,7 +245,9 @@ function renderScanText(report) {
     `  lost ${stats.lostLinks} · broken ${stats.brokenLinks} · to disavow ${toxic.disavowCount} · footprint ${report.footprint.score}/100 (${report.footprint.verdict})`,
   );
   lines.push(
-    `  velocity: ${report.velocity.perMonth} new domains/month (${report.velocity.verdict})`,
+    report.velocity.verdict === "unknown"
+      ? "  velocity: unknown (dated acquisition cohort unavailable)"
+      : `  velocity: ${report.velocity.perMonth} new domains/month (${report.velocity.verdict})`,
   );
   lines.push("");
   lines.push("SERP");

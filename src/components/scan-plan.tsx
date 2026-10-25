@@ -94,8 +94,12 @@ export function PlanTab({ report }: { report: ScanReport }) {
         </div>
         <div className="rounded-lg border border-border bg-surface p-4">
           <p className="text-xs font-medium tracking-wide text-muted uppercase">Link velocity</p>
-          <p className="mt-2 font-mono text-3xl tabular-nums text-fg">{velocity.perMonth}</p>
-          <p className="mt-1 text-xs text-subtle">new domains / month</p>
+          <p className="mt-2 font-mono text-3xl tabular-nums text-fg">
+            {velocity.verdict === "unknown" ? "unknown" : velocity.perMonth}
+          </p>
+          {velocity.verdict !== "unknown" ? (
+            <p className="mt-1 text-xs text-subtle">new domains / month</p>
+          ) : null}
         </div>
       </div>
 
@@ -116,10 +120,12 @@ export function PlanTab({ report }: { report: ScanReport }) {
           </Badge>
         </div>
         <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted">{velocity.hint}</p>
-        <p className="mt-2 font-mono text-xs text-subtle">
-          {velocity.last12m} new domains in 12 months · change {velocity.trend}% · lost links{" "}
-          {velocity.lostRatio}%
-        </p>
+        {velocity.verdict !== "unknown" ? (
+          <p className="mt-2 font-mono text-xs text-subtle">
+            {velocity.last12m} new domains in 12 months · change {velocity.trend}% · lost links{" "}
+            {velocity.lostRatio}%
+          </p>
+        ) : null}
       </div>
 
       {segments.length > 0 ? (
