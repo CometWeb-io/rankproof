@@ -4,6 +4,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semant
 
 ## [Unreleased]
 
+### Security
+
+- Upgrade TanStack Start and its matching router to fix unauthenticated reflected XSS in server-function responses ([GHSA-qx66-fv34-fjm8](https://github.com/advisories/GHSA-qx66-fv34-fjm8)).
+- Upgrade Vite, Zod, `source-map-js` and the `fast-uri` override to patched versions. CI audits the complete dependency tree, including web dependencies listed under `devDependencies`.
+
 ### Added
 
 - **Versioned exact backlink verification:** `POST /v1/backlinks/verify` accepts up to 50 pairs and returns fresh, ordered `confirmed`, `not_found` or `error` observations with timestamps and anchor evidence. HTTP challenges, robots refusals, unsupported content and fetch failures do not count as missing links.
