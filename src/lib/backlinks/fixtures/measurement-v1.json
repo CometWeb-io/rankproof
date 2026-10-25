@@ -1,0 +1,17 @@
+{
+  "base": "https://source.example/Offer?sku=ABC&ref=business&source=owner&x=1&x=2",
+  "distinct": [
+    "https://source.example/offer?sku=ABC&ref=business&source=owner&x=1&x=2",
+    "https://source.example/Offer?sku=abc&ref=business&source=owner&x=1&x=2",
+    "https://source.example/Offer?sku=ABC&ref=business&source=owner&x=2&x=1",
+    "https://source.example/Offer?ref=business&sku=ABC&source=owner&x=1&x=2",
+    "https://source.example/Offer/?sku=ABC&ref=business&source=owner&x=1&x=2",
+    "http://source.example/Offer?sku=ABC&ref=business&source=owner&x=1&x=2",
+    "https://www.source.example/Offer?sku=ABC&ref=business&source=owner&x=1&x=2"
+  ],
+  "signed": "https://source.example/file?X-Signature=a%2Fb%2B%20C&X-Date=20261025&ref=keep&utm_source=keep",
+  "target": "https://target.example/Offer?sku=ABC&ref=keep&x=1&x=2",
+  "html": "<!doctype html><html><head><base href='https://target.example/'></head><body><article><p>Readable article.</p><a rel='nofollow' href='Offer?sku=ABC&amp;ref=keep&amp;x=1&amp;x=2#first'>Old anchor</a><a href='Offer?sku=ABC&amp;ref=keep&amp;x=1&amp;x=2#second'>Second anchor</a></article></body></html>",
+  "jsOnly": "<!doctype html><html><body><article>Readable article, not an empty application shell.</article><script>document.body.insertAdjacentHTML('beforeend', '<a href=\"https://target.example/Offer?sku=ABC&ref=keep&x=1&x=2\">JS link</a>')</script></body></html>",
+  "noLink": "<!doctype html><html><head><title>Frozen provider fixture</title></head><body><article>This readable source does not contain a backlink.</article></body></html>"
+}

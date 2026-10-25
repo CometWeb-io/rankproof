@@ -93,12 +93,11 @@ const DIRECTORY_RE =
 export function backlinkId(input: {
   sourceUrl: string;
   targetUrl: string;
-  anchor: string;
+  anchor?: string;
 }): string {
   const source = pageKey(input.sourceUrl);
   const target = pageKey(input.targetUrl);
-  const anchor = input.anchor.trim().toLowerCase().slice(0, 60);
-  return `${source}»${target}»${anchor}`;
+  return `pair-v2:${JSON.stringify([source, target])}`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -211,12 +210,14 @@ const VIA_WEIGHT: Record<DiscoverySource, number> = {
   stackexchange: 460,
   reddit: 440,
   news: 380,
+  gdelt: 380,
   bluesky: 300,
   urlscan: 240,
   commoncrawl: 220,
   sitemap: 200,
   archive: 180,
   lookup: 80,
+  webmaster: 540,
 };
 
 const PLACEMENT_WEIGHT: Record<string, number> = {
@@ -333,6 +334,7 @@ export function buildReferringDomains(
         spamScore: item.spamScore,
         tld: tldOf(item.sourceHost),
         firstSeen: item.firstSeen,
+        domainFirstArchivedAt: item.domainFirstArchivedAt ?? null,
         sources: [item.discoveredVia],
         sampleUrl: item.sourceUrl,
         sampleAnchor: item.anchor,
@@ -359,6 +361,7 @@ export function buildReferringDomains(
       current.sources.push(item.discoveredVia);
     }
     if (!current.firstSeen && item.firstSeen) current.firstSeen = item.firstSeen;
+    current.domainFirstArchivedAt ??= item.domainFirstArchivedAt ?? null;
     if (!current.sampleAnchor && item.anchor) current.sampleAnchor = item.anchor;
   }
 
@@ -481,8 +484,10 @@ export function buildAnalytics(
   const growth = new Map<string, number>();
   for (const domain of referringDomains) {
     growth.set(
-      domain.firstSeen ? domain.firstSeen.slice(0, 4) : "nieznany",
-      (growth.get(domain.firstSeen ? domain.firstSeen.slice(0, 4) : "nieznany") ?? 0) + 1,
+      domain.domainFirstArchivedAt ? domain.domainFirstArchivedAt.slice(0, 4) : "nieznany",
+      (growth.get(
+        domain.domainFirstArchivedAt ? domain.domainFirstArchivedAt.slice(0, 4) : "nieznany",
+      ) ?? 0) + 1,
     );
   }
   const growthStats = [...growth.entries()]

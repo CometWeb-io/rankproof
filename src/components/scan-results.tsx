@@ -121,7 +121,9 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
     if (sort === "relevance") rows.sort((a, b) => b.relevance - a.relevance);
     if (sort === "domain") rows.sort((a, b) => a.sourceDomain.localeCompare(b.sourceDomain));
     if (sort === "recent") {
-      rows.sort((a, b) => (b.firstSeen ?? "").localeCompare(a.firstSeen ?? ""));
+      rows.sort((a, b) =>
+        (b.domainFirstArchivedAt ?? "").localeCompare(a.domainFirstArchivedAt ?? ""),
+      );
     }
     return rows;
   }, [effectiveDiff, filter, query, report.backlinks, sort]);
@@ -617,7 +619,9 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
                   <span>{domain.pages} pages</span>
                   <span>{domain.dofollow} dofollow</span>
                   <span title="Topical match">TM {domain.relevance}</span>
-                  {domain.firstSeen ? <span>since {domain.firstSeen.slice(0, 4)}</span> : null}
+                  {domain.domainFirstArchivedAt ? (
+                    <span>domain archived {domain.domainFirstArchivedAt.slice(0, 4)}</span>
+                  ) : null}
                   {domain.subnet ? (
                     <span title="/24 subnet of the IP address">{domain.subnet}</span>
                   ) : null}

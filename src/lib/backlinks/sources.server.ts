@@ -15,6 +15,7 @@ export type Candidate = {
   url: string;
   title: string;
   via: DiscoverySource;
+  sources?: DiscoverySource[];
   /** Priority hint — higher means verified sooner. */
   boost?: number;
 };
@@ -128,7 +129,7 @@ export async function scanWikipedia(host: string, signal?: AbortSignal): Promise
           rel: "nofollow" as const,
           discoveredVia: "wikipedia" as const,
           wikiLang: wiki.lang,
-          verified: true,
+          verified: false,
         };
       });
     }),
@@ -212,7 +213,7 @@ export async function scanHackerNews(
           anchor: hit.title || host,
           rel: "nofollow",
           discoveredVia: "hacker-news",
-          verified: true,
+          verified: false,
         });
       } else {
         const comment = hit.comment_text ? stripTags(hit.comment_text).slice(0, 260) : "";
@@ -296,7 +297,7 @@ export async function scanReddit(
           anchor: post.title || host,
           rel: "nofollow",
           discoveredVia: "reddit",
-          verified: true,
+          verified: false,
         });
       } else {
         const snippet =
@@ -372,7 +373,7 @@ export async function scanBluesky(
           anchor: post.embed?.external?.title || host,
           rel: "nofollow",
           discoveredVia: "bluesky",
-          verified: true,
+          verified: false,
         });
         continue;
       }
@@ -735,7 +736,7 @@ export async function scanGdelt(host: string, signal?: AbortSignal): Promise<Can
     if (isTargetHost(hostFromUrl(article.url), host)) continue;
     const blob = `${article.title ?? ""} ${article.url}`.toLowerCase();
     if (!blob.includes(host.toLowerCase()) && !blob.includes(sld(host))) continue;
-    pushResult(out, article.url, article.title ?? "", host, "news");
+    pushResult(out, article.url, article.title ?? "", host, "gdelt");
   }
   return out;
 }
@@ -829,7 +830,7 @@ export async function scanGithub(
           anchor: repo.full_name || host,
           rel: "nofollow",
           discoveredVia: "github",
-          verified: true,
+          verified: false,
         });
       }
       candidates.push({

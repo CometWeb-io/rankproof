@@ -45,16 +45,16 @@ test("tldOf returns the full public suffix", () => {
   assert.equal(tldOf("nasa.gov"), "gov");
 });
 
-test("normalizeUrl strips tracking parameters and tidies the URL", () => {
+test("normalizeUrl preserves the exact request identity except fragments", () => {
   assert.equal(
     normalizeUrl("https://Example.com/blog/?utm_source=fb&b=2&a=1#sekcja"),
-    "https://example.com/blog?a=1&b=2",
+    "https://example.com/blog/?utm_source=fb&b=2&a=1",
   );
-  assert.equal(normalizeUrl("https://example.com/index.html"), "https://example.com/");
+  assert.equal(normalizeUrl("https://example.com/index.html"), "https://example.com/index.html");
 });
 
-test("pageKey ignores protocol and www", () => {
-  assert.equal(pageKey("http://www.example.com/a/"), pageKey("https://example.com/a"));
+test("pageKey preserves protocol and www", () => {
+  assert.notEqual(pageKey("http://www.example.com/a/"), pageKey("https://example.com/a"));
 });
 
 test("isTargetHost catches subdomains and the www variant", () => {
@@ -988,7 +988,7 @@ test("segmentation recognises site type from the domain", async () => {
   );
 });
 
-test("link velocity recognises growth and missing data", async () => {
+test("archive ages never establish link acquisition velocity", async () => {
   const { buildVelocity } = await import("./segments.ts");
   const year = 365 * 24 * 3600 * 1000;
   const iso = (offset: number) => new Date(Date.now() - offset).toISOString().slice(0, 10);
@@ -998,8 +998,8 @@ test("link velocity recognises growth and missing data", async () => {
     refDomain({ domain: "c.pl", firstSeen: iso(year * 0.6) }),
     refDomain({ domain: "d.pl", firstSeen: iso(year * 1.5) }),
   ]);
-  assert.equal(growing.verdict, "growing");
-  assert.ok(growing.perMonth > 0);
+  assert.equal(growing.verdict, "unknown");
+  assert.equal(growing.perMonth, 0);
 
   const unknown = buildVelocity([refDomain({ firstSeen: null })]);
   assert.equal(unknown.verdict, "unknown");

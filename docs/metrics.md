@@ -20,7 +20,7 @@ Built from: the top-level domain (government and education rank higher, risky TL
 
 PageRank computed over **the domain graph discovered during this scan**, rescaled to 0–100. The more strong domains link in, the higher the value.
 
-**What it does not measure:** the graph is incomplete — it covers only what we found and verified. For large sites the value will be understated.
+**What it does not measure:** the graph is incomplete and the score is relative to this run. More coverage can increase or decrease the same target's score without its links changing. This is not Google value, a calibrated probability, or a score comparable with another provider. `measurement.scores` exposes the version, components, missing archive data and comparison key; `measurement.graph` records graph size and signature.
 
 ## Spam risk and toxicity
 
@@ -54,7 +54,7 @@ With Search Console connected, the report also states how far this curve sits fr
 
 For each keyword we take the best position across all engines, score it inversely to the position, and average over the number of keywords checked.
 
-**What it does not measure:** it depends directly on which keywords went into the measurement. Change the keyword set and the result changes — only compare scans of the same domain with the same set.
+**What it does not measure:** it depends on the successful keyword/engine cohort, market, device and depth. Adding an engine, changing page metadata or recovering a failed query can move visibility with no ranking change for previously measured queries. `measurement.visibility` records requested and successful cohorts and failed-query coverage. A score with `measured: false` is unknown, even if the compatibility numeric value is zero. Visibility does not establish backlink causation.
 
 ## Competitor share of voice
 
@@ -90,9 +90,9 @@ The 12% exact-match line is a **heuristic review cue**, not proof that links wer
 
 `segments.ts` → `buildVelocity()`
 
-New domains in the last 12 months versus the 12 before, based on when each domain was first seen in the Internet Archive. With too few dates it falls back to scan history.
+Velocity is currently **unknown**. Domain archive age is not a link-acquisition date, and differences in sampled discovery counts are not dated acquisition cohorts. The compatibility numeric fields remain zero with `verdict: "unknown"`; they are not measured zero acquisition. No bought-links warning is derived from archive age. The UI, text CLI and standalone HTML show unknown and suppress acquisition/change numbers.
 
-**What it does not measure:** the archive does not know the age of most small domains. For young sites the result is often unusable — which is why a `no-data` verdict exists.
+`domainFirstArchivedAt` describes the source domain, while `evidence.observedAt` dates the representation observed in this run. The deprecated `firstSeen` link field remains null because lifetime first observation is not established here. Archive recovery candidates retain their snapshot date in `lastSeen`. `analytics.growth` is retained for compatibility as a domain-archive-age distribution, labeled accordingly; it is not a growth chart.
 
 ## Internal structure score (0–100)
 
@@ -129,7 +129,7 @@ Unlike everything above, these are **not estimates** — they come from the sear
 
 Grades: A ≥80, B ≥65, C ≥48, D ≥32, E below.
 
-**What it does not measure:** this is an **internal index, comparable between scans of the same domain**. Comparing two different sites only makes sense with the same keyword set and market.
+**What it does not measure:** this is an uncalibrated internal heuristic, not a progress measure. Changing discovery coverage, enrichment or keyword measurement changes its inputs. The same domain and keyword set alone do not establish comparability.
 
 ## Action plan priority
 
@@ -138,3 +138,19 @@ Grades: A ≥80, B ≥65, C ≥48, D ≥32, E below.
 `priority = impact × effort weight`, where the weight is 1.0 (low), 0.75 (medium), 0.55 (high). That is why recovering a lost link outranks expensive outreach of similar impact.
 
 Actions derived from Search Console data carry higher impact than modelled ones, because the upside behind them is measured rather than inferred.
+
+## Evidence, identity and coverage
+
+Provider API assertions appear in `providerReports` as `verified: false`, `state: "reported"`, and `evidence.kind: "provider_report"`. They enter the candidate queue and count as live backlinks only after fetched HTML confirms an actual anchor. A failed or skipped fetch never upgrades a provider assertion. Archive recovery candidates use `archive_anchor`; they do not prove a live link.
+
+Exact source-target relation IDs use `exact-http-url-v2` and ignore fragments only. Path/query case, parameter order, duplicate parameters, tracking/business parameters, protocol, www and trailing slashes remain significant. Anchor changes do not create a new pair. Raw HTML href attributes and their resolved URLs are separate evidence fields. Older IDs cannot be safely migrated from the lossy old normalized value alone.
+
+Discovery confirmation bypasses response caches and requests revalidation; an old cached response cannot acquire a fresh observation timestamp. Exact href and document-base decoding uses the pinned runtime `entities` HTML attribute decoder, with case-sensitive named references and a single decoding pass.
+
+`measurement` is a versioned run manifest. It separates observed pairs/domains before presentation limits from displayed pairs and omitted counts. Existing `stats` and analytics continue to describe the displayed report, not the whole web. The per-source funnel records returned candidate rows, duplicate/excluded/domain-cap/limit counts, admission, skipped waves/time, attempted and completed fetches, valid HTML, errors, confirmed pairs/domains and displayed pairs. Sources can overlap: their counts must not be added to infer unique web coverage. Counts start at candidates returned by each adapter; upstream source pagination, adapter filtering and the unknown web population are outside this denominator.
+
+Heuristic-score comparison requires a known identical source revision, extraction/identity/domain policies, scoring version, source/budget policy, graph, all selection/analytics inputs and the exact ordered displayed/scored cohort signature. Visibility comparison requires the same successful query cohort and method. `measurementComparability` implements these conservative gates. The historical SQL/browser summaries lack manifests; new measured reports suppress their acquisition/loss and score deltas instead of inventing comparability. Longitudinal cohort persistence and paired-intersection analysis remain future work. The UI labels old aggregate history as changing discovery samples.
+
+Domain grouping still uses the historical suffix subset (`suffix-subset-v1-not-full-psl`). It is not a maintained full PSL and omits private suffix, wildcard and exception rules; unrelated tenants may be merged or treated as internal. No maintained PSL package is currently installed in the declared dependency tree. Counts and domain-level grouping carry this limitation; exact URL pair identity does not use this grouping.
+
+No rendered-DOM fallback runs. A safe implementation needs DNS pinning and SSRF/robots enforcement for redirects, navigation and subresources, plus a bounded browser lifecycle. The current fetch safeguards do not authorize an arbitrary browser fetch. HTML absence remains scoped to fetched HTML, including readable articles with a script-inserted link.

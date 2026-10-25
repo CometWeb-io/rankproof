@@ -10,6 +10,7 @@ export const SOURCE_LABEL: Record<string, string> = {
   duckduckgo: "DuckDuckGo",
   mojeek: "Mojeek",
   news: "News",
+  gdelt: "GDELT",
   urlscan: "urlscan",
   github: "GitHub",
   commoncrawl: "Common Crawl",
@@ -17,6 +18,7 @@ export const SOURCE_LABEL: Record<string, string> = {
   sitemap: "Sitemap",
   archive: "Archive",
   lookup: "Report",
+  webmaster: "Webmaster tools",
   page: "Deep scan",
 };
 

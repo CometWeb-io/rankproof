@@ -12,12 +12,17 @@
  * Endpoints:
  *   GET  /health
  *   GET  /doctor
- *   POST /scan   { "url": "example.com", "market": "pl", "device": "desktop" }
+ *   POST /v1/backlinks/verify { "items": [{ "source_url": "https://a.example/", "target_url": "https://b.example/" }] }
+ *   POST /scan   { "url": "example.com", "market": "pl", "device": "desktop", "seedUrls": [] }
  *   POST /serp   { "url": "example.com", "keywords": ["a","b"], "depth": 10 }
  *   POST /ideas  { "keywords": ["keyword"] }
  *   POST /gap    { "url": "example.com", "competitors": ["a.pl"] }
+ *
+ * With RANKPROOF_API_TOKEN set, every endpoint except /health requires
+ * `Authorization: Bearer <token>` — for a service calling RankProof over a
+ * private port.
  */
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
@@ -38,6 +43,9 @@ if (!COMPILED && !process.execArgv.includes(STRIP) && !process.env.RANKPROOF_API
     [STRIP, "--no-warnings", fileURLToPath(import.meta.url), ...process.argv.slice(2)],
     { stdio: "inherit", env: { ...process.env, RANKPROOF_API_CHILD: "1" } },
   );
+  for (const signal of ["SIGTERM", "SIGINT"]) {
+    process.on(signal, () => child.kill(signal));
+  }
   child.on("exit", (code) => process.exit(code ?? 0));
 } else {
   start();
@@ -83,6 +91,12 @@ async function start() {
   loadDotEnv();
   const port = Number(flag("port", process.env.PORT ?? "8787"));
   const host = flag("host", process.env.HOST ?? "127.0.0.1");
+  const { isAuthorized } = await import(engine("service-api"));
+  const token = process.env.RANKPROOF_API_TOKEN;
+  const version = JSON.parse(
+    readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+  ).version;
+  const revision = process.env.RANKPROOF_SERVICE_REVISION?.trim() || null;
   const allow = createLimiter(
     Number(process.env.RANKPROOF_RATE_LIMIT ?? 20),
     Number(process.env.RANKPROOF_RATE_WINDOW_MS ?? 60_000),
@@ -101,7 +115,19 @@ async function start() {
     const url = new URL(req.url ?? "/", `http://${host}:${port}`);
 
     if (req.method === "GET" && url.pathname === "/health") {
-      send(200, { ok: true, service: "rankproof", uptime: Math.round(process.uptime()) });
+      send(200, {
+        ok: true,
+        service: "rankproof",
+        version,
+        revision,
+        schema_version: "1",
+        capabilities: ["backlinks.verify.v1"],
+        uptime: Math.round(process.uptime()),
+      });
+      return;
+    }
+    if (!isAuthorized(req.headers.authorization, token)) {
+      send(401, { ok: false, error: "Missing or invalid API token." });
       return;
     }
     if (req.method === "GET" && url.pathname === "/doctor") {
@@ -137,6 +163,9 @@ async function start() {
 
     try {
       const body = await readJson(req);
+      if (!body || typeof body !== "object" || Array.isArray(body)) {
+        throw new Error("Expected a JSON object.");
+      }
       const result = await route(url.pathname, body);
       send(result.ok ? 200 : 400, result);
     } catch (error) {
@@ -145,8 +174,11 @@ async function start() {
   });
 
   server.listen(port, host, () => {
-    console.log(`RankProof API: http://${host}:${port}`);
-    console.log("Endpoints: GET /health /doctor · POST /scan /serp /ideas /gap");
+    console.log(`RankProof API: http://${host}:${server.address().port}`);
+    console.log(
+      "Endpoints: GET /health /doctor · POST /v1/backlinks/verify /scan /serp /ideas /gap",
+    );
+    if (token) console.log("API token required (RANKPROOF_API_TOKEN).");
     if (host !== "127.0.0.1" && host !== "localhost") {
       console.log(
         "WARNING: the server is listening beyond localhost. Put a reverse proxy with authentication in front of it.",
@@ -157,14 +189,14 @@ async function start() {
 
 async function route(pathname, body) {
   switch (pathname) {
+    case "/v1/backlinks/verify": {
+      const { verifyBacklinks } = await import(engine("verify-api.server"));
+      return verifyBacklinks(body);
+    }
     case "/scan": {
       const { runScan } = await import(engine("engine.server"));
-      return runScan(String(body.url ?? ""), {
-        market: body.market,
-        device: body.device,
-        engines: body.engines,
-        skipSiteAudit: body.skipSiteAudit,
-      });
+      const { scanOptionsFromBody } = await import(engine("service-api"));
+      return runScan(String(body.url ?? ""), scanOptionsFromBody(body));
     }
     case "/serp": {
       const { runKeywordSerp } = await import(engine("serp.server"));

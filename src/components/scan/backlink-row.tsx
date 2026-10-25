@@ -24,10 +24,12 @@ export function BacklinkRow({ item, isNew }: { item: Backlink; isNew: boolean })
           <span title="Domain score (0–100)">DS {item.domainScore}</span>
           <span className="text-subtle">·</span>
           <span title="Topical relevance (0–100)">TM {item.relevance}</span>
-          {item.firstSeen ? (
+          {item.domainFirstArchivedAt ? (
             <>
               <span className="text-subtle">·</span>
-              <span title="First seen in the archive">since {item.firstSeen.slice(0, 4)}</span>
+              <span title="Source domain first archived">
+                domain archived {item.domainFirstArchivedAt.slice(0, 4)}
+              </span>
             </>
           ) : null}
           {item.sourceLang ? (

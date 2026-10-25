@@ -95,9 +95,11 @@ export async function attachHistory(report: ScanReport): Promise<ScanReport> {
     const trend = rowsToTrend(rows);
 
     // Rank moves are computed before the current measurement is written.
-    let moves = report.serp.moves;
+    let moves = report.measurement ? [] : report.serp.moves;
     try {
-      const previous = await loadPreviousPositions(report.target.host, report.queriedAt);
+      const previous = report.measurement
+        ? []
+        : await loadPreviousPositions(report.target.host, report.queriedAt);
       if (previous.length > 0) moves = buildRankMoves(report.serp.queries, previous);
       await saveSerpPositions(report.target.host, report.queriedAt, report.serp.queries);
     } catch {
@@ -117,7 +119,7 @@ export async function attachHistory(report: ScanReport): Promise<ScanReport> {
       },
     ].slice(-TREND_LIMIT);
 
-    // With scan history available, link velocity is more accurate than from the archive.
+    // Sample history cannot establish acquisition; buildVelocity keeps it unknown without dated cohorts.
     const velocity =
       report.velocity.verdict === "unknown"
         ? buildVelocity(report.analytics.referringDomains, fullTrend)

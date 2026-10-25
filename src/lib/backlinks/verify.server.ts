@@ -1,5 +1,6 @@
 import {
   classifyAnchor,
+  documentBase,
   extractCanonical,
   extractLang,
   extractRobotsMeta,
@@ -21,7 +22,9 @@ import {
   stripWww,
 } from "./parse.ts";
 import { backlinkId } from "./score.ts";
-import { fetchUsefulHtml, mapLimit, probeStatus, type Budget } from "./net.server.ts";
+import { tokenizeHtml } from "./html-tokenizer.ts";
+import { candidateSources, funnel, linkEvidence, type Coverage } from "./measurement.server.ts";
+import { fetchText, fetchUsefulHtml, mapLimit, probeStatus, type Budget } from "./net.server.ts";
 import {
   isJunkHost,
   isSkippableOutbound,
@@ -36,6 +39,7 @@ import type { Backlink, DiscoverySource, LinkFlag, LinkRel, Mention } from "./ty
 
 const VIA_RANK: Record<DiscoverySource, number> = {
   graph: 0,
+  webmaster: 0,
   page: 1,
   github: 2,
   bing: 3,
@@ -43,6 +47,7 @@ const VIA_RANK: Record<DiscoverySource, number> = {
   mojeek: 4,
   stackexchange: 5,
   news: 6,
+  gdelt: 6,
   wikipedia: 7,
   "hacker-news": 7,
   reddit: 8,
@@ -81,6 +86,7 @@ export type VerifyOptions = {
   perDomain?: number;
   concurrency?: number;
   seen?: Set<string>;
+  coverage?: Coverage;
 };
 
 export type VerifyOutput = {
@@ -97,24 +103,47 @@ export type VerifyOutput = {
 /** Selects candidates to verify: deduplicated, with a per-domain cap. */
 export function selectCandidates(
   pages: Candidate[],
-  opts: { host: string; limit: number; perDomain: number; seen: Set<string> },
+  opts: { host: string; limit: number; perDomain: number; seen: Set<string>; coverage?: Coverage },
 ): Candidate[] {
   const ranked = [...pages].sort((a, b) => candidateRank(a) - candidateRank(b));
+  const count = (
+    page: Candidate,
+    reason: "duplicate" | "excluded" | "domainCap" | "limit" | "admitted",
+  ) => {
+    if (opts.coverage)
+      for (const source of candidateSources(page)) funnel(opts.coverage, source)[reason]++;
+  };
   const perDomain = new Map<string, number>();
   const out: Candidate[] = [];
   for (const page of ranked) {
     const key = pageKey(page.url);
-    if (opts.seen.has(key)) continue;
+    if (opts.seen.has(key)) {
+      count(page, "duplicate");
+      continue;
+    }
     const host = hostFromUrl(page.url);
-    if (!host || isTargetHost(host, opts.host) || isJunkHost(host)) continue;
-    if (isSkippableOutbound(page.url, host)) continue;
+    if (!host || isTargetHost(host, opts.host) || isJunkHost(host)) {
+      count(page, "excluded");
+      continue;
+    }
+    if (isSkippableOutbound(page.url, host)) {
+      count(page, "excluded");
+      continue;
+    }
     const domain = registrableDomain(host);
     const used = perDomain.get(domain) ?? 0;
-    if (used >= opts.perDomain) continue;
+    if (used >= opts.perDomain) {
+      count(page, "domainCap");
+      continue;
+    }
+    if (out.length >= opts.limit) {
+      count(page, "limit");
+      continue;
+    }
     perDomain.set(domain, used + 1);
     opts.seen.add(key);
     out.push(page);
-    if (out.length >= opts.limit) break;
+    count(page, "admitted");
   }
   return out;
 }
@@ -131,6 +160,7 @@ export async function verifyPages(pages: Candidate[], opts: VerifyOptions): Prom
     limit: opts.limit,
     perDomain: opts.perDomain ?? 3,
     seen,
+    coverage: opts.coverage,
   });
 
   const backlinks: Backlink[] = [];
@@ -141,16 +171,48 @@ export async function verifyPages(pages: Candidate[], opts: VerifyOptions): Prom
   let checked = 0;
 
   await mapLimit(unique, opts.concurrency ?? 8, async (page) => {
-    if (opts.budget.left() < 2500) return;
+    const stages = candidateSources(page).map((source) => funnel(opts.coverage ?? {}, source));
+    if (opts.budget.left() < 2500) {
+      for (const f of stages) f.timeSkipped++;
+      return;
+    }
+    for (const f of stages) f.attempted++;
     try {
-      const res = await fetchUsefulHtml(
-        page.url,
-        opts.budget.timeout(7000),
-        opts.budget.signal,
-        opts.budget,
-      );
+      const res = await fetchText(page.url, {
+        timeoutMs: opts.budget.timeout(7000),
+        maxBytes: 1_600_000,
+        cache: false,
+        headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+        signal: opts.budget.signal,
+        budget: opts.budget,
+        accept: "text/html,application/xhtml+xml;q=0.9",
+      });
+      for (const f of stages) f.fetched++;
       checked += 1;
-      if (res.status >= 400 || !res.text) return;
+      const type = res.headers?.get("content-type") ?? "";
+      if (
+        res.status < 200 ||
+        res.status >= 300 ||
+        !res.text.trim() ||
+        res.truncated ||
+        !/^(?:text\/html|application\/xhtml\+xml)(?:;|$)/i.test(type)
+      ) {
+        for (const f of stages) f.errors++;
+        return;
+      }
+      const document = tokenizeHtml(res.text, true);
+      if (
+        /^(?:just a moment|access denied|attention required)/i.test(
+          stripTags(document.title ?? "").trim(),
+        ) ||
+        /challenge-platform|cf-browser-verification|cf-chl-|verify (?:that )?you are (?:a )?human|please (?:enable|turn on) javascript/i.test(
+          res.text,
+        )
+      ) {
+        for (const f of stages) f.errors++;
+        return;
+      }
+      for (const f of stages) f.validHtml++;
 
       const sourceUrl = normalizeUrl(res.finalUrl || page.url);
       const sourceHost = hostFromUrl(sourceUrl);
@@ -169,7 +231,11 @@ export async function verifyPages(pages: Candidate[], opts: VerifyOptions): Prom
         canonical && pageKey(canonical) !== pageKey(sourceUrl) ? canonical : null;
 
       const pageText = opts.topicTerms?.size ? stripTags(res.text).slice(0, 24_000) : "";
-      const anchors = parseAnchors(res.text, sourceUrl);
+      const anchors = parseAnchors(res.text, documentBase(document, sourceUrl), {
+        exact: true,
+        document,
+        limit: Number.MAX_SAFE_INTEGER,
+      });
       const external = anchors.filter(
         (a) => registrableDomain(hostFromUrl(a.href)) !== sourceDomain,
       );
@@ -215,6 +281,10 @@ export async function verifyPages(pages: Candidate[], opts: VerifyOptions): Prom
           }
           if (anchor.isImage) flags.push("image-link");
 
+          for (const f of stages) {
+            f.confirmedPairs++;
+            if (!f.confirmedDomains.includes(sourceDomain)) f.confirmedDomains.push(sourceDomain);
+          }
           backlinks.push({
             id,
             sourceUrl,
@@ -232,6 +302,15 @@ export async function verifyPages(pages: Candidate[], opts: VerifyOptions): Prom
             sitewide: false,
             discoveredVia: page.via,
             verified: true,
+            evidence: linkEvidence(
+              "html_anchor",
+              page.url,
+              sourceUrl,
+              anchor.resolvedHref,
+              anchor.rawHref,
+              res.text,
+            ),
+            discoverySources: candidateSources(page),
             firstSeen: null,
             httpStatus: res.status,
             targetStatus: null,
@@ -289,6 +368,7 @@ export async function verifyPages(pages: Candidate[], opts: VerifyOptions): Prom
         });
       }
     } catch {
+      for (const f of stages) f.errors++;
       /* a single page must never break the scan */
     }
   });
@@ -320,7 +400,7 @@ export async function findLostLinks(
         opts.budget.signal,
       );
       if (res.status >= 400 || res.text.length < 500) return;
-      const anchors = parseAnchors(res.text, pageUrl).filter((a) =>
+      const anchors = parseAnchors(res.text, pageUrl, { exact: true }).filter((a) =>
         isTargetHost(hostFromUrl(a.href), opts.host),
       );
       if (anchors.length === 0) return;
@@ -346,6 +426,15 @@ export async function findLostLinks(
         sitewide: false,
         discoveredVia: "archive",
         verified: true,
+        evidence: linkEvidence(
+          "archive_anchor",
+          pageUrl,
+          res.finalUrl,
+          anchor.resolvedHref,
+          anchor.rawHref,
+          res.text,
+        ),
+        discoverySources: ["archive"],
         firstSeen: null,
         httpStatus: null,
         targetStatus: null,
