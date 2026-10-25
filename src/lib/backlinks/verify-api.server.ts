@@ -163,14 +163,12 @@ async function observe(pair: VerifyPair, budget: Budget): Promise<BacklinkObserv
       result.evidence_kind = "html_anchor";
       result.raw_href = match.rawHref;
       result.resolved_href = match.resolvedHref;
-      result.matching_anchors = matches
-        .slice(0, 50)
-        .map((a) => ({
-          raw_href: a.rawHref.slice(0, 2048),
-          resolved_href: a.resolvedHref.slice(0, 2048),
-          anchor: a.text,
-          rel: a.rel.slice(0, 512),
-        }));
+      result.matching_anchors = matches.slice(0, 50).map((a) => ({
+        raw_href: a.rawHref.slice(0, 2048),
+        resolved_href: a.resolvedHref.slice(0, 2048),
+        anchor: a.text,
+        rel: a.rel.slice(0, 512),
+      }));
       result.status = "confirmed";
       result.anchor = match.text;
       result.rel = match.rel.slice(0, 512);
