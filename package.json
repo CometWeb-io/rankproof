@@ -2,7 +2,7 @@
   "name": "rankproof",
   "version": "8.1.0",
   "private": false,
-  "description": "RankProof — open search-visibility and backlink auditor. Bing/DDG/Mojeek/Brave SERP + optional Google via self-hosted provider; verified links; site structure. No paid SEO APIs.",
+  "description": "RankProof \u2014 open search-visibility and backlink auditor. Bing/DDG/Mojeek/Brave SERP + optional Google via self-hosted provider; verified links; site structure. No paid SEO APIs.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -46,7 +46,25 @@
     "README.md",
     "LICENSE",
     "SECURITY.md",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "scripts/api-guards.mjs",
+    "scripts/agent-api.mjs",
+    "scripts/agent-mcp.mjs",
+    "scripts/agent-runtime.mjs",
+    "scripts/agent-contract.mjs",
+    "scripts/platform-worker.mjs",
+    "sdk/openapi-v1.json",
+    "sdk/schemas",
+    "sdk/python/pyproject.toml",
+    "sdk/python/LICENSE",
+    "sdk/python/rankproof_client/*.py",
+    "sdk/python/rankproof_client/schema.json",
+    "sdk/python/rankproof_client/py.typed",
+    "scripts/platform-smoke.mjs",
+    "scripts/platform-load.mjs",
+    "scripts/platform-qualify.mjs",
+    "scripts/monitor-backlinks.mjs",
+    "renderer"
   ],
   "overrides": {
     "nf3": "0.3.17",
@@ -77,10 +95,20 @@
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install chromium",
     "smoke": "node bin/rankproof.mjs doctor && node bin/rankproof.mjs version && node bin/rankproof.mjs help >/dev/null",
-    "test:scaffold": "node --test scripts/check-auth-invariant.test.mjs scripts/migration-plan.test.mjs scripts/sign-out-plan.test.mjs scripts/with-app-env.test.mjs scripts/node-version.test.mjs",
+    "test:scaffold": "node --test scripts/*.test.mjs",
     "dev:lan": "node scripts/with-app-env.mjs vite dev --host 0.0.0.0 --port 8080",
     "build:cli": "tsc -p tsconfig.build.json",
-    "prepack": "npm run build:cli"
+    "prepack": "npm run build:cli",
+    "benchmark:accuracy": "node --experimental-strip-types scripts/benchmark-accuracy.mjs",
+    "agent:api": "node --experimental-strip-types scripts/agent-api.mjs",
+    "agent:mcp": "node --experimental-strip-types scripts/agent-mcp.mjs",
+    "agent:contract": "node --experimental-strip-types scripts/agent-contract.mjs",
+    "platform:worker": "node --experimental-strip-types scripts/platform-worker.mjs",
+    "platform:smoke": "node --experimental-strip-types scripts/platform-smoke.mjs",
+    "platform:load": "node --experimental-strip-types scripts/platform-load.mjs",
+    "platform:qualify": "node --experimental-strip-types scripts/platform-qualify.mjs",
+    "monitor:backlinks": "node --experimental-strip-types scripts/monitor-backlinks.mjs",
+    "calibration": "node --experimental-strip-types scripts/calibration.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.4",
@@ -160,5 +188,12 @@
   },
   "dependencies": {
     "entities": "8.1.0"
+  },
+  "exports": {
+    "./client": {
+      "types": "./dist/agent-api-client.d.ts",
+      "import": "./dist/agent-api-client.js"
+    },
+    "./*": "./*"
   }
 }

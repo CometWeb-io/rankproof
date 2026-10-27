@@ -1,5 +1,10 @@
 import { parseTarget, registrableDomain } from "./parse.ts";
 import { runScan } from "./engine.server.ts";
+import type { ScanProfile } from "./config.ts";
+import {
+  buildCompetitiveIntelligence,
+  type CompetitiveIntelligenceReport,
+} from "./competitive-intelligence.ts";
 import type { GapResult, LinkGapDomain, LinkGapReport, ScanReport } from "./types.ts";
 
 const MAX_COMPETITORS = 5;
@@ -11,9 +16,13 @@ type Profile = {
   error?: string;
 };
 
-async function profileOf(input: string, light: boolean): Promise<Profile> {
+async function profileOf(input: string, light: boolean, profile?: ScanProfile): Promise<Profile> {
   const host = parseTarget(input).host;
-  const result = await runScan(input, light ? { mode: "light" } : {});
+  const result = await runScan(input, {
+    ...(light ? { mode: "light" as const } : {}),
+    profile,
+    includeWebmaster: false,
+  });
   if (!result.ok) {
     return { host, domains: new Map(), report: null, error: result.error };
   }
@@ -36,10 +45,13 @@ async function profileOf(input: string, light: boolean): Promise<Profile> {
 export async function runLinkGap(
   targetInput: string,
   competitorInputs: string[],
-): Promise<GapResult> {
+  options: { profile?: ScanProfile } = {},
+): Promise<
+  GapResult | { ok: true; report: LinkGapReport & { intelligence: CompetitiveIntelligenceReport } }
+> {
   let target: Profile;
   try {
-    target = await profileOf(targetInput, false);
+    target = await profileOf(targetInput, false, options.profile);
   } catch (err) {
     return {
       ok: false,
@@ -58,7 +70,7 @@ export async function runLinkGap(
   const settled = await Promise.all(
     inputs.map(async (input) => {
       try {
-        return await profileOf(input, true);
+        return await profileOf(input, true, options.profile);
       } catch (err) {
         return {
           host: input,
@@ -139,5 +151,18 @@ export async function runLinkGap(
     queriedAt: new Date().toISOString(),
   };
 
-  return { ok: true, report };
+  return {
+    ok: true,
+    report: {
+      ...report,
+      intelligence: buildCompetitiveIntelligence({
+        gap: report,
+        competitorBacklinks: settled.flatMap((profile) => [
+          ...(profile.report?.backlinks ?? []),
+          ...(profile.report?.providerReports ?? []),
+        ]),
+        targetBacklinks: target.report?.backlinks ?? [],
+      }),
+    },
+  };
 }

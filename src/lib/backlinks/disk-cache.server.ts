@@ -31,6 +31,9 @@ export type DiskCacheOptions = {
   /** Entries older than this are ignored and eventually pruned. */
   maxAgeMs?: number;
   enabled?: boolean;
+  /** Bound unique cached responses to avoid unbounded disk usage. */
+  maxEntries?: number;
+  maxTotalBytes?: number;
 };
 
 const DEFAULT_MAX_AGE = 7 * 24 * 3600 * 1000;
@@ -44,12 +47,17 @@ function envDir(): string | null {
 export class DiskCache {
   private readonly dir: string | null;
   private readonly maxAgeMs: number;
+  private readonly maxEntries: number;
+  private readonly maxTotalBytes: number;
+  private writes = 0;
   private ready: Promise<void> | null = null;
 
   constructor(options: DiskCacheOptions = {}) {
     const dir = options.dir ?? envDir();
     this.dir = options.enabled === false ? null : dir;
     this.maxAgeMs = options.maxAgeMs ?? DEFAULT_MAX_AGE;
+    this.maxEntries = options.maxEntries ?? 1_000;
+    this.maxTotalBytes = options.maxTotalBytes ?? 128 * 1024 * 1024;
   }
 
   get enabled(): boolean {
@@ -70,6 +78,8 @@ export class DiskCache {
   async get(key: string): Promise<CachedResponse | null> {
     if (!this.dir) return null;
     try {
+      const info = await stat(this.path(key));
+      if (info.size > 2_000_000) return null;
       const raw = await readFile(this.path(key), "utf8");
       const entry = JSON.parse(raw) as CachedResponse;
       if (Date.now() - entry.storedAt > this.maxAgeMs) return null;
@@ -82,10 +92,14 @@ export class DiskCache {
   async set(key: string, entry: CachedResponse): Promise<void> {
     if (!this.dir) return;
     // Never persist error bodies — they poison the next run.
-    if (entry.status >= 400) return;
+    if (entry.status < 200 || entry.status >= 300) return;
+    const content = JSON.stringify(entry);
+    if (Buffer.byteLength(content, "utf8") > 2_000_000) return;
     try {
       await this.ensureDir();
-      await writeFile(this.path(key), JSON.stringify(entry), "utf8");
+      await writeFile(this.path(key), content, "utf8");
+      this.writes += 1;
+      if (this.writes % 128 === 0) await this.prune();
     } catch {
       // A cache that cannot be written must never break a scan.
     }
@@ -100,22 +114,41 @@ export class DiskCache {
     return headers;
   }
 
-  /** Deletes expired entries. Returns how many files were removed. */
+  /** Prunes only our cache files, never arbitrary user files in the folder. */
   async prune(): Promise<number> {
     if (!this.dir) return 0;
     let removed = 0;
+    const live: { path: string; size: number; modified: number }[] = [];
+    let totalBytes = 0;
     try {
       const files = await readdir(this.dir);
       for (const file of files) {
-        const full = join(this.dir, file);
+        if (!/^[a-f0-9]{40}\.json$/.test(file)) continue;
+        const path = join(this.dir, file);
         try {
-          const info = await stat(full);
+          const info = await stat(path);
+          if (!info.isFile()) continue;
           if (Date.now() - info.mtimeMs > this.maxAgeMs) {
-            await unlink(full);
+            await unlink(path);
             removed += 1;
+          } else {
+            live.push({ path, size: info.size, modified: info.mtimeMs });
+            totalBytes += info.size;
           }
         } catch {
-          // File vanished between readdir and stat — nothing to do.
+          // Another process may have replaced or pruned an entry.
+        }
+      }
+      live.sort((a, b) => a.modified - b.modified);
+      while (live.length > this.maxEntries || totalBytes > this.maxTotalBytes) {
+        const oldest = live.shift();
+        if (!oldest) break;
+        try {
+          await unlink(oldest.path);
+          removed += 1;
+          totalBytes -= oldest.size;
+        } catch {
+          // A concurrent cleanup already removed this entry.
         }
       }
     } catch {

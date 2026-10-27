@@ -1,3 +1,6 @@
+import { captureSafeUrl } from "./evidence-capture.ts";
+import { assertUtf8HtmlEncoding } from "./evidence-response.ts";
+import { createHash } from "node:crypto";
 import {
   extractCanonical,
   extractRobotsMeta,
@@ -7,7 +10,18 @@ import {
   parseSitemap,
   parseXRobotsTag,
   isSitemapIndex,
+  decodeAttribute,
+  documentBase,
+  stripTags,
 } from "./html.ts";
+import { tokenizeHtml } from "./html-tokenizer.ts";
+import {
+  buildTechnicalGraph,
+  type GraphInventory,
+  type GraphRedirect,
+  type GraphObservation,
+  type TechnicalGraphReport,
+} from "./technical-graph.ts";
 import { hostFromUrl, isTargetHost, normalizeUrl, pathOf } from "./parse.ts";
 import { Budget, fetchUsefulHtml, fetchText, mapLimit } from "./net.server.ts";
 import { isAllowed, robotsFor } from "./robots.server.ts";
@@ -28,6 +42,7 @@ const SKIP_EXT = /\.(?:jpg|jpeg|png|gif|webp|svg|ico|css|js|pdf|zip|mp4|mp3|woff
 
 type CrawlPage = {
   url: string;
+  requestedUrl?: string;
   path: string;
   status: number;
   finalUrl: string;
@@ -36,21 +51,34 @@ type CrawlPage = {
   noindex: boolean;
   nofollow: boolean;
   internalLinks: string[];
+  crawlLinks?: string[];
   externalLinks: number;
   depth: number;
   /** Number of hops the server made before serving this page. */
   redirected: boolean;
   bytes: number;
+  observation?: GraphObservation;
 };
 
 export type SiteAuditOptions = {
   /** Extra known URLs (GSC pages, CMS export). Merged into orphan inventory. */
   knownUrls?: string[];
+  /** Inventory provenance for graph analysis; legacy knownUrls remain 'supplied'. */
+  inventories?: GraphInventory[];
 };
 
-function shouldCrawl(url: string, host: string): boolean {
-  if (!isTargetHost(hostFromUrl(url), host)) return false;
-  const path = pathOf(url);
+type CrawlCoverage = {
+  frontierExhausted: boolean;
+  blockedUrls: string[];
+  failedUrls: string[];
+  redactedUrlCount?: number;
+  redirects?: GraphRedirect[];
+  effectiveRootUrl?: string;
+};
+
+function shouldCrawl(url: string, origin: string): boolean {
+  if (new URL(url).origin !== origin || !captureSafeUrl(normalizeUrl(url))) return false;
+  const path = new URL(url).pathname;
   if (SKIP_EXT.test(path)) return false;
   if (/\/(wp-admin|wp-json|cart|checkout|koszyk|login|logout|signin)\b/i.test(path)) return false;
   return true;
@@ -65,28 +93,68 @@ async function crawl(
   host: string,
   budget: Budget,
   limit: number,
+  coverage?: CrawlCoverage,
 ): Promise<CrawlPage[]> {
+  if (!captureSafeUrl(normalizeUrl(startUrl))) throw new Error("Unsafe crawl root URL.");
   const seen = new Set<string>();
   const pages: CrawlPage[] = [];
   let frontier: { url: string; depth: number }[] = [{ url: normalizeUrl(startUrl), depth: 0 }];
   seen.add(normalizeUrl(startUrl));
 
-  const origin = new URL(startUrl).origin;
-  const rules = await robotsFor(origin, budget);
+  let origin = new URL(startUrl).origin;
+  let rules = await robotsFor(origin, budget);
 
   while (frontier.length > 0 && pages.length < limit && !budget.spent(0.85)) {
-    const wave = frontier.slice(0, 12);
-    frontier = frontier.slice(12);
+    const wave = frontier.slice(0, Math.min(12, limit - pages.length));
+    frontier = frontier.slice(wave.length);
 
     const results = await mapLimit(wave, 3, async (item) => {
-      if (budget.left() < 3000) return null;
-      if (!isAllowed(rules, pathOf(item.url))) return null;
+      if (budget.left() < 3000) {
+        coverage?.failedUrls.push(item.url);
+        return null;
+      }
+      if (!isAllowed(rules, pathOf(item.url))) {
+        coverage?.blockedUrls.push(item.url);
+        return null;
+      }
       try {
-        const res = await fetchUsefulHtml(item.url, budget.timeout(7000), budget.signal, budget);
-        if (res.status >= 400 || res.text.length < 200) {
+        const res = await fetchUsefulHtml(
+          item.url,
+          budget.timeout(7000),
+          budget.signal,
+          budget,
+          (hop) => {
+            const target = normalizeUrl(hop.to);
+            if (!captureSafeUrl(target)) {
+              if (coverage) coverage.redactedUrlCount = (coverage.redactedUrlCount ?? 0) + 1;
+              throw new Error("Unsafe crawl redirect target.");
+            }
+            coverage?.redirects?.push({ ...hop, from: normalizeUrl(hop.from), to: target });
+            const bootstrap = item.depth === 0 && item.url === normalizeUrl(startUrl);
+            if (
+              new URL(target).origin !== origin &&
+              !(bootstrap && isTargetHost(hostFromUrl(target), hostFromUrl(startUrl)))
+            )
+              throw new Error("Crawl redirect exceeds origin scope.");
+          },
+        );
+        const documentUrl = normalizeUrl(res.finalUrl);
+        if (
+          item.depth === 0 &&
+          item.url === normalizeUrl(startUrl) &&
+          captureSafeUrl(documentUrl) &&
+          isTargetHost(hostFromUrl(documentUrl), hostFromUrl(startUrl))
+        ) {
+          origin = new URL(documentUrl).origin;
+          rules = await robotsFor(origin, budget);
+          if (coverage) coverage.effectiveRootUrl = documentUrl;
+        }
+        if (res.status >= 400) {
+          coverage?.failedUrls.push(item.url);
           return {
-            url: item.url,
-            path: pathOf(item.url),
+            url: documentUrl,
+            requestedUrl: item.url,
+            path: pathOf(documentUrl),
             status: res.status,
             finalUrl: res.finalUrl,
             title: null,
@@ -101,61 +169,166 @@ async function crawl(
           } satisfies CrawlPage;
         }
 
-        const anchors = parseAnchors(res.text, item.url);
+        if (
+          new URL(res.finalUrl).origin !== origin ||
+          !captureSafeUrl(normalizeUrl(res.finalUrl))
+        ) {
+          coverage?.failedUrls.push(item.url);
+          return null;
+        }
+        const contentType = res.headers?.get("content-type") ?? "";
+        if (
+          res.status < 200 ||
+          res.status >= 300 ||
+          !res.text.trim() ||
+          res.truncated ||
+          !/^(?:text\/html|application\/xhtml\+xml)(?:;|$)/i.test(contentType)
+        ) {
+          coverage?.failedUrls.push(item.url);
+          return null;
+        }
+        const document = tokenizeHtml(res.text, true);
+        assertUtf8HtmlEncoding(res.text, contentType, document);
+        if (
+          /^(?:just a moment|access denied|attention required)/i.test(
+            stripTags(document.title ?? "").trim(),
+          ) ||
+          /challenge-platform|cf-browser-verification|cf-chl-|verify (?:that )?you are (?:a )?human|please (?:enable|turn on) javascript/i.test(
+            res.text,
+          )
+        ) {
+          coverage?.blockedUrls.push(item.url);
+          return null;
+        }
+        const base = documentBase(document, res.finalUrl);
+        const anchors = parseAnchors(res.text, base, { exact: true, document });
         const internal: string[] = [];
+        const crawlLinks: string[] = [];
         let external = 0;
         for (const anchor of anchors) {
-          const target = hostFromUrl(anchor.href);
-          if (isTargetHost(target, host)) {
-            if (shouldCrawl(anchor.href, host)) internal.push(normalizeUrl(anchor.href));
-          } else if (target) {
+          const parsed = new URL(anchor.href);
+          if (!/^https?:$/.test(parsed.protocol) || parsed.username || parsed.password) continue;
+          const target = normalizeUrl(anchor.href);
+          if (!captureSafeUrl(target)) {
+            if (coverage) coverage.redactedUrlCount = (coverage.redactedUrlCount ?? 0) + 1;
+            continue;
+          }
+          if (parsed.origin === origin) {
+            internal.push(target);
+            if (shouldCrawl(target, origin)) crawlLinks.push(target);
+            else coverage?.blockedUrls.push(target);
+          } else {
             external += 1;
           }
         }
         const metaRobots = extractRobotsMeta(res.text);
         const headerRobots = parseXRobotsTag(res.headers?.get("x-robots-tag") ?? null);
+        const hreflang: NonNullable<GraphObservation["hreflang"]> = [];
+        const pagination: NonNullable<GraphObservation["pagination"]> = [];
+        for (const token of document.tokens) {
+          if (token.closing || token.name !== "link" || !token.attrs.href) continue;
+          const rel = decodeAttribute(token.attrs.rel ?? "")
+            .toLowerCase()
+            .split(/\s+/);
+          let url: URL;
+          try {
+            url = new URL(decodeAttribute(token.attrs.href), base);
+          } catch {
+            continue;
+          }
+          if (!/^https?:$/.test(url.protocol) || url.username || url.password) continue;
+          if (!captureSafeUrl(normalizeUrl(url.href))) {
+            if (coverage) coverage.redactedUrlCount = (coverage.redactedUrlCount ?? 0) + 1;
+            continue;
+          }
+          if (rel.includes("alternate") && token.attrs.hreflang)
+            hreflang.push({ language: decodeAttribute(token.attrs.hreflang), url: url.href });
+          for (const relation of ["next", "prev"] as const)
+            if (rel.includes(relation)) pagination.push({ relation, url: url.href });
+        }
+        if (res.truncated || !document.complete || anchors.length >= 1200)
+          coverage?.failedUrls.push(item.url);
+        const declaredCanonical = extractCanonical(res.text, base);
+        const canonical =
+          declaredCanonical && captureSafeUrl(normalizeUrl(declaredCanonical))
+            ? declaredCanonical
+            : null;
+        if (declaredCanonical && !canonical && coverage)
+          coverage.redactedUrlCount = (coverage.redactedUrlCount ?? 0) + 1;
         return {
-          url: item.url,
-          path: pathOf(item.url),
+          url: documentUrl,
+          requestedUrl: item.url,
+          path: pathOf(documentUrl),
           status: res.status,
           finalUrl: res.finalUrl,
           title: extractTitle(res.text),
-          canonical: extractCanonical(res.text, item.url),
+          canonical,
           noindex: metaRobots.noindex || headerRobots.noindex,
           nofollow: metaRobots.nofollow || headerRobots.nofollow,
           internalLinks: [...new Set(internal)],
+          crawlLinks: [...new Set(crawlLinks)],
           externalLinks: external,
           depth: item.depth,
           redirected: normalizeUrl(res.finalUrl) !== item.url,
           bytes: res.text.length,
+          observation: {
+            url: documentUrl,
+            resolvedUrl: documentUrl,
+            requestedUrl: item.url,
+            links: internal,
+            hreflang,
+            pagination,
+            evidenceRef: `useful-html:sha256:${createHash("sha256").update(res.text).digest("hex")}`,
+          },
         } satisfies CrawlPage;
       } catch {
+        coverage?.failedUrls.push(item.url);
         return null;
       }
     });
 
     for (const page of results) {
       if (!page) continue;
+      seen.add(page.url);
+      if (pages.some((existing) => existing.url === page.url)) continue;
       pages.push(page);
-      for (const link of page.internalLinks) {
-        if (seen.has(link) || seen.size >= limit * 3) continue;
+      for (const link of page.crawlLinks ?? page.internalLinks) {
+        if (seen.has(link)) continue;
+        if (seen.size >= limit * 3) {
+          coverage?.blockedUrls.push(link);
+          continue;
+        }
         seen.add(link);
         frontier.push({ url: link, depth: page.depth + 1 });
       }
     }
   }
 
+  if (coverage) coverage.frontierExhausted = frontier.length === 0;
   return pages;
 }
 
 async function loadSitemapInventory(
   startUrl: string,
-  host: string,
   budget: Budget,
   limit = 400,
-): Promise<string[]> {
+): Promise<{ urls: string[]; inventories: GraphInventory[]; redactedUrlCount: number }> {
   const origin = new URL(startUrl).origin;
   const candidates: string[] = [];
+  const inventories: GraphInventory[] = [];
+  let redactedUrlCount = 0;
+  const safe = (raw: string) => {
+    try {
+      const url = normalizeUrl(raw);
+      if (!captureSafeUrl(url)) {
+        redactedUrlCount++;
+        return null;
+      }
+      return new URL(url).origin === origin ? url : null;
+    } catch {
+      return null;
+    }
+  };
   try {
     const robots = await fetchText(`${origin}/robots.txt`, {
       timeoutMs: budget.timeout(4000),
@@ -165,19 +338,19 @@ async function loadSitemapInventory(
       budget,
       accept: "text/plain,*/*;q=0.8",
     });
-    if (robots.status < 400) candidates.push(...parseRobotsSitemaps(robots.text));
+    if (robots.status >= 200 && robots.status < 300 && !robots.truncated)
+      candidates.push(...parseRobotsSitemaps(robots.text));
   } catch {
-    /* ignore */
+    /* Missing robots does not establish an exhaustive inventory. */
   }
   candidates.push(`${origin}/sitemap.xml`, `${origin}/sitemap_index.xml`);
-
-  const found: string[] = [];
+  const found = new Set<string>();
   const seenMaps = new Set<string>();
-  for (const mapUrl of candidates) {
-    if (found.length >= limit || budget.spent(0.9)) break;
-    const key = normalizeUrl(mapUrl);
-    if (seenMaps.has(key)) continue;
-    seenMaps.add(key);
+  for (const candidate of candidates) {
+    if (found.size >= limit || seenMaps.size >= 32 || budget.spent(0.9)) break;
+    const mapUrl = safe(candidate);
+    if (!mapUrl || seenMaps.has(mapUrl)) continue;
+    seenMaps.add(mapUrl);
     try {
       const res = await fetchText(mapUrl, {
         timeoutMs: budget.timeout(6000),
@@ -186,27 +359,42 @@ async function loadSitemapInventory(
         cache: true,
         budget,
         accept: "application/xml,text/xml,*/*;q=0.8",
+        onRedirect: ({ to }) => {
+          if (!safe(to)) throw new Error("Sitemap redirect exceeds inventory scope.");
+        },
       });
-      if (res.status >= 400 || !res.text.includes("<loc")) continue;
-      const locs = parseSitemap(res.text, limit);
+      if (
+        res.status < 200 ||
+        res.status >= 300 ||
+        !safe(res.finalUrl) ||
+        !res.text.includes("<loc")
+      )
+        continue;
+      const locs = parseSitemap(res.text, limit + 1);
       if (isSitemapIndex(res.text)) {
-        for (const child of locs.slice(0, 8)) {
-          if (seenMaps.has(normalizeUrl(child))) continue;
-          candidates.push(child);
-        }
+        for (const child of locs.slice(0, 32)) if (!seenMaps.has(child)) candidates.push(child);
         continue;
       }
+      const urls: string[] = [];
       for (const loc of locs) {
-        if (!isTargetHost(hostFromUrl(loc), host)) continue;
-        if (!shouldCrawl(loc, host)) continue;
-        found.push(normalizeUrl(loc));
-        if (found.length >= limit) break;
+        const url = safe(loc);
+        if (!url) continue;
+        urls.push(url);
+        found.add(url);
+        if (found.size >= limit) break;
       }
+      inventories.push({
+        source: "sitemap",
+        urls,
+        complete: false,
+        documentUrl: normalizeUrl(res.finalUrl),
+        evidenceRef: `sitemap:sha256:${createHash("sha256").update(res.text).digest("hex")}`,
+      });
     } catch {
-      /* ignore broken sitemaps */
+      /* Broken or bounded maps cannot certify exhaustive coverage. */
     }
   }
-  return [...new Set(found)];
+  return { urls: [...found], inventories, redactedUrlCount };
 }
 
 function issue(
@@ -247,9 +435,15 @@ export async function runSiteAudit(
   backlinks: Backlink[] = [],
   limit = MAX_PAGES,
   options: SiteAuditOptions = {},
-): Promise<SiteAudit> {
+): Promise<SiteAudit & { technicalGraph?: TechnicalGraphReport }> {
   try {
-    const pages = await crawl(startUrl, host, budget, limit);
+    const coverage: CrawlCoverage = {
+      frontierExhausted: false,
+      blockedUrls: [],
+      failedUrls: [],
+      redirects: [],
+    };
+    const pages = await crawl(startUrl, host, budget, limit, coverage);
     if (pages.length === 0) {
       return failedAudit("Crawl returned no pages (blocked, empty, or budget exhausted).");
     }
@@ -264,26 +458,56 @@ export async function runSiteAudit(
       }
     }
 
-    const reachable = new Set(pages.map((page) => page.url));
+    const reachable = new Set(
+      pages.flatMap((page) => [
+        page.url,
+        ...(page.requestedUrl ? [page.requestedUrl] : []),
+        ...page.internalLinks,
+      ]),
+    );
     const inventory = new Set<string>();
-    for (const url of await loadSitemapInventory(
-      startUrl,
-      host,
-      budget,
-      Math.max(limit * 3, 200),
-    )) {
-      inventory.add(url);
-    }
-    for (const raw of options.knownUrls ?? []) {
+    const effectiveRootUrl = coverage.effectiveRootUrl ?? startUrl;
+    const sitemap = await loadSitemapInventory(effectiveRootUrl, budget, Math.max(limit * 3, 200));
+    const sitemapUrls = sitemap.urls;
+    coverage.redactedUrlCount = (coverage.redactedUrlCount ?? 0) + sitemap.redactedUrlCount;
+    const origin = new URL(effectiveRootUrl).origin;
+    const safeInventoryUrl = (raw: string) => {
       try {
         const url = normalizeUrl(raw);
-        if (isTargetHost(hostFromUrl(url), host) && shouldCrawl(url, host)) inventory.add(url);
+        if (!captureSafeUrl(url)) {
+          coverage.redactedUrlCount = (coverage.redactedUrlCount ?? 0) + 1;
+          return null;
+        }
+        return new URL(url).origin === origin ? url : null;
       } catch {
-        /* ignore */
+        return null;
       }
+    };
+    for (const url of sitemapUrls) {
+      inventory.add(url);
     }
+    const suppliedInventories: GraphInventory[] = [
+      ...(options.knownUrls?.length
+        ? [
+            {
+              source: "supplied" as const,
+              urls: options.knownUrls,
+              complete: false,
+              evidenceRef: "caller:knownUrls",
+            },
+          ]
+        : []),
+      ...(options.inventories ?? []),
+    ].map((list) => ({
+      ...list,
+      urls: list.urls.flatMap((raw) => {
+        const url = safeInventoryUrl(raw);
+        return url ? [url] : [];
+      }),
+    }));
+    for (const list of suppliedInventories) for (const url of list.urls) inventory.add(url);
 
-    // True orphans: known from inventory, never reached via internal links from home.
+    // Inventory absence from this bounded crawl identifies candidates, never proven orphans.
     const orphanUrls = [...inventory].filter((url) => !reachable.has(url));
 
     // Backlinks tell us which pages carry external authority worth spreading.
@@ -334,9 +558,9 @@ export async function runSiteAudit(
       issues.push(
         issue(
           "orphan-pages",
-          "high",
-          `${orphans.length} inventory URLs are unreachable from the homepage link graph`,
-          "These URLs appear in the sitemap (or supplied inventory) but were not reached by crawling internal links from the home page. They are orphan candidates — confirm they should be linked, redirected, or removed from the sitemap. Crawl-only discovery cannot prove orphans on its own.",
+          "low",
+          `${orphans.length} inventory URLs were not observed in the crawled link graph`,
+          "These inventory URLs were not observed as pages or link targets in this bounded crawl. They are investigation candidates; incomplete coverage or unavailable pages can explain their absence. Confirm existence, intended indexability and crawl coverage before changing links or sitemaps.",
           orphans.map((url) => pathOf(url)),
         ),
       );
@@ -448,14 +672,13 @@ export async function runSiteAudit(
 
     // Score: start from full marks, subtract for each structural problem.
     let score = 100;
-    score -= Math.min(30, orphans.length * 4);
     score -= Math.min(15, deep.length * 2);
     score -= Math.min(20, broken.length * 5);
     score -= Math.min(15, wasted.length * 7);
     score -= Math.min(10, underlinked.length * 3);
     score -= Math.min(10, Math.max(0, redirected.length - 2) * 2);
 
-    return {
+    const audit: SiteAudit = {
       status: "ok",
       crawled,
       avgDepth,
@@ -470,6 +693,36 @@ export async function runSiteAudit(
         .slice(0, 100),
       issues,
       score: Math.max(0, Math.min(100, Math.round(score))),
+    };
+    const inScope = (url: string) => {
+      try {
+        return new URL(url).origin === origin;
+      } catch {
+        return false;
+      }
+    };
+    const inventories = [...sitemap.inventories, ...suppliedInventories];
+    return {
+      ...audit,
+      technicalGraph: buildTechnicalGraph({
+        rootUrl: effectiveRootUrl,
+        requestedRootUrl: startUrl,
+        audit: {
+          ...audit,
+          pages: internalPages
+            .filter((page) => inScope(page.url))
+            .map((page) => ({ ...page, redirected: false })),
+        },
+        observations: pages.flatMap((page) =>
+          page.observation && inScope(page.url) ? [page.observation] : [],
+        ),
+        inventories,
+        crawl: {
+          ...coverage,
+          blockedUrls: [...new Set(coverage.blockedUrls)],
+          failedUrls: [...new Set(coverage.failedUrls)],
+        },
+      }),
     };
   } catch (err) {
     return failedAudit(err instanceof Error ? err.message : String(err));

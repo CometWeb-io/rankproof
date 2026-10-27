@@ -5,7 +5,7 @@
  * Requires Node 22+ (the --experimental-strip-types flag is added automatically
  * by re-executing the process when it is missing).
  */
-import { existsSync } from "node:fs";
+import { existsSync, createReadStream } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -76,9 +76,17 @@ async function main() {
   };
 
   try {
+    if (["capture", "render"].includes(options.command) && existsSync(options.out))
+      throw new Error("Private output already exists; choose a new file.");
     const output = await run(options, log);
     if (options.out) {
-      await writeFile(options.out, output, "utf8");
+      await writeFile(
+        options.out,
+        output,
+        ["capture", "render"].includes(options.command)
+          ? { encoding: "utf8", flag: "wx", mode: 0o600 }
+          : "utf8",
+      );
       log(`Saved: ${options.out}`);
     } else {
       process.stdout.write(`${output}\n`);
@@ -101,9 +109,104 @@ async function run(options, log) {
       return runGapCommand(options, log);
     case "doctor":
       return runDoctorCommand(options, log);
+    case "analyze":
+    case "graph":
+    case "citations":
+    case "ledger":
+    case "capture":
+    case "render":
+    case "replay": {
+      const input = await readJsonInput(
+        options.target,
+        options.command === "render"
+          ? 16_384
+          : options.command === "capture"
+            ? 2_000_000
+            : options.command === "replay"
+              ? 8_000_000
+              : 25_000_000,
+      );
+      let result;
+      if (options.command === "graph") {
+        const { analyzeScanReport } = await import(engine("decision-engine"));
+        const analysis = analyzeScanReport(input);
+        const graph = analysis.technicalGraph;
+        if (graph.schemaVersion !== 2 || !Array.isArray(graph.repairTargets))
+          throw new Error(
+            "Export has no current technical graph with repair URLs; rerun its site audit.",
+          );
+        if (options.format === "csv") {
+          const { technicalGraphCsv } = await import(engine("export"));
+          return technicalGraphCsv(graph);
+        }
+        result = {
+          source: analysis.source,
+          technicalGraph: graph,
+          limitations: [
+            "Replays retained graph evidence without recrawling or authenticating its source.",
+          ],
+        };
+      } else if (options.command === "analyze") {
+        const { analyzeScanReport } = await import(engine("decision-engine"));
+        result = analyzeScanReport(input);
+      } else if (options.command === "citations") {
+        const { replayCitationDataset } = await import(engine("citation-lab"));
+        result = replayCitationDataset(input);
+      } else if (options.command === "ledger") {
+        const { buildEvidenceLedger } = await import(engine("evidence-ledger.server"));
+        result = buildEvidenceLedger(input);
+      } else if (options.command === "capture") {
+        const { captureBacklinks } = await import(engine("evidence-capture.server"));
+        const { capture } = await captureBacklinks(input);
+        log(
+          `Retained ${capture.entries.length} responses; omitted ${capture.omitted.length}. Keep the capture private.`,
+        );
+        return JSON.stringify(capture);
+      } else if (options.command === "render") {
+        if (
+          !input ||
+          typeof input !== "object" ||
+          Array.isArray(input) ||
+          typeof input.url !== "string" ||
+          !input.runtime ||
+          Object.keys(input).some((key) => !["url", "runtime"].includes(key))
+        )
+          throw new Error("Render input requires only url and operator runtime configuration.");
+        const { renderIsolatedPage } = await import(engine("rendered-executor.server"));
+        const { compareRenderedSnapshots } = await import(engine("rendered-policy"));
+        const snapshot = await renderIsolatedPage(input.url, input.runtime);
+        result = {
+          ...snapshot,
+          comparison: compareRenderedSnapshots({
+            url: snapshot.requestedUrl,
+            rawUrl: snapshot.rawUrl,
+            renderedUrl: snapshot.finalUrl,
+            rawHtml: snapshot.rawHtml,
+            renderedHtml: snapshot.renderedHtml,
+            capturedAt: snapshot.capturedAt,
+            evidenceRef: snapshot.executorId,
+          }),
+        };
+      } else {
+        const { replayEvidenceCapture } = await import(engine("evidence-replay"));
+        result = replayEvidenceCapture(input);
+      }
+      return JSON.stringify(result, null, 2);
+    }
     default:
       throw new Error(`Unsupported command: ${options.command}`);
   }
+}
+
+async function readJsonInput(path, maxBytes) {
+  let size = 0;
+  const chunks = [];
+  for await (const chunk of createReadStream(path)) {
+    size += chunk.length;
+    if (size > maxBytes) throw new Error(`Input exceeds ${maxBytes} bytes.`);
+    chunks.push(chunk);
+  }
+  return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 }
 
 async function runScanCommand(options, log) {
@@ -115,6 +218,8 @@ async function runScanCommand(options, log) {
     engines: options.engines.length > 0 ? options.engines : undefined,
     depth: options.depth,
     skipSiteAudit: options.skipAudit,
+    profile: options.profile,
+    includeWebmaster: options.includeWebmaster,
   });
   if (!result.ok) throw new Error(result.error);
   const report = result.report;

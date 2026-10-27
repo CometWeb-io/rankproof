@@ -1,5 +1,11 @@
 import { tokenize } from "./topic.ts";
-import { adjustedCtr, classifyIntent, keywordDifficulty } from "./serp-intel.ts";
+import {
+  adjustedCtr,
+  classifyIntent,
+  keywordDifficulty,
+  isMeasuredSerp,
+  isValidPosition,
+} from "./serp-intel.ts";
 import type { AnchorStat, KeywordSource, KeywordStat, SerpEngine, SerpQuery } from "./types.ts";
 
 export type KeywordSeed = {
@@ -22,10 +28,9 @@ const PHRASE_STOP = new Set([
 function cleanPhrase(raw: string): string {
   return raw
     .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .normalize("NFC")
     .replace(/[|–—•·].*$/, " ")
-    .replace(/[^a-z0-9\s-]/g, " ")
+    .replace(/[^\p{L}\p{N}\p{M}\s-]/gu, " ")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 80);
@@ -36,7 +41,7 @@ function isUsefulPhrase(phrase: string): boolean {
   if (PHRASE_STOP.has(phrase)) return false;
   const words = phrase.split(" ").filter(Boolean);
   if (words.length === 0 || words.length > 6) return false;
-  if (words.every((w) => w.length <= 2)) return false;
+  if (words.every((w) => w.length <= 2 && /^[\p{Script=Latin}\d-]+$/u.test(w))) return false;
   return true;
 }
 
@@ -131,17 +136,10 @@ export function visibilityScore(queries: SerpQuery[]): {
   const byKeyword = new Map<string, Agg>();
 
   for (const query of queries) {
-    const failed =
-      query.status === "blocked" ||
-      query.status === "rate-limited" ||
-      query.status === "parser-failed" ||
-      query.status === "not-configured" ||
-      query.status === "empty-response" ||
-      query.status === "error";
     const current = byKeyword.get(query.keyword) ?? { best: null, measured: false };
-    if (!failed) {
+    if (isMeasuredSerp(query)) {
       current.measured = true;
-      if (query.targetPosition !== null) {
+      if (isValidPosition(query.targetPosition)) {
         if (current.best === null || query.targetPosition < current.best) {
           current.best = query.targetPosition;
         }
@@ -166,7 +164,8 @@ export function visibilityScore(queries: SerpQuery[]): {
     ranked += 1;
     if (agg.best <= 3) top3 += 1;
     if (agg.best <= 10) top10 += 1;
-    points += Math.round((11 - agg.best) * (100 / 10));
+    // Keep the original top-ten scale; positions 11–20 no longer subtract points.
+    points += agg.best <= 10 ? (11 - agg.best) * 10 : Math.max(0, 20 - agg.best);
   }
   const denominator = Math.max(1, measured);
   return {
@@ -186,11 +185,15 @@ export function buildKeywordStats(
   brandTokens: string[] = [],
 ): KeywordStat[] {
   return seeds.slice(0, 16).map((seed) => {
-    const related = queries.filter((q) => q.keyword === seed.keyword);
+    const related = queries.filter((q) => q.keyword === seed.keyword && isMeasuredSerp(q));
     const engines: { engine: SerpEngine; position: number | null }[] = [];
-    for (const engine of ["bing", "duckduckgo", "mojeek", "brave"] as const) {
+    for (const engine of ["bing", "duckduckgo", "mojeek", "brave", "google"] as const) {
       const hit = related.find((q) => q.engine === engine);
-      if (hit) engines.push({ engine, position: hit.targetPosition });
+      if (hit)
+        engines.push({
+          engine,
+          position: isValidPosition(hit.targetPosition) ? hit.targetPosition : null,
+        });
     }
     const positions = engines.map((e) => e.position).filter((p): p is number => p !== null);
     const bestPosition = positions.length > 0 ? Math.min(...positions) : null;
@@ -228,7 +231,9 @@ export function buildKeywordStats(
       difficulty,
       trafficShare,
       intent: classifyIntent(seed.keyword, brandTokens),
-      opportunity: Math.max(0, Math.min(100, opportunity)),
+      opportunity: related.length ? Math.max(0, Math.min(100, opportunity)) : 0,
+      measurementStatus: related.length ? ("measured" as const) : ("unmeasured" as const),
+      trafficShareKind: "modeled_ctr" as const,
     };
   });
 }

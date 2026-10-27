@@ -1,3 +1,4 @@
+import { isMeasuredSerp } from "./serp-intel.ts";
 import type {
   AnchorAudit,
   SearchConsoleInsights,
@@ -170,16 +171,18 @@ export function buildScorecard(input: ScorecardInput): Scorecard {
   });
 
   // 3. Visibility in the results (25).
-  const visibility = clamp(
-    (input.serp.visibility / 100) * 16 + Math.min(9, input.serp.trafficScore / 4),
-    25,
-  );
+  const visibilityMeasured = input.serp.queries ? input.serp.queries.some(isMeasuredSerp) : true;
+  const visibility = visibilityMeasured
+    ? clamp((input.serp.visibility / 100) * 16 + Math.min(9, input.serp.trafficScore / 4), 25)
+    : 0;
   parts.push({
     key: "visibility",
-    label: "SERP visibility",
+    label: visibilityMeasured ? "SERP visibility" : "SERP visibility (unmeasured)",
     score: visibility,
     max: 25,
-    hint: `Visibility ${input.serp.visibility}/100, ${plural(input.serp.top10, "keyword")} in the top 10.`,
+    hint: visibilityMeasured
+      ? `Visibility ${input.serp.visibility}/100, ${plural(input.serp.top10, "keyword")} in the top 10. CTR contribution is modeled. Partial coverage limits this index.`
+      : "No successful SERP attempts. This component is unavailable, not evidence of zero visibility. The index is provisional.",
   });
 
   // 4. On-page readiness (10). With an internal audit the score is the
@@ -234,7 +237,17 @@ export function buildScorecard(input: ScorecardInput): Scorecard {
   const grade: Scorecard["grade"] =
     index >= 80 ? "A" : index >= 65 ? "B" : index >= 48 ? "C" : index >= 32 ? "D" : "E";
 
-  const weakest = parts.slice().sort((a, b) => a.score / a.max - b.score / b.max)[0]?.label ?? "";
+  const weakest =
+    parts
+      .filter((part) => visibilityMeasured || part.key !== "visibility")
+      .sort((a, b) => a.score / a.max - b.score / b.max)[0]?.label ?? "";
 
-  return { index: Math.round(index), grade, parts, weakest };
+  return {
+    index: Math.round(index),
+    grade,
+    parts,
+    weakest,
+    provisional: !visibilityMeasured,
+    measuredMax: visibilityMeasured ? 100 : 75,
+  };
 }

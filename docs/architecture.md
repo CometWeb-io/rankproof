@@ -1,10 +1,16 @@
 # Architecture
 
+Text transport decodes UTF-8 strictly and rejects NUL-bearing text. HTML evidence
+also checks HTTP, actual meta tokens and XHTML XML encoding declarations.
+Unsupported encodings remain unknown; the engine does not silently interpret
+them as missing links. The text-cache namespace includes this decoding policy,
+so older lossy cached text is not reused under the stricter policy.
+
 ## The dividing rule
 
 The whole engine lives in `src/lib/backlinks/`. One rule keeps the project honest:
 
-- **Files without a suffix** (`score.ts`, `serp-intel.ts`, `plan.ts`, `toxic.ts`, `ssrf.ts`…) are **pure**: they touch neither the network, nor the database, nor `process`. They can be tested directly, without mocks.
+- Calculation modules such as `score.ts`, `serp-intel.ts`, `plan.ts` and `toxic.ts` are tested directly. File naming alone does not establish browser compatibility: URL/network guards and evidence/connectors may use Node built-ins.
 - **Files with a `.server.ts` suffix** (`engine.server.ts`, `sources.server.ts`, `net.server.ts`…) perform I/O. They never reach the client bundle.
 
 That is why the whole unit suite runs without network or database and still covers the decision logic; `npm test` reports the current count.
@@ -19,7 +25,7 @@ That is why the whole unit suite runs without network or database and still cove
 4. **Archive** — `findLostLinks()`: pages that used to link and stopped.
 5. **Scoring** — `score.ts`: domain score, spam risk, aggregates; `graph.ts`: PageRank over the discovered graph; `dns.server.ts`: IP addresses and subnets.
 6. **Analysis** — `serp-intel.ts`, `serp-cluster.ts`, `toxic.ts`, `segments.ts`, `scorecard.ts`, `plan.ts`.
-7. **Own site and measured data** — `site-audit.server.ts` crawls the target's internal link graph; `search-console.server.ts` pulls real performance data when an account is connected.
+7. **Own site and measured data** — `site-audit.server.ts` crawls the target's internal link graph; `search-console.server.ts` pulls real performance data only when a trusted local call explicitly enables webmaster credentials. Public API/Web scans never do so.
 
 ## SERP
 

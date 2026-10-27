@@ -11,3 +11,8 @@ src/routeTree.gen.ts
 
 # Golden SERP HTML fixtures — whitespace is part of the capture.
 src/lib/backlinks/fixtures/**
+
+# Generated from the versioned agent contract; CI checks regeneration.
+sdk/openapi-v1.json
+sdk/schemas/*.json
+sdk/python/rankproof_client/schema.json

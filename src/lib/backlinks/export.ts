@@ -1,3 +1,4 @@
+import type { TechnicalGraphReport } from "./technical-graph.ts";
 import { disavowFile as buildDisavow } from "./toxic.ts";
 import type {
   KeywordIdea,
@@ -159,6 +160,9 @@ export function keywordsCsv(report: ScanReport): string {
     "link_equity",
     "matching_anchors",
     "opportunity",
+    "measurement_status",
+    "google",
+    "traffic_share_kind",
   ];
   const rows = report.keywords.map((row) => {
     const pos = (engine: string) => row.engines.find((e) => e.engine === engine)?.position ?? "";
@@ -171,12 +175,15 @@ export function keywordsCsv(report: ScanReport): string {
       pos("duckduckgo"),
       pos("mojeek"),
       pos("brave"),
-      row.difficulty,
+      row.measurementStatus === "unmeasured" ? "" : row.difficulty,
       row.intent,
-      row.trafficShare,
+      row.measurementStatus === "unmeasured" ? "" : row.trafficShare,
       row.linkEquity,
       row.matchingAnchors,
-      row.opportunity,
+      row.measurementStatus === "unmeasured" ? "" : row.opportunity,
+      row.measurementStatus ?? "unknown_legacy",
+      pos("google"),
+      row.trafficShareKind ?? "modeled_ctr",
     ]
       .map(csvCell)
       .join(",");
@@ -516,7 +523,12 @@ export function reportHtml(report: ScanReport): string {
   const cards: [string, string | number][] = [
     ["Visibility index", `${report.scorecard.index}/100 (${report.scorecard.grade})`],
     ["Domain Rating", stats.domainRating],
-    ["SERP visibility", `${stats.serpVisibility}/100`],
+    [
+      "SERP visibility",
+      report.serp.queries.some((q) => q.status === "ok" || q.status === "no-results")
+        ? `${stats.serpVisibility}/100`
+        : "Not measured",
+    ],
     ["On-page SEO", `${stats.onPageScore}/100`],
     ["Health", `${analytics.health.total}/100 (${analytics.health.grade})`],
     ["Backlinks", stats.backlinks],
@@ -674,7 +686,7 @@ ${
 <table><thead><tr><th>Keyword</th><th>Source</th><th>Position</th><th>Link equity</th><th>Opportunity</th></tr></thead><tbody>${report.keywords
         .map(
           (row) =>
-            `<tr><td>${esc(row.keyword)}</td><td>${esc(row.source)}</td><td class="n">${row.bestPosition ?? "—"}</td><td class="n">${row.linkEquity}</td><td class="n">${row.opportunity}</td></tr>`,
+            `<tr><td>${esc(row.keyword)}</td><td>${esc(row.source)}</td><td class="n">${row.bestPosition ?? "—"}</td><td class="n">${row.linkEquity}</td><td class="n">${row.measurementStatus === "unmeasured" ? "Not measured" : row.opportunity}</td></tr>`,
         )
         .join("")}</tbody></table>`
     : ""
@@ -709,4 +721,24 @@ export function download(filename: string, content: string, mime: string) {
   a.rel = "noopener";
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** Full per-URL graph investigations; no legacy page/sample cap or HTML payload. */
+export function technicalGraphCsv(report: TechnicalGraphReport): string {
+  const safeCell = (value: unknown) => {
+    const text = String(value ?? "");
+    return csvCell(/^[\s]*[=+@-]/.test(text) ? "'" + text : text);
+  };
+  return [
+    ["kind", "url", "related_urls", "certainty", "evidence_refs"],
+    ...report.repairTargets.map((target) => [
+      target.kind,
+      target.url,
+      JSON.stringify(target.relatedUrls),
+      target.certainty,
+      JSON.stringify(target.evidenceRefs),
+    ]),
+  ]
+    .map((row) => row.map(safeCell).join(","))
+    .join("\n");
 }

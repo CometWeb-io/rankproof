@@ -46,7 +46,7 @@ test("frozen exact identities preserve signed/business URLs and anchor edits", (
     backlinkId(pair),
     backlinkId({ ...pair, targetUrl: fixture.target.toLowerCase() }),
   );
-  assert.equal(DOMAIN_POLICY, "suffix-subset-v1-not-full-psl");
+  assert.match(DOMAIN_POLICY, /^psl-.+-private-v1$/);
 });
 
 test("discovery records actual base-resolved href, all provenance and response hash, once per exact pair", async () => {
@@ -473,7 +473,7 @@ test("unquoted query confirms only the actual destination in exact and discovery
   );
   assert.equal(exact.results[0]!.raw_href, raw);
   assert.equal(exact.results[0]!.resolved_href, actual);
-  assert.equal(exact.results[0]!.extraction_version, "html-anchor-v4");
+  assert.equal(exact.results[0]!.extraction_version, "html-anchor-v5");
   const discovery = await verifyPages([{ url: fixture.base, title: "", via: "bing" }], {
     host: "target.example",
     brandTokens: [],
@@ -485,5 +485,5 @@ test("unquoted query confirms only the actual destination in exact and discovery
     [actual],
   );
   assert.equal(discovery.backlinks[0]!.evidence!.rawHref, raw);
-  assert.equal(discovery.backlinks[0]!.evidence!.extractionVersion, "html-anchor-v4");
+  assert.equal(discovery.backlinks[0]!.evidence!.extractionVersion, "html-anchor-v5");
 });

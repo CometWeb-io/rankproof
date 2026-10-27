@@ -4,7 +4,7 @@ import { DOMAIN_POLICY, URL_IDENTITY_POLICY } from "./parse.ts";
 import type { Backlink, DiscoverySource, SerpQuery } from "./types.ts";
 import type { DomainEdge } from "./graph.ts";
 
-export const EXTRACTION_VERSION = "html-anchor-v4";
+export const EXTRACTION_VERSION = "html-anchor-v5";
 export const SCORE_VERSION = "local-graph-heuristic-v1";
 export const sourceRevision = () => process.env.RANKPROOF_SERVICE_REVISION?.trim() || null;
 export const responseHash = (text: string) => createHash("sha256").update(text).digest("hex");
@@ -76,6 +76,8 @@ export function funnel(coverage: Coverage, source: string): SourceFunnel {
   });
 }
 
+export { measurementComparability } from "./measurement-comparison.ts";
+
 export type RunManifest = ReturnType<typeof buildRunManifest>;
 export function buildRunManifest(input: {
   startedAt: string;
@@ -101,7 +103,15 @@ export function buildRunManifest(input: {
   const requested = (input.visibilityCohort ?? queries).map(queryKey).sort();
   // Evidence timestamps change on recheck; every other row field can affect selection or analytics.
   const scoreInputs = (rows: Backlink[]) =>
-    rows.map(({ evidence: _evidence, ...signals }) => signals);
+    rows.map(
+      ({
+        evidence: _evidence,
+        firstObserved: _firstObserved,
+        lastConfirmed: _lastConfirmed,
+        lastAttempted: _lastAttempted,
+        ...signals
+      }) => signals,
+    );
   const scoredInputs = scoreInputs(observed)
     .map((row) => JSON.stringify(row))
     .sort();
@@ -121,7 +131,16 @@ export function buildRunManifest(input: {
     maxBacklinks: input.maxBacklinks,
   };
   return {
-    version: "measurement-v1",
+    version: "measurement-v2",
+    cohort: {
+      key: responseHash(
+        JSON.stringify([policy, input.sources.map((source) => source.id).sort(), requested]),
+      ),
+      sources: input.sources.map((source) => source.id).sort(),
+      visibility: requested,
+      limitation:
+        "Discovery is an incomplete sample; missing rows require an explicit comparable recheck before a loss claim.",
+    },
     sourceRevision: sourceRevision(),
     extractionVersion: EXTRACTION_VERSION,
     identityPolicy: URL_IDENTITY_POLICY,
@@ -164,7 +183,7 @@ export function buildRunManifest(input: {
         "Coverage and graph composition change these scores. A score delta is not authority, Google value or backlink progress.",
     },
     visibility: {
-      method: "best-successful-engine-per-keyword-v1",
+      method: "best-successful-engine-per-keyword-v2",
       requested,
       successful: successful.map(queryKey).sort(),
       failed: Math.max(0, requested.length - successful.length),
@@ -176,28 +195,8 @@ export function buildRunManifest(input: {
     rendering: {
       enabled: false,
       reason:
-        "Deferred: no browser runtime with pinned DNS, redirect/subresource SSRF protection and robots enforcement. HTML absence does not establish rendered-page absence.",
+        "Automatic scans use fetched HTML only. The optional isolated renderer requires explicit qualified runtime configuration; HTML absence does not establish rendered-page absence.",
     },
-  };
-}
-
-export function measurementComparability(previous: RunManifest, current: RunManifest) {
-  const sameMethod =
-    previous.sourceRevision !== null &&
-    previous.sourceRevision === current.sourceRevision &&
-    previous.extractionVersion === current.extractionVersion &&
-    previous.identityPolicy === current.identityPolicy &&
-    previous.domainPolicy === current.domainPolicy;
-  return {
-    scores:
-      sameMethod &&
-      previous.scores.version === current.scores.version &&
-      previous.scores.comparisonKey === current.scores.comparisonKey,
-    visibility:
-      sameMethod &&
-      previous.visibility.measured &&
-      current.visibility.measured &&
-      previous.visibility.comparisonKey === current.visibility.comparisonKey,
   };
 }
 

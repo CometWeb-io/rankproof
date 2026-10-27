@@ -37,6 +37,8 @@ GOOGLE_OAUTH_ACCESS_TOKEN=ya29.xxxxx
 
 RankProof tries the property formats Search Console accepts, most specific first: `sc-domain:example.com`, then `https://example.com/`, `https://www.example.com/`, `http://example.com/`. If none is accessible the report says so rather than failing the scan.
 
+Query rows are a bounded sample. Property-level clicks, impressions, CTR and average position are fetched separately without query dimensions; sums of query rows are not presented as site totals. A missing totals request remains unavailable.
+
 ### Data window
 
 The last 28 days by default, plus the preceding 28 for comparison. Search Console lags about two days, so the window ends two days before today — asking for today returns nothing.
@@ -58,13 +60,13 @@ This is a useful cross-check, since our scraped positions lean on Bing's index.
 ## Verifying the connection
 
 ```bash
-npm run cli -- scan example.com --format json | grep -A3 searchConsole
+node bin/rankproof.mjs scan example.com --webmaster --format json --out private-report.json
 ```
 
-Or open the **Search Console** tab in the web interface. If nothing is connected the tab explains what is missing instead of showing empty charts.
+Only an explicit local `scan --webmaster` reads these server credentials. Web scans and the public HTTP API never use them. Keep the resulting report private; it can contain query-level performance data.
 
 ## Privacy
 
 Credentials are read from the environment and used only to call the two APIs. Nothing is stored: performance data lives in the report you generate and is never written to the scan history tables.
 
-If you self-host the HTTP API publicly, remember that anyone who can reach `/scan` will get results computed with **your** credentials for **your** properties only — the API cannot read anyone else's data, but it can reveal yours. Put authentication in front of it. See [`SECURITY.md`](../SECURITY.md).
+Public API and Web UI scan options cannot opt into operator credentials. API authentication still controls who can spend your server's crawling budget. See [`SECURITY.md`](../SECURITY.md).

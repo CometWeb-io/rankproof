@@ -1,3 +1,5 @@
+import { isIP } from "node:net";
+
 /**
  * SSRF protection.
  *
@@ -142,7 +144,7 @@ function embeddedIpv4(groups: number[]): string | null {
   if (zeroPrefix && e === 0xffff && f === 0) return quad(g, h);
   // ::/96 — deprecated IPv4-compatible. `::` and `::1` are handled separately.
   if (zeroPrefix && e === 0 && f === 0 && (g !== 0 || h > 1)) return quad(g, h);
-  // 64:ff9b::/96 and 64:ff9b:1::/48 — NAT64 (RFC 6052, RFC 8215).
+  // 64:ff9b::/96 — global NAT64; the separate local-use /48 is blocked below.
   if (a === 0x64 && b === 0xff9b && c === 0 && d === 0 && e === 0 && f === 0) return quad(g, h);
   // 2002::/16 — 6to4 embeds the IPv4 address in the second and third groups.
   if (a === 0x2002) return quad(b, c);
@@ -153,23 +155,30 @@ export function isPrivateIpv6(ip: string): boolean {
   const groups = expandIpv6(ip);
   if (groups === null) return false;
 
+  const [a, b, c] = groups as [number, number, number];
+  if (a === 0x64 && b === 0xff9b && c === 1) return true; // RFC 8215 local-use NAT64 /48.
   const embedded = embeddedIpv4(groups);
   if (embedded !== null) return isPrivateIpv4(embedded);
 
-  const [a, b] = groups as [number, number];
   // Unspecified (::) and loopback (::1).
   if (groups.every((g) => g === 0)) return true;
   if (groups.slice(0, 7).every((g) => g === 0) && groups[7] === 1) return true;
   if ((a & 0xfe00) === 0xfc00) return true; // fc00::/7 — unique local
   if ((a & 0xffc0) === 0xfe80) return true; // fe80::/10 — link-local
+  if ((a & 0xffc0) === 0xfec0) return true; // fec0::/10 — deprecated site-local (RFC 3879).
   if ((a & 0xff00) === 0xff00) return true; // ff00::/8 — multicast
   if (a === 0x0100 && b === 0) return true; // 100::/64 — discard-only
   if (a === 0x2001 && b === 0x0db8) return true; // 2001:db8::/32 — documentation
   if (a === 0x2001 && b <= 0x01ff) return true; // 2001::/23 — IETF protocol assignments
-  return false;
+  if (a === 0x3fff && (b & 0xf000) === 0) return true; // 3fff::/20 — documentation (RFC 9637).
+  // Direct public IPv6 currently uses 2000::/3. Checked translations were handled above.
+  return (a & 0xe000) !== 0x2000;
 }
 
 export function isPrivateAddress(ip: string): boolean {
+  // Fail closed for malformed DNS answers. Treating a hostname returned by an
+  // injected/compromised resolver as a public IP reintroduces DNS rebinding.
+  if (isIP(ip.replace(/^\[|\]$/g, "")) === 0) return true;
   return ip.includes(":") ? isPrivateIpv6(ip) : isPrivateIpv4(ip);
 }
 
@@ -249,8 +258,8 @@ export async function guardUrlWithDns(raw: string, resolve: Resolver): Promise<G
   } catch {
     return { allowed: false, reason: `Cannot resolve ${hostname}.` };
   }
-  if (addresses.length === 0) {
-    return { allowed: false, reason: `${hostname} has no DNS records.` };
+  if (addresses.length === 0 || addresses.length > 32) {
+    return { allowed: false, reason: `${hostname} has no usable DNS records.` };
   }
   for (const address of addresses) {
     if (isPrivateAddress(address)) {

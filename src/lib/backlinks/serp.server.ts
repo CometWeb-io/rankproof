@@ -1,3 +1,4 @@
+import { measurementQuality } from "./measurement-quality.ts";
 import { isTargetHost, parseTarget } from "./parse.ts";
 
 import { Budget, BROWSER_UA, fetchText, mapLimit, timed } from "./net.server.ts";
@@ -290,17 +291,16 @@ export async function runSerpQueries(
       } satisfies SerpQuery;
     }
   });
-  return settled.filter(
-    (item): item is SerpQuery => item !== null && item.results.length + item.ms > 0,
-  );
+  return settled.filter((item): item is SerpQuery => item !== null);
 }
 
 export function emptySerp(
   market: SerpMarket = DEFAULT_MARKET,
   device: SerpDevice = "desktop",
-): SerpSnapshot {
+): SerpSnapshot & { measurementQuality: ReturnType<typeof measurementQuality> } {
   return {
     queries: [],
+    measurementQuality: measurementQuality([]),
     visibility: 0,
     ranked: 0,
     top3: 0,
@@ -332,12 +332,13 @@ export function snapshotFromQueries(
     brandTokens?: string[];
     targetText?: string;
   } = {},
-): SerpSnapshot {
+): SerpSnapshot & { measurementQuality: ReturnType<typeof measurementQuality> } {
   const vis = visibilityScore(queries);
   const aggregates = serpAggregates(queries);
   const extras = collectSerpExtras(queries);
   return {
     queries,
+    measurementQuality: measurementQuality(queries),
     ...vis,
     ...aggregates,
     engines: [...new Set(queries.map((q) => q.engine))],

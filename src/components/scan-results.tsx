@@ -79,6 +79,9 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
         backlinkDelta: report.delta.backlinkDelta,
         domainDelta: report.delta.domainDelta,
         healthDelta: report.delta.healthDelta,
+        unobservedLinks: report.delta.unobservedLinks,
+        commonLinks: report.delta.commonLinks,
+        basis: report.delta.basis,
         newIds: new Set(report.delta.newIds),
       };
     }
@@ -363,9 +366,9 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
           hint="unique addresses and /24 ranges"
         />
         <StatCard
-          label="Lost links"
+          label="Archive candidates"
           value={stats.lostLinks}
-          hint={`${stats.reciprocalDomains} reciprocal domains`}
+          hint={`Current link loss is unconfirmed · ${stats.reciprocalDomains} reciprocal domains`}
           tone={stats.lostLinks > 0 ? "nofollow" : "default"}
         />
       </div>
@@ -519,7 +522,7 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
                   ["authority", "Strong domains"],
                   ["risk", "Risky"],
                   ["broken", "Broken"],
-                  ["lost", "Lost"],
+                  ["lost", "Archive candidates"],
                   ["ontopic", "On topic"],
                   ...(effectiveDiff ? ([["new", "New"]] as const) : []),
                 ] as const
@@ -628,7 +631,7 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
                 </div>
                 <div className="flex flex-wrap gap-2 md:justify-end">
                   {domain.lostLinks > 0 ? (
-                    <Badge variant="nofollow">lost {domain.lostLinks}</Badge>
+                    <Badge variant="nofollow">archive {domain.lostLinks}</Badge>
                   ) : null}
                   {domain.reciprocal ? <Badge>reciprocal</Badge> : null}
                   {domain.spamScore >= 55 ? (

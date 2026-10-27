@@ -1,4 +1,6 @@
 import type { ScanReport } from "./types.ts";
+import type { RunManifest } from "./measurement.server.ts";
+import { rowToDelta } from "./history-diff.ts";
 
 export type HistoryItem = {
   host: string;
@@ -10,6 +12,9 @@ export type HistoryItem = {
   /** Link identifiers — they let us count new and lost links. */
   ids: string[];
   domains: string[];
+  measurement?: RunManifest;
+  rating?: number;
+  visibility?: number;
 };
 
 export type ScanDiff = {
@@ -20,7 +25,10 @@ export type ScanDiff = {
   lostDomains: string[];
   backlinkDelta: number;
   domainDelta: number;
-  healthDelta: number;
+  healthDelta: number | null;
+  unobservedLinks?: number;
+  commonLinks?: number;
+  basis?: "discovery_sample";
   newIds: Set<string>;
 };
 
@@ -55,8 +63,14 @@ export function toHistoryItem(report: ScanReport, input: string): HistoryItem {
     backlinks: report.stats.backlinks,
     referringDomains: report.stats.referringDomains,
     health: report.analytics.health.total,
-    ids: report.backlinks.slice(0, MAX_IDS).map((b) => b.id),
+    ids: report.backlinks
+      .filter((b) => !report.measurement || (b.verified && b.state === "live"))
+      .slice(0, MAX_IDS)
+      .map((b) => b.id),
     domains: report.analytics.referringDomains.map((d) => d.domain),
+    measurement: report.measurement,
+    rating: report.stats.domainRating,
+    visibility: report.stats.serpVisibility,
   };
 }
 
@@ -66,7 +80,25 @@ export function findPrevious(host: string): HistoryItem | null {
 
 /** Comparison with the previous scan of the same domain: new and lost links. */
 export function diffReport(report: ScanReport, previous: HistoryItem | null): ScanDiff | null {
-  if (!previous || previous.host !== report.target.host || report.measurement) return null;
+  if (!previous || previous.host !== report.target.host || previous.at === report.queriedAt)
+    return null;
+  if (report.measurement) {
+    const delta = rowToDelta(report, {
+      queried_at: previous.at,
+      backlinks: previous.backlinks,
+      referring_domains: previous.referringDomains,
+      dofollow: 0,
+      domain_rating: previous.rating ?? 0,
+      health: previous.health,
+      spam_domains: 0,
+      lost_links: 0,
+      visibility: previous.visibility ?? null,
+      link_ids: previous.ids,
+      domains: previous.domains,
+      measurement: previous.measurement,
+    });
+    return delta && { ...delta, newIds: new Set(delta.newIds) };
+  }
   if (previous.at === report.queriedAt) return null;
 
   const prevIds = new Set(previous.ids ?? []);

@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rankproof-client"
+version = "1.0.0"
+description = "Typed standard-library client for self-hosted RankProof Agent API v1"
+requires-python = ">=3.11"
+readme = "README.md"
+license = {file = "LICENSE"}
+authors = [{name = "Maciej Zmitrukiewicz", email = "hello@cometweb.io"}]
+
+[tool.setuptools.package-data]
+rankproof_client = ["schema.json", "py.typed"]

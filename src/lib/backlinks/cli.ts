@@ -1,7 +1,21 @@
-import { parseEngines } from "./config.ts";
+import { parseEngines, type ScanProfile } from "./config.ts";
 import type { SerpDevice, SerpEngine, SerpMarket } from "./types.ts";
 
-export type CliCommand = "scan" | "serp" | "ideas" | "gap" | "doctor" | "help" | "version";
+export type CliCommand =
+  | "scan"
+  | "serp"
+  | "ideas"
+  | "gap"
+  | "doctor"
+  | "analyze"
+  | "graph"
+  | "citations"
+  | "ledger"
+  | "capture"
+  | "replay"
+  | "render"
+  | "help"
+  | "version";
 
 export type CliFormat = "text" | "json" | "csv" | "html" | "disavow";
 
@@ -19,10 +33,27 @@ export type CliOptions = {
   quiet: boolean;
   /** Skips the internal crawl during `scan`. */
   skipAudit: boolean;
+  includeWebmaster: boolean;
+  profile?: ScanProfile;
   error?: string;
 };
 
-const COMMANDS: CliCommand[] = ["scan", "serp", "ideas", "gap", "doctor", "help", "version"];
+const COMMANDS: CliCommand[] = [
+  "scan",
+  "serp",
+  "ideas",
+  "gap",
+  "doctor",
+  "analyze",
+  "graph",
+  "citations",
+  "ledger",
+  "capture",
+  "replay",
+  "render",
+  "help",
+  "version",
+];
 const FORMATS: CliFormat[] = ["text", "json", "csv", "html", "disavow"];
 const MARKETS: SerpMarket[] = ["pl", "us", "gb", "de", "fr", "es"];
 const DEVICES: SerpDevice[] = ["desktop", "mobile"];
@@ -56,6 +87,7 @@ export function parseArgs(argv: string[]): CliOptions {
     out: null,
     quiet: false,
     skipAudit: false,
+    includeWebmaster: false,
   };
 
   const args = [...argv];
@@ -167,6 +199,15 @@ export function parseArgs(argv: string[]): CliOptions {
       case "skip-audit":
         options.skipAudit = true;
         break;
+      case "webmaster":
+        options.includeWebmaster = true;
+        break;
+      case "profile": {
+        const value = next();
+        if (value === "quick" || value === "standard" || value === "deep") options.profile = value;
+        else options.error = "Unknown profile. Available: quick, standard, deep.";
+        break;
+      }
       default:
         options.error = `Unknown option: --${key}`;
     }
@@ -190,9 +231,33 @@ export function parseArgs(argv: string[]): CliOptions {
 function validate(options: CliOptions): CliOptions {
   if (options.error) return options;
   if (options.command === "help" || options.command === "version") return options;
+  if (options.includeWebmaster && options.command !== "scan") {
+    return { ...options, error: "--webmaster is only available for a local scan." };
+  }
+  if (options.profile && options.command !== "scan") {
+    return { ...options, error: "--profile is only available for a scan." };
+  }
   // `doctor` diagnoses the tool itself, so it needs no target.
   if (options.command === "doctor") return options;
 
+  if (
+    ["analyze", "graph", "citations", "ledger", "capture", "replay", "render"].includes(
+      options.command,
+    )
+  ) {
+    if (!options.target)
+      return { ...options, error: `Provide an input JSON file for ${options.command}.` };
+    if (["capture", "render"].includes(options.command) && !options.out)
+      return {
+        ...options,
+        error: `${options.command} requires --out with a new private file path.`,
+      };
+    if (options.command === "graph" && options.format === "csv") return options;
+    if (options.format !== "text" && options.format !== "json") {
+      return { ...options, error: `${options.command} produces JSON; use --format json.` };
+    }
+    return options;
+  }
   if (!options.target) {
     return { ...options, error: "Provide a domain, e.g. `rankproof scan example.com`." };
   }
@@ -234,6 +299,13 @@ COMMANDS
   ideas <domain> [keywords]  Keyword ideas from search-engine autocomplete.
   gap <domain> [competitors] Domains linking to competitors but not to you.
   doctor                     Checks whether engines and parsers still work.
+  analyze <report.json>     Evidence-backed decisions from an exported scan, offline.
+  graph <report.json>       Export retained technical graph, or repair URLs with --format csv.
+  citations <samples.json>  Replay a citation dataset, offline.
+  ledger <report.json>      Export an integrity-hashed evidence ledger, offline.
+  capture <pairs.json>      Explicit private HTML capture; requires --out <new-file>.
+  replay <capture.json>     Re-extract and verify captured HTML, offline.
+  render <request.json>     Optional qualified Chromium snapshot; requires --out <new-file>.
   help, version
 
 OPTIONS
@@ -248,6 +320,8 @@ OPTIONS
   -o, --out <file>           Write the result to a file instead of stdout.
   -q, --quiet                No progress output or commentary.
       --no-audit             Skip the crawl of your own site (faster scan).
+      --profile <name>       quick | standard | deep scan workload.
+      --webmaster            Explicitly allow local scan to read configured private GSC/Bing data.
 
 EXAMPLES
   rankproof scan example.com --market us --format json --out report.json
@@ -261,6 +335,6 @@ ENVIRONMENT VARIABLES
   RANKPROOF_MARKET, RANKPROOF_DEVICE, RANKPROOF_MAX_BACKLINKS,
   RANKPROOF_PERSIST_HISTORY, RANKPROOF_CACHE_DIR, RANKPROOF_GOOGLE_PROVIDER_URL,
   DATABASE_URL
-  GOOGLE_OAUTH_* and BING_WEBMASTER_API_KEY add measured performance data.
+  GOOGLE_OAUTH_* and BING_WEBMASTER_API_KEY require scan --webmaster.
 
 Full documentation: docs/cli.md`;

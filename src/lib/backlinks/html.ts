@@ -423,10 +423,9 @@ export function parseAnchors(
   const regions = opts.withPlacement === false ? [] : buildRegions(html);
   const out: ParsedAnchor[] = [];
   const document = opts.document ?? tokenizeHtml(html, opts.exact);
-  let count = 0;
   for (const token of document.tokens) {
     if (token.closing || token.name !== "a") continue;
-    if (count++ >= limit) break;
+    if (out.length >= limit) break;
     const attributes = token.attrs;
     if (!("href" in attributes)) continue;
     const rawHref = decodeAttribute(attributes.href!.trim());

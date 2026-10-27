@@ -39,8 +39,13 @@ export function ScorecardPanel({ card }: { card: Scorecard }) {
         <div className="flex items-center gap-2">
           <Gauge className="size-4 text-fg-soft" />
           <div>
-            <p className="text-sm font-medium text-fg">RankProof visibility index</p>
+            <p className="text-sm font-medium text-fg">
+              RankProof visibility index{card.provisional ? " · provisional" : ""}
+            </p>
             <p className="mt-1 text-xs text-muted">
+              {card.provisional
+                ? `Measured components: ${card.parts.reduce((total, part) => total + part.score, 0)}/${card.measuredMax ?? 100} points. SERP coverage is incomplete. `
+                : ""}
               Weakest component: <span className="text-fg-soft">{card.weakest}</span>
             </p>
           </div>

@@ -201,6 +201,9 @@ function pushCandidates(list: Candidate[], incoming: Candidate[] | undefined, co
 }
 
 export type ScanOptions = {
+  /** Trusted local caller opt-in; public inputs must never enable server credentials. */
+  includeWebmaster?: boolean;
+  profile?: import("./config.ts").ScanProfile;
   /** "light" = faster helper scan (e.g. a competitor in a link-gap analysis). */
   mode?: "full" | "light";
   budgetMs?: number;
@@ -235,7 +238,14 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
   }
 
   const { host } = parsed;
-  const runtime = config();
+  const runtime = config(options.profile);
+  if (options.profile) {
+    options = {
+      ...options,
+      budgetMs: Math.min(options.budgetMs ?? runtime.scanBudgetMs, runtime.scanBudgetMs),
+      depth: Math.min(options.depth ?? runtime.serpDepth, runtime.serpDepth),
+    };
+  }
   const budget = new Budget(
     options.budgetMs ?? (light ? runtime.lightBudgetMs : runtime.scanBudgetMs),
   );
@@ -733,9 +743,13 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
         );
 
   // Real clicks and impressions, but only when the operator connected an account.
-  const searchConsole = light
-    ? null
-    : buildSearchConsoleInsights(await fetchSearchConsoleData(host).catch(() => []), serpQueries);
+  const searchConsole =
+    light || options.includeWebmaster !== true
+      ? null
+      : buildSearchConsoleInsights(
+          await fetchSearchConsoleData(host, true).catch(() => []),
+          serpQueries,
+        );
 
   const scorecard = buildScorecard({
     analytics,
@@ -949,7 +963,7 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
       ...new Set([
         "Discovery is a selected sample, not a backlink census. Provider reports are excluded until confirmed in fetched HTML.",
         "Scores are uncalibrated run-relative heuristics. Coverage changes prevent interpreting score deltas as progress.",
-        "Domain grouping uses an incomplete suffix subset; private/wildcard suffixes can merge publishers.",
+        "Domain grouping uses the pinned ICANN/private Public Suffix List; shared registrable domains do not establish common ownership.",
         ...notes,
       ]),
     ].slice(0, 8),

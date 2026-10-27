@@ -637,7 +637,8 @@ test("collectKeywords takes titles, H1s and exact-match anchors", async () => {
   assert.equal(blockedOnly.visibility, 100, "blocked keywords must not dilute visibility");
 
   const stats = buildKeywordStats(seeds.slice(0, 3), [], []);
-  assert.ok(stats[0]!.opportunity >= 20);
+  assert.equal(stats[0]!.opportunity, 0);
+  assert.equal(stats[0]!.measurementStatus, "unmeasured");
 });
 
 test("SERP parsers extract organic positions and the target", async () => {
@@ -773,6 +774,7 @@ test("rank moves distinguish gains, drops, new and lost keywords", async () => {
       query({ keyword: "awans", targetPosition: 3 }),
       query({ keyword: "spadek", targetPosition: 9 }),
       query({ keyword: "nowa", targetPosition: 7 }),
+      query({ keyword: "znikla", targetPosition: null, status: "no-results" }),
     ],
     [
       { keyword: "awans", engine: "bing", position: 8 },
@@ -1973,7 +1975,7 @@ test("Google provider adapter parses OpenSERP-style JSON", async () => {
             { url: "https://b.example/y", title: "B", description: "two" },
           ],
         }),
-        { status: 200 },
+        { status: 200, headers: { "content-type": "application/json" } },
       )) as typeof fetch,
   });
   assert.equal(hits.length, 2);

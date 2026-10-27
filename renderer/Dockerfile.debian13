@@ -1,0 +1,33 @@
+# Build from a locally present public base and checksum-locked signed Debian archives.
+# Context: debian13-runtime-lock.json plus debs/; network is forbidden during build.
+FROM python@sha256:27e044f7e01fea05c1760324d58fc5360a0767b9ef098e74ddaf8c70b8f46d26
+LABEL org.opencontainers.image.description="RankProof Debian 13 arm64 Chromium runtime libraries; browser and driver are supplied by separately pinned read-only mounts"
+RUN --mount=type=bind,source=.,target=/locked,readonly python - <<'PY'
+import hashlib
+import json
+import pathlib
+import subprocess
+
+root = pathlib.Path('/locked')
+lock = json.loads((root / 'debian13-runtime-lock.json').read_text())
+assert lock['platform'] == 'linux/arm64'
+assert subprocess.check_output(['dpkg', '--print-architecture'], text=True).strip() == 'arm64'
+archives = []
+for package in lock['packages']:
+    name = package['downloadFile']
+    assert pathlib.Path(name).name == name and name.endswith('.deb')
+    archive = root / 'debs' / name
+    assert archive.stat().st_size == int(package['Size'])
+    with archive.open('rb') as content:
+        assert hashlib.file_digest(content, 'sha256').hexdigest() == package['SHA256']
+    archives.append(str(archive))
+assert len(archives) == 32 and sum(pathlib.Path(p).stat().st_size for p in archives) == lock['archivesBytes']
+subprocess.run(['dpkg', '--install', *archives], check=True)
+assert subprocess.check_output(['dpkg', '--audit'], text=True).strip() == ''
+for package in lock['packages']:
+    installed = subprocess.check_output(['dpkg-query', '-W', '-f=${Version}', package['Package']], text=True)
+    assert installed == package['Version'], package['Package']
+manifest = pathlib.Path('/usr/local/share/rankproof/debian13-runtime-lock.json')
+manifest.parent.mkdir(parents=True, exist_ok=True)
+manifest.write_text(json.dumps(lock, sort_keys=True, indent=2) + '\n')
+PY

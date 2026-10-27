@@ -84,6 +84,10 @@ export type Backlink = {
   };
   discoverySources?: DiscoverySource[];
   domainFirstArchivedAt?: string | null;
+  /** Dates from persisted observations, never inferred from an archive's age. */
+  firstObserved?: string | null;
+  lastConfirmed?: string | null;
+  lastAttempted?: string | null;
   /** Deprecated: unknown link-first-seen date, never a domain archive date. */
   firstSeen: string | null;
   httpStatus: number | null;
@@ -409,6 +413,8 @@ export type KeywordSource = "title" | "h1" | "meta" | "content" | "anchor" | "br
 
 export type KeywordStat = {
   keyword: string;
+  measurementStatus?: "measured" | "unmeasured";
+  trafficShareKind?: "modeled_ctr";
   source: KeywordSource;
   /** Frequency / weight of the keyword on the page and in anchors. */
   weight: number;
@@ -469,6 +475,9 @@ export type OnPageAudit = {
 
 export type SerpSnapshot = {
   queries: SerpQuery[];
+  measured?: number;
+  unmeasured?: number;
+  trafficScoreKind?: "modeled_ctr_sum";
   visibility: number;
   ranked: number;
   top3: number;
@@ -730,6 +739,8 @@ export type FootprintRisk = {
  * strength, visibility, page readiness and risk on a 0–100 scale.
  */
 export type Scorecard = {
+  provisional?: boolean;
+  measuredMax?: number;
   index: number;
   grade: "A" | "B" | "C" | "D" | "E";
   parts: { key: string; label: string; score: number; max: number; hint: string }[];
@@ -961,9 +972,13 @@ export type ScanDelta = {
   lostDomains: string[];
   backlinkDelta: number;
   domainDelta: number;
-  healthDelta: number;
-  ratingDelta: number;
-  visibilityDelta: number;
+  healthDelta: number | null;
+  ratingDelta: number | null;
+  visibilityDelta: number | null;
+  /** Discovery absence is unknown, not proof that a link was removed. */
+  unobservedLinks?: number;
+  commonLinks?: number;
+  basis?: "discovery_sample";
   /** Identifiers of links absent from the previous scan. */
   newIds: string[];
 };

@@ -26,6 +26,13 @@ import { existsSync, readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
+import {
+  boundedInteger,
+  createRateLimiter,
+  createConcurrencyGate,
+  isExternallyBound,
+  validateApiBody,
+} from "./api-guards.mjs";
 
 // See bin/rankproof.mjs: an installed package loads the compiled engine,
 // a clone runs the TypeScript sources.
@@ -58,22 +65,6 @@ function flag(name, fallback) {
   return inline ? inline.slice(name.length + 3) : fallback;
 }
 
-/** A simple limiter: N requests per time window, counted per client address. */
-function createLimiter(max, windowMs) {
-  const hits = new Map();
-  return (key) => {
-    const now = Date.now();
-    const entry = hits.get(key);
-    if (!entry || now > entry.reset) {
-      hits.set(key, { count: 1, reset: now + windowMs });
-      return true;
-    }
-    if (entry.count >= max) return false;
-    entry.count += 1;
-    return true;
-  };
-}
-
 async function readJson(req, limitBytes = 64_000) {
   const chunks = [];
   let size = 0;
@@ -92,14 +83,23 @@ async function start() {
   const port = Number(flag("port", process.env.PORT ?? "8787"));
   const host = flag("host", process.env.HOST ?? "127.0.0.1");
   const { isAuthorized } = await import(engine("service-api"));
-  const token = process.env.RANKPROOF_API_TOKEN;
+  const token = process.env.RANKPROOF_API_TOKEN?.trim();
+  const exposed = isExternallyBound(host);
+  if (exposed && !token) throw new Error("Public HTTP API requires RANKPROOF_API_TOKEN.");
+  if (exposed && process.env.RANKPROOF_PIN_DNS === "0") {
+    throw new Error("Public HTTP API refuses unsafe RANKPROOF_PIN_DNS=0.");
+  }
+  if (exposed) process.env.RANKPROOF_PIN_DNS = "1";
   const version = JSON.parse(
     readFileSync(new URL("../package.json", import.meta.url), "utf8"),
   ).version;
   const revision = process.env.RANKPROOF_SERVICE_REVISION?.trim() || null;
-  const allow = createLimiter(
-    Number(process.env.RANKPROOF_RATE_LIMIT ?? 20),
-    Number(process.env.RANKPROOF_RATE_WINDOW_MS ?? 60_000),
+  const allow = createRateLimiter(
+    boundedInteger(process.env.RANKPROOF_RATE_LIMIT ?? 20, 20, 1, 500),
+    boundedInteger(process.env.RANKPROOF_RATE_WINDOW_MS ?? 60_000, 60_000, 1_000, 3_600_000),
+  );
+  const acquire = createConcurrencyGate(
+    boundedInteger(process.env.RANKPROOF_MAX_ACTIVE_SCANS ?? 2, 2, 1, 16),
   );
 
   const server = createServer(async (req, res) => {
@@ -137,6 +137,11 @@ async function start() {
         send(429, { ok: false, error: "Too many requests. Try again shortly." });
         return;
       }
+      const release = acquire();
+      if (!release) {
+        send(503, { ok: false, error: "Scan capacity exhausted." });
+        return;
+      }
       try {
         const { runDoctor } = await import(engine("doctor.server"));
         const diagnosis = await runDoctor();
@@ -146,6 +151,8 @@ async function start() {
           ok: false,
           error: error instanceof Error ? error.message : "Doctor failed.",
         });
+      } finally {
+        release();
       }
       return;
     }
@@ -161,17 +168,27 @@ async function start() {
       return;
     }
 
+    if (!/^application\/json(?:\s*;|\s*$)/i.test(String(req.headers["content-type"] ?? ""))) {
+      send(415, { ok: false, error: "Expected application/json request body." });
+      return;
+    }
+    const release = acquire();
+    if (!release) {
+      send(503, { ok: false, error: "Scan capacity exhausted." });
+      return;
+    }
     try {
-      const body = await readJson(req);
-      if (!body || typeof body !== "object" || Array.isArray(body)) {
-        throw new Error("Expected a JSON object.");
-      }
+      const body = validateApiBody(url.pathname, await readJson(req));
       const result = await route(url.pathname, body);
       send(result.ok ? 200 : 400, result);
     } catch (error) {
       send(400, { ok: false, error: error instanceof Error ? error.message : "Request error." });
+    } finally {
+      release();
     }
   });
+  server.requestTimeout = 15_000;
+  server.headersTimeout = 10_000;
 
   server.listen(port, host, () => {
     console.log(`RankProof API: http://${host}:${server.address().port}`);
@@ -179,7 +196,7 @@ async function start() {
       "Endpoints: GET /health /doctor · POST /v1/backlinks/verify /scan /serp /ideas /gap",
     );
     if (token) console.log("API token required (RANKPROOF_API_TOKEN).");
-    if (host !== "127.0.0.1" && host !== "localhost") {
+    if (exposed) {
       console.log(
         "WARNING: the server is listening beyond localhost. Put a reverse proxy with authentication in front of it.",
       );
@@ -213,7 +230,7 @@ async function route(pathname, body) {
     }
     case "/gap": {
       const { runLinkGap } = await import(engine("gap.server"));
-      return runLinkGap(String(body.url ?? ""), body.competitors ?? []);
+      return runLinkGap(String(body.url ?? ""), body.competitors ?? [], { profile: "quick" });
     }
     default:
       return { ok: false, error: `Unknown endpoint: ${pathname}` };

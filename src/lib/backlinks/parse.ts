@@ -1,97 +1,11 @@
-const HOST_RE = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}$/i;
+import { publicSuffix, registeredDomain } from "./public-suffix.ts";
 
-/**
- * A shortened list of multi-part public suffixes (a subset of the Public Suffix
- * List). It lets us count referring domains correctly for `company.com.pl` or
- * `shop.co.uk`, where naively taking the last two labels gives the wrong answer.
- */
-const MULTI_SUFFIXES = new Set([
-  "com.pl",
-  "net.pl",
-  "org.pl",
-  "edu.pl",
-  "gov.pl",
-  "info.pl",
-  "biz.pl",
-  "waw.pl",
-  "krakow.pl",
-  "wroclaw.pl",
-  "poznan.pl",
-  "gda.pl",
-  "lodz.pl",
-  "co.uk",
-  "org.uk",
-  "ac.uk",
-  "gov.uk",
-  "me.uk",
-  "net.uk",
-  "sch.uk",
-  "com.au",
-  "net.au",
-  "org.au",
-  "edu.au",
-  "gov.au",
-  "id.au",
-  "co.nz",
-  "net.nz",
-  "org.nz",
-  "govt.nz",
-  "ac.nz",
-  "co.jp",
-  "ne.jp",
-  "or.jp",
-  "ac.jp",
-  "go.jp",
-  "com.br",
-  "net.br",
-  "org.br",
-  "gov.br",
-  "edu.br",
-  "com.cn",
-  "net.cn",
-  "org.cn",
-  "gov.cn",
-  "edu.cn",
-  "co.in",
-  "net.in",
-  "org.in",
-  "gov.in",
-  "ac.in",
-  "com.mx",
-  "com.ar",
-  "com.tr",
-  "com.tw",
-  "com.hk",
-  "com.sg",
-  "com.my",
-  "com.ua",
-  "co.za",
-  "org.za",
-  "co.il",
-  "com.es",
-  "com.pt",
-  "com.ru",
-  "co.kr",
-  "or.kr",
-  "ne.kr",
-  "go.kr",
-  "gov.it",
-  "edu.it",
-  "gov.gr",
-  "com.gr",
-  "edu.gr",
-  "org.gr",
-  "gov.cz",
-  "gov.sk",
-  "gov.hu",
-  "gov.ro",
-  "gov.rs",
-]);
+const HOST_RE = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:[a-z]{2,63}|xn--[a-z0-9-]{2,59})$/i;
 
 /** Exact relation identity: only URL-standard normalization and fragment removal. */
 export const URL_IDENTITY_POLICY = "exact-http-url-v2";
-/** shortcut: this historical suffix subset omits private/wildcard rules; use a maintained PSL before domain counts can claim complete publisher isolation. */
-export const DOMAIN_POLICY = "suffix-subset-v1-not-full-psl";
+/** Complete ICANN and private suffix rules; URL relations retain exact identities. */
+export const DOMAIN_POLICY = "psl-3929462-private-v1";
 
 export type ParsedTarget = {
   host: string;
@@ -106,24 +20,13 @@ export function stripWww(host: string): string {
   return host.replace(/^www\./i, "").toLowerCase();
 }
 
-/** eTLD+1, np. `blog.sklep.com.pl` -> `sklep.com.pl`. */
+/** eTLD+1 with ICANN and private suffix isolation. */
 export function registrableDomain(host: string): string {
-  const h = stripWww(host).replace(/\.$/, "");
-  if (!h || !h.includes(".")) return h;
-  const labels = h.split(".");
-  if (labels.length <= 2) return h;
-  const lastTwo = labels.slice(-2).join(".");
-  if (MULTI_SUFFIXES.has(lastTwo) && labels.length >= 3) {
-    return labels.slice(-3).join(".");
-  }
-  return lastTwo;
+  return registeredDomain(stripWww(host));
 }
 
 export function tldOf(host: string): string {
-  const parts = stripWww(host).split(".");
-  const lastTwo = parts.slice(-2).join(".");
-  if (MULTI_SUFFIXES.has(lastTwo)) return lastTwo;
-  return parts.at(-1) ?? "";
+  return publicSuffix(stripWww(host));
 }
 
 /** Etykieta marki: `sklep` z `sklep.com.pl`. */
@@ -152,7 +55,8 @@ export function parseTarget(raw: string): ParsedTarget {
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
       throw new Error("Only http(s) addresses are supported.");
     }
-    host = stripWww(parsed.hostname);
+    if (parsed.username || parsed.password) throw new Error("Embedded credentials are forbidden.");
+    host = stripWww(parsed.hostname).replace(/\.$/, "");
     path = parsed.pathname || "/";
     url = `https://${host}`;
   } catch (err) {
