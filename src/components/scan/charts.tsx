@@ -46,8 +46,8 @@ export function TrendChart({ points }: { points: TrendPoint[] }) {
           Discovery samples ({points.length} scans)
         </p>
         <p className="font-mono text-xs text-muted">
-          domains {first.referringDomains} → {last.referringDomains} · DR {first.domainRating} →{" "}
-          {last.domainRating}
+          domains {first.referringDomains} → {last.referringDomains} · sample index{" "}
+          {first.domainRating} → {last.domainRating}
         </p>
       </div>
       <div
@@ -59,7 +59,7 @@ export function TrendChart({ points }: { points: TrendPoint[] }) {
           <div
             key={point.at}
             className="group relative flex flex-1 flex-col justify-end gap-0.5"
-            title={`${new Date(point.at).toLocaleDateString()} · ${point.referringDomains} referring domains · DR ${point.domainRating}`}
+            title={`${new Date(point.at).toLocaleDateString()} · ${point.referringDomains} referring domains · sample index ${point.domainRating}`}
           >
             <span
               className="w-full rounded-t bg-fg-soft/70"

@@ -1,4 +1,5 @@
 import type { Backlink, ReferringDomain } from "./types.ts";
+import { isCurrentBacklink } from "./link-state.ts";
 
 export type DomainEdge = { from: string; to: string; weight: number };
 
@@ -56,7 +57,7 @@ export function pageRank(
   return rank;
 }
 
-/** Normalises a raw rank to 0–100 (logarithmically, like DR/UR). */
+/** Normalises this sampled graph to 0–100; not a commercial rating or probability. */
 export function rankToScore(rank: Map<string, number>): Map<string, number> {
   const out = new Map<string, number>();
   if (rank.size === 0) return out;
@@ -72,9 +73,9 @@ export function rankToScore(rank: Map<string, number>): Map<string, number> {
 }
 
 /**
- * A Domain Rating proxy for the target: a logarithmic function of the summed
- * strength of referring domains. Nofollow links count fractionally and spam
- * barely at all — the same philosophy as commercial metrics, on public data.
+ * An uncalibrated target-profile heuristic using current referring domains only.
+ * Chosen follow, risk, content and graph weights are assumptions, not measured
+ * Google value or an equivalent of another provider's authority rating.
  */
 export function computeDomainRating(domains: ReferringDomain[]): number {
   if (domains.length === 0) return 0;
@@ -91,8 +92,9 @@ export function computeDomainRating(domains: ReferringDomain[]): number {
   return Math.max(0, Math.min(100, Math.round(score)));
 }
 
-/** The strength of a single target page (the URL Rating equivalent). */
+/** Uncalibrated current-sample page heuristic; not measured URL authority. */
 export function computeUrlRating(links: Backlink[]): number {
+  links = links.filter(isCurrentBacklink);
   if (links.length === 0) return 0;
   let weight = 0;
   const seen = new Set<string>();

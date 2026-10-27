@@ -109,7 +109,9 @@ test("a scorecard marks unavailable SERP as provisional instead of the weakest m
     referringDomains: 5,
   } as never);
   assert.equal(card.provisional, true);
-  assert.equal(card.measuredMax, 75);
+  assert.equal(card.measuredMax, 6, "only the supplied velocity verdict is available");
+  assert.equal(card.parts.find((p) => p.key === "visibility")!.availableMax, 0);
+  assert.equal(card.parts.find((p) => p.key === "visibility")!.status, "unknown");
   assert.match(card.parts.find((p) => p.key === "visibility")!.hint, /unavailable/);
   assert.notEqual(card.weakest, "SERP visibility (unmeasured)");
 });

@@ -2,7 +2,7 @@
 
 This document describes **how every number is calculated and what it does not measure**. Without that, metrics are just decorative progress bars.
 
-Overriding principle: everything below is an approximation built from open data. Some names resemble commercial tools, but the methods differ — do not compare these values one-to-one with Ahrefs, Semrush or Majestic.
+Overriding principle: everything below is an approximation built from open data. Legacy JSON names such as `domainRating` and `urlRating` remain for compatibility. The UI calls these sampled profile/page indices: they are not measurements of authority or equivalents of Ahrefs, Semrush or Majestic metrics.
 
 ---
 
@@ -10,15 +10,21 @@ Overriding principle: everything below is an approximation built from open data.
 
 `src/lib/backlinks/score.ts` → `domainScore()`
 
-Built from: the top-level domain (government and education rank higher, risky TLDs lower), age in the Internet Archive, presence in Wikipedia, number of linking pages, HTTPS, and penalties for name construction (many hyphens, long digit strings, deep subdomains).
+This is an **uncalibrated ordering rule**, not a measured property. Inputs include a manually selected domain trust list (+34 points), TLD priors (+26 for selected government/education suffixes; −18 for selected other suffixes), domain archive age, Wikipedia discovery, sampled current linking-page count, HTTPS and name construction. The trust list and TLD weights are assumptions, not empirical labels of quality. Domain age is not a link-acquisition date.
+
+The source URL, fetched representation, response hash and evidence timestamp are observations. Their conversion into DS uses chosen weights. Independent annotation and calibration are still required; relabeling this index does not validate those weights.
 
 **What it does not measure:** real traffic, or authority in Google's eyes. It is a heuristic for ordering a list, not an oracle.
 
-## Domain Rating and URL Rating
+## Sampled profile and page indices (legacy `domainRating` / `urlRating`)
 
 `src/lib/backlinks/graph.ts`
 
-PageRank computed over **the domain graph discovered during this scan**, rescaled to 0–100. The more strong domains link in, the higher the value.
+PageRank uses **freshly fetched HTML context and verified live backlink relations**. Current referring-domain and page aggregates use all observed current links before presentation caps. Historical archive candidates and unverified/provider assertions are partitioned separately and cannot add domains, anchor shares, follow counts or synthetic edges to current metrics. A historical record from an already-live domain cannot boost its linking-page count or sitewide classification.
+
+`measurement.graphPartitions` reports live, historical and unverified graph signatures. The legacy `measurement.graph` is explicitly scoped to live data; `measurement.scores.graphScope` is `live`. Full scan report version 6 and `local-current-graph-heuristic-v2` distinguish these semantics from older mixed reports, so old/new scores are not comparable. Optional evidence on legacy verified rows is not fabricated: `unattributedCurrentPairs` declares those rows. Newly fetched scan rows carry HTML evidence; known contradictory archive/provider evidence is never admitted as current.
+
+The legacy indices combine sampled counts, DS, local graph position and chosen follow/content/risk weights. They are heuristics rather than observed authority.
 
 **What it does not measure:** the graph is incomplete and the score is relative to this run. More coverage can increase or decrease the same target's score without its links changing. This is not Google value, a calibrated probability, or a score comparable with another provider. `measurement.scores` exposes the version, components, missing archive data and comparison key; `measurement.graph` records graph size and signature.
 
@@ -66,7 +72,7 @@ The sum of adjusted CTR across every appearance of a domain, divided by the sum 
 
 `serp-cluster.ts` → `clusterKeywords()`
 
-Two keywords land in the same cluster when they share **at least 3 URLs in the top 10**. This is the industry-standard threshold: lower merges unrelated topics, higher splits genuine clusters.
+Two keywords land in the same cluster when they share **at least 3 URLs in the top 10**. This is a chosen clustering threshold; its suitability depends on the query set.
 
 **What it does not measure:** it does not understand meaning — it relies purely on what the search engine shows.
 
@@ -74,15 +80,15 @@ Two keywords land in the same cluster when they share **at least 3 URLs in the t
 
 `scorecard.ts` → `buildFootprint()`
 
-Concentration of domains in a single /24 subnet, share of sitewide links, excess exact-match anchors, domains linking from a single page, suspicious absence of nofollow.
+Review cues from the current verified sample: shared /24 ranges, sitewide links, anchor concentration, single-page domains and follow classifications. These rules have not been calibrated to penalty risk. Missing subnet measurements are null, not perfect diversity; no current domains means `status: "unknown"`, not low risk. Partial feature coverage is `inconclusive`. Consult `coverage` before interpreting `score`.
 
-**What it does not measure:** a high score does not mean "you will be penalised". It means the profile deviates from natural dispersion and it is worth knowing why.
+**What it does not measure:** a high score does not mean "you will be penalised". It indicates that chosen sample-review rules fired. Shared hosting, sector and language can explain those observations without wrongdoing.
 
 ## Anchor audit (0–100)
 
 `toxic.ts` → `buildAnchorAudit()`
 
-Compares the share of each anchor type against natural-profile ranges (brand 30–70%, exact-match 0–12%, bare URLs 10–40%…) plus a Shannon diversity index.
+Compares the share of each anchor type against chosen review ranges (brand 30–70%, exact-match 0–12%, bare URLs 10–40%…) plus a Shannon diversity index.
 
 The 12% exact-match line is a **heuristic review cue**, not proof that links were bought. Profiles vary by niche and language.
 
@@ -100,7 +106,7 @@ Velocity is currently **unknown**. Domain archive age is not a link-acquisition 
 
 Starts at 100 and subtracts for structural problems found while crawling the site itself: orphan pages with no internal links, pages four or more clicks deep, broken internal links, `noindex` pages that hold backlinks, pages with backlinks but almost no internal links, and internal links routed through redirects.
 
-**What it does not measure:** the crawl is capped (about 120 pages) and starts from the home page, so on large sites it describes the main structure rather than every page.
+**What it does not measure:** the automatic scan has a small configured page budget (the crawler also exposes explicit bounded larger limits) and starts from the home page, so on large sites it describes the main structure rather than every page.
 
 ## Measured performance (Search Console)
 
@@ -118,16 +124,18 @@ Unlike everything above, these are **not estimates** — they come from the sear
 
 `scorecard.ts` → `buildScorecard()`
 
-| Component             | Points | Source                                  |
-| --------------------- | ------ | --------------------------------------- |
-| Link strength         | 25     | DR + number of referring domains        |
-| Profile quality       | 15     | profile health + anchor audit           |
-| SERP visibility       | 25     | visibility + modelled traffic           |
-| On-page and structure | 10     | landing-page audit + internal structure |
-| Safety                | 15     | toxicity + footprint (subtracted)       |
-| Momentum and brand    | 10     | link velocity + brand SERP control      |
+| Component             | Points | Source                                   |
+| --------------------- | ------ | ---------------------------------------- |
+| Link strength         | 25     | current sample index + referring domains |
+| Profile quality       | 15     | profile health + anchor audit            |
+| SERP visibility       | 25     | visibility + modelled traffic            |
+| On-page and structure | 10     | landing-page audit + internal structure  |
+| Safety                | 15     | toxicity + footprint (subtracted)        |
+| Momentum and brand    | 10     | link velocity + brand SERP control       |
 
-Grades: A ≥80, B ≥65, C ≥48, D ≥32, E below.
+Each component exposes `status`, `availableMax` and its unchanged original `max`. The card exposes a versioned uncalibrated method, `status` and `coverage`. Missing inputs contribute zero credits and zero available points; the remaining components are **not renormalized to 100**. An unavailable on-page audit, unknown velocity or absent brand query is not a neutral or favorable measurement. Archive fallback HTML never supplies the current on-page score.
+
+UI, CLI and HTML suppress the grade when coverage is incomplete or legacy qualification fields are absent. Legacy numeric zeros are compatibility placeholders when status is unknown/inconclusive, not measured zero risk or a fully observed poor score. Raw JSON consumers must inspect the associated status and coverage rather than interpreting those numbers alone. Full-coverage grade thresholds remain A ≥80, B ≥65, C ≥48, D ≥32, E below; the grades are still uncalibrated.
 
 **What it does not measure:** this is an uncalibrated internal heuristic, not a progress measure. Changing discovery coverage, enrichment or keyword measurement changes its inputs. The same domain and keyword set alone do not establish comparability.
 

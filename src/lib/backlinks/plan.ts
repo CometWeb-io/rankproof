@@ -91,7 +91,7 @@ export function buildActionPlan(input: PlanInput): ActionPlan {
         area: "content",
         title: `${plural(easyWins.length, "easy keyword")} with no position`,
         detail:
-          "Weak domains hold the SERP for these keywords and you have nothing there. One well-made page is usually enough.",
+          "Sampled results have low local link-index estimates and no observed target result. Review search intent and competing pages, then test a focused page or update; a ranking gain is not established by this sample.",
         impact: 72,
         effort: "medium",
         samples: easyWins.slice(0, 5).map((row) => `${row.keyword} (difficulty ${row.difficulty})`),
@@ -193,7 +193,7 @@ export function buildActionPlan(input: PlanInput): ActionPlan {
         area: "links",
         title: `${plural(mentions.length, "unlinked mention")}`,
         detail:
-          "Someone writes about you without linking. One short email asking to turn the name into a link is usually enough.",
+          "Review the sampled mention and whether a link would help its readers. Contact is an optional hypothesis, not an expected conversion or guaranteed backlink.",
         impact: 78,
         effort: "low",
         samples: mentions.slice(0, 5).map((row) => row.domain),
@@ -209,7 +209,7 @@ export function buildActionPlan(input: PlanInput): ActionPlan {
         area: "links",
         title: `${plural(corankers.length, "co-ranking domain")} to approach`,
         detail:
-          "These sites rank for your keywords, so a link from them carries genuine topical relevance. Start with the highest priority.",
+          "These domains co-occur in sampled results. Check the actual page, editorial fit and link evidence before treating one as a prospect; co-ranking alone does not establish relevance or link value.",
         impact: 66,
         effort: "high",
         samples: corankers.slice(0, 5).map((row) => `${row.domain} (${row.keyword || "SERP"})`),
@@ -224,7 +224,7 @@ export function buildActionPlan(input: PlanInput): ActionPlan {
         area: "links",
         title: `${plural(input.stats.brokenLinks, "link")} leading nowhere`,
         detail:
-          "Someone links to a URL that returns an error. A 301 redirect to the current page recovers that value in minutes.",
+          "Recheck the HTTP error and identify the intended replacement page. If an equivalent resource moved, consider a redirect and verify it after deployment; traffic or ranking recovery remains unproven.",
         impact: 80,
         effort: "low",
         samples:
@@ -296,7 +296,7 @@ export function buildActionPlan(input: PlanInput): ActionPlan {
         area: "risk",
         title: `Exact-match anchors are ${exactRisk.share}% of the profile`,
         detail:
-          "A natural profile stays below 12%. Build the next links on your brand name, bare URLs and longer phrases from the content until the share drops.",
+          "This sample crosses a configured 12% review threshold, not a universal natural-profile limit. Inspect the actual anchors, page context and acquisition history before proposing changes; no penalty or benefit is established.",
         impact: 70,
         effort: "medium",
         samples: input.anchorAudit.overOptimized

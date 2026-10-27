@@ -1132,7 +1132,8 @@ test("footprint detects subnet and anchor concentration", async () => {
   );
   const risky = buildFootprint(clustered, [], [{ key: "exact-match", share: 40 }]);
   assert.equal(risky.topSubnetShare, 100);
-  assert.equal(risky.verdict, "high");
+  assert.equal(risky.verdict, "inconclusive", "follow observations were not supplied");
+  assert.ok(risky.score >= 55, "observed concentration cues remain available");
   assert.ok(risky.reasons.length >= 3);
 
   const clean = buildFootprint(
@@ -1143,11 +1144,11 @@ test("footprint detects subnet and anchor concentration", async () => {
     [],
     [{ key: "exact-match", share: 5 }],
   );
-  assert.equal(clean.verdict, "low");
+  assert.equal(clean.verdict, "inconclusive", "missing features cannot prove low risk");
   assert.ok(clean.score < risky.score);
 });
 
-test("the visibility index sums to 100 and names the weakest component", async () => {
+test("the scorecard retains a 100-point budget without crediting unavailable components", async () => {
   const { buildScorecard, buildFootprint } = await import("./scorecard.ts");
   const footprint = buildFootprint([], [], []);
   const card = buildScorecard({
@@ -1177,8 +1178,14 @@ test("the visibility index sums to 100 and names the weakest component", async (
     card.parts.reduce((sum, part) => sum + part.score, 0),
   );
   assert.ok(card.parts.every((part) => part.score <= part.max));
-  // On-page 30/100 is the weakest part of this profile.
-  assert.equal(card.weakest, "On-page and structure");
+  assert.equal(
+    card.coverage.availableMax,
+    11,
+    "only landing-page and velocity inputs were supplied",
+  );
+  assert.equal(card.status, "inconclusive");
+  assert.equal(card.parts.find((part) => part.key === "risk")!.score, 0);
+  assert.match(card.weakest, /Unknown/);
   assert.ok(["A", "B", "C", "D", "E"].includes(card.grade));
 });
 

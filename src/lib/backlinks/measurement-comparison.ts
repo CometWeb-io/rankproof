@@ -44,6 +44,8 @@ export function comparableObservationCohort(previous: RunManifest, current: RunM
     previous.extractionVersion === current.extractionVersion &&
     previous.identityPolicy === current.identityPolicy &&
     previous.domainPolicy === current.domainPolicy &&
+    previous.cohort?.population === "verified_live_observations_v2" &&
+    previous.cohort.population === current.cohort?.population &&
     previous.cohort?.key !== undefined &&
     previous.cohort.key === current.cohort?.key
   );

@@ -55,7 +55,7 @@ export function DiffStrip({
       ) : null}
       {ratingDelta != null ? (
         <span className="font-mono text-xs text-muted">
-          DR {ratingDelta >= 0 ? "+" : ""}
+          sample index {ratingDelta >= 0 ? "+" : ""}
           {ratingDelta}
         </span>
       ) : null}

@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { afterEach, test } from "node:test";
-import { buildRunManifest, measurementComparability, type Coverage } from "./measurement.server.ts";
+import {
+  buildRunManifest,
+  measurementComparability,
+  linkEvidence,
+  type Coverage,
+} from "./measurement.server.ts";
 import { hydrateProviderReport, runScan } from "./engine.server.ts";
 import { clearNetCache, Budget, setHostResolverForTests } from "./net.server.ts";
 import { clearRobotsCache } from "./robots.server.ts";
@@ -169,6 +174,7 @@ const query = {
 } as SerpQuery;
 const observed = {
   id: "pair-v2:frozen",
+  verified: true,
   sourceDomain: "linker.example",
   discoveredVia: "bing",
   state: "live",
@@ -383,6 +389,14 @@ test("score comparison rejects relevance-only selection changes to the scored fo
     )!,
     state: "live" as const,
     verified: true,
+    evidence: linkEvidence(
+      "html_anchor",
+      `https://source.example/${i}`,
+      `https://source.example/${i}`,
+      fixture.target,
+      fixture.target,
+      "<a>Frozen HTML fixture</a>",
+    ),
     domainScore: 60,
     spamScore: 4,
     placement: "content" as const,

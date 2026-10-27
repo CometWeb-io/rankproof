@@ -1,3 +1,4 @@
+import { parseHtmlResponse } from "./evidence-response.ts";
 import {
   classifyAnchor,
   documentBase,
@@ -22,7 +23,6 @@ import {
   stripWww,
 } from "./parse.ts";
 import { backlinkId } from "./score.ts";
-import { tokenizeHtml } from "./html-tokenizer.ts";
 import { candidateSources, funnel, linkEvidence, type Coverage } from "./measurement.server.ts";
 import { fetchText, fetchUsefulHtml, mapLimit, probeStatus, type Budget } from "./net.server.ts";
 import {
@@ -189,29 +189,11 @@ export async function verifyPages(pages: Candidate[], opts: VerifyOptions): Prom
       });
       for (const f of stages) f.fetched++;
       checked += 1;
-      const type = res.headers?.get("content-type") ?? "";
-      if (
-        res.status < 200 ||
-        res.status >= 300 ||
-        !res.text.trim() ||
-        res.truncated ||
-        !/^(?:text\/html|application\/xhtml\+xml)(?:;|$)/i.test(type)
-      ) {
-        for (const f of stages) f.errors++;
-        return;
-      }
-      const document = tokenizeHtml(res.text, true);
-      if (
-        /^(?:just a moment|access denied|attention required)/i.test(
-          stripTags(document.title ?? "").trim(),
-        ) ||
-        /challenge-platform|cf-browser-verification|cf-chl-|verify (?:that )?you are (?:a )?human|please (?:enable|turn on) javascript/i.test(
-          res.text,
-        )
-      ) {
-        for (const f of stages) f.errors++;
-        return;
-      }
+      const document = parseHtmlResponse({
+        ...res,
+        contentType: res.headers?.get("content-type") ?? "",
+        truncated: res.truncated === true,
+      });
       for (const f of stages) f.validHtml++;
 
       const sourceUrl = normalizeUrl(res.finalUrl || page.url);
@@ -399,7 +381,12 @@ export async function findLostLinks(
         opts.budget.timeout(8000),
         opts.budget.signal,
       );
-      if (res.status >= 400 || res.text.length < 500) return;
+      parseHtmlResponse({
+        ...res,
+        contentType: res.headers?.get("content-type") ?? "",
+        truncated: res.truncated === true,
+      });
+      if (res.text.length < 500) return;
       const anchors = parseAnchors(res.text, pageUrl, { exact: true }).filter((a) =>
         isTargetHost(hostFromUrl(a.href), opts.host),
       );

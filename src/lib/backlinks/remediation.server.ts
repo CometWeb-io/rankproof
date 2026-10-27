@@ -315,7 +315,12 @@ export class RemediationStore {
       if (record.status !== "task_created" || record.task?.patchDigest !== patchDigest) {
         throw new Error("Grant must match the proposed patch.");
       }
-      record.grant = { operator: scope.subject, expiresAt, patchDigest, grantedAt: this.now() };
+      record.grant = {
+        operator: scope.subject,
+        expiresAt,
+        patchDigest,
+        grantedAt: record.recordedAt,
+      };
       record.status = "approved";
     });
   }
@@ -361,7 +366,11 @@ export class RemediationStore {
       if (record.status !== "approved" || record.grant!.patchDigest !== patchDigest) {
         throw new Error("Deployment does not match the approved patch.");
       }
-      record.deployment = { reference: deploymentReference, patchDigest, deployedAt: this.now() };
+      record.deployment = {
+        reference: deploymentReference,
+        patchDigest,
+        deployedAt: record.recordedAt,
+      };
       record.status = "deployed";
     });
   }

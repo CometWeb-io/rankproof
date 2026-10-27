@@ -719,32 +719,64 @@ export type BrandSerp = {
   hint: string;
 };
 
-/** A pattern that reveals an artificially built link profile. */
+/** Availability of inputs to an uncalibrated heuristic, never a probability. */
+export type ScoreEvidenceStatus = "estimated" | "unknown" | "inconclusive";
+
+/** Concentration signals within the supplied current sample, not penalty risk. */
 export type FootprintRisk = {
-  /** 0–100, higher is worse. */
+  methodVersion: string;
+  status: ScoreEvidenceStatus;
+  coverage: {
+    domains: number;
+    links: number;
+    subnetDomains: number;
+    assessedSignals: number;
+    totalSignals: number;
+  };
+  /** Legacy numeric placeholder when status is unknown; interpret only with status/coverage. */
   score: number;
   /** Share of domains in the largest /24 subnet (0–100). */
-  topSubnetShare: number;
-  subnetDiversity: number;
-  sitewideShare: number;
-  exactAnchorShare: number;
+  topSubnetShare: number | null;
+  subnetDiversity: number | null;
+  sitewideShare: number | null;
+  exactAnchorShare: number | null;
   /** Domains that link from a single page only. */
-  singlePageDomains: number;
+  singlePageDomains: number | null;
   reasons: string[];
-  verdict: "low" | "medium" | "high";
+  verdict: "low" | "medium" | "high" | "unknown" | "inconclusive";
 };
 
 /**
- * One headline metric instead of five separate ones — it combines link
- * strength, visibility, page readiness and risk on a 0–100 scale.
+ * Uncalibrated points from the current observed sample, on a fixed 100-point
+ * budget. Missing components remain unavailable; partial points are not normalized.
  */
 export type Scorecard = {
+  methodVersion: string;
+  status: ScoreEvidenceStatus;
+  coverage: {
+    availableMax: number;
+    totalMax: number;
+    currentDomains: number;
+    successfulSerpAttempts: number;
+    attemptedSerp: number;
+  };
   provisional?: boolean;
+  /** Compatibility alias for coverage.availableMax; points remain uncalibrated estimates. */
   measuredMax?: number;
+  /** Known heuristic credits only; zero is a legacy placeholder when status is unknown. */
   index: number;
+  /** Legacy grade; consumers must suppress it unless status is estimated and coverage complete. */
   grade: "A" | "B" | "C" | "D" | "E";
-  parts: { key: string; label: string; score: number; max: number; hint: string }[];
-  /** The largest point loss — the first thing to fix. */
+  parts: {
+    key: string;
+    label: string;
+    score: number;
+    max: number;
+    hint: string;
+    status: ScoreEvidenceStatus;
+    availableMax: number;
+  }[];
+  /** Lowest relative points among fully available components, not an intervention forecast. */
   weakest: string;
 };
 
@@ -902,9 +934,9 @@ export type ScanStats = {
   linkVelocity: number;
   /** Tasks in the action plan. */
   actions: number;
-  /** The headline visibility index (0–100). */
+  /** Compatibility index; consult scorecard.status/coverage before interpreting zero or points. */
   visibilityIndex: number;
-  /** Link profile footprint risk (0–100). */
+  /** Compatibility placeholder when unknown; consult footprint.status/coverage, not this value alone. */
   footprintRisk: number;
   /** Control over the brand SERP (0–100). */
   brandControl: number;

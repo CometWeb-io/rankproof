@@ -327,27 +327,31 @@ function bar(value, max = 100, width = 24) {
   return `${"█".repeat(filled)}${"·".repeat(width - filled)}`;
 }
 
-function renderScanText(report) {
+async function renderScanText(report) {
+  const { footprintLabel, qualifiedScorecard, scorecardLabel } = await import(engine("scorecard"));
   const { stats, scorecard, serp, toxic, plan } = report;
   const lines = [];
   lines.push(`RankProof — ${report.target.host}`);
   lines.push(`${report.target.title ?? ""}`.trim());
   lines.push("");
+  lines.push(`SAMPLE HEURISTIC  ${scorecardLabel(scorecard)}`);
   lines.push(
-    `VISIBILITY INDEX  ${scorecard.index}/100 (${scorecard.grade})  ${bar(scorecard.index)}`,
+    "  Uncalibrated weights; coverage is input availability, not confidence. No missing-input credits or normalization.",
   );
   for (const part of scorecard.parts) {
     lines.push(
-      `  ${part.label.padEnd(20)} ${String(part.score).padStart(3)}/${String(part.max).padEnd(3)} ${bar(part.score, part.max, 14)}`,
+      qualifiedScorecard(scorecard) && part.availableMax > 0
+        ? `  ${part.label.padEnd(20)} ${String(part.score).padStart(3)}/${String(part.max).padEnd(3)} ${bar(part.score, part.max, 14)} ${part.status}; inputs ${part.availableMax}/${part.max}`
+        : `  ${part.label.padEnd(20)} Unknown`,
     );
   }
   lines.push("");
   lines.push("LINK PROFILE");
   lines.push(
-    `  ${stats.backlinks} links · ${stats.referringDomains} domains · DR ${stats.domainRating} · dofollow ${stats.dofollow}`,
+    `  ${stats.backlinks} links · ${stats.referringDomains} domains · sampled profile index ${stats.referringDomains ? stats.domainRating : "unknown"} (uncalibrated) · dofollow ${stats.dofollow}`,
   );
   lines.push(
-    `  lost ${stats.lostLinks} · broken ${stats.brokenLinks} · to disavow ${toxic.disavowCount} · footprint ${report.footprint.score}/100 (${report.footprint.verdict})`,
+    `  archive candidates ${stats.lostLinks} · broken ${stats.brokenLinks} · for review ${toxic.disavowCount} · footprint ${footprintLabel(report.footprint)}`,
   );
   lines.push(
     report.velocity.verdict === "unknown"

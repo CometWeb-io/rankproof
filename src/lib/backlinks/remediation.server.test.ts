@@ -18,9 +18,11 @@ const patch = "f".repeat(64);
 
 function fixture() {
   let now = Date.now();
+  let tickMs = 0;
   let seq = 0;
-  const queue = new ScanQueue(":memory:", () => now);
-  const store = new RemediationStore(queue, () => now);
+  const clock = () => (now += tickMs);
+  const queue = new ScanQueue(":memory:", clock);
+  const store = new RemediationStore(queue, clock);
   queue.createRun(scope, "run", {
     maxRequests: 20,
     maxRequestsPerHost: 20,
@@ -102,7 +104,48 @@ function fixture() {
       now += ms;
     },
     now: () => now,
+    tickEachRead: () => {
+      tickMs = 1;
+    },
   };
+}
+
+for (const transition of ["approval", "deployment"] as const) {
+  test(`${transition} is one persisted event when the clock advances on every read`, () => {
+    const f = fixture();
+    try {
+      f.store.create(scope, "repair", "unwanted-link", f.evidence().artifactId);
+      f.store.createTask(scope, "repair", {
+        title: "Remove link",
+        reference: "local:x",
+        patchDigest: patch,
+      });
+      const expiresAt = f.now() + 1000;
+      if (transition === "deployment") f.store.approve(scope, "repair", patch, expiresAt);
+      f.tickEachRead();
+      const record =
+        transition === "approval"
+          ? f.store.approve(scope, "repair", patch, expiresAt)
+          : f.store.recordDeployment(scope, "repair", "local:deployed", patch);
+      const eventAt =
+        transition === "approval" ? record.grant!.grantedAt : record.deployment!.deployedAt;
+      assert.equal(eventAt, record.recordedAt);
+      assert.deepEqual(f.store.get(scope, "repair"), record);
+      assert.equal(record.grant!.expiresAt, expiresAt);
+      f.advance(1000);
+      assert.throws(
+        () => f.store.recordDeployment(scope, "repair", "local:expired", patch),
+        /expired/,
+      );
+      assert.equal(
+        f.store.get(scope, "repair")!.version,
+        record.version,
+        "rejected expiry must not append an event",
+      );
+    } finally {
+      f.queue.close();
+    }
+  });
 }
 
 test("closed loop requires matching operator approval, deployment, and fresh comparable worker evidence", () => {

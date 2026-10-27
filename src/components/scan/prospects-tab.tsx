@@ -13,7 +13,7 @@ function outreachDraft(row: SerpProspect, targetHost: string, targetUrl: string)
     row.reason === "unlinked-mention"
       ? `thank you for mentioning ${targetHost} in "${row.title}". Readers would find us more easily if the name were a link — here is the address: ${targetUrl}`
       : row.reason === "lost-link"
-        ? `you used to link to ${targetHost} from "${row.title}", and that link is no longer there. The content is still current: ${targetUrl}`
+        ? `an archived snapshot of "${row.title}" links to ${targetHost}. Could you check whether this address is relevant to the current page? ${targetUrl}`
         : `I am writing about "${row.title}" — it ranks well for "${row.keyword}". We have a complementary piece that your readers may find useful: ${targetUrl}`,
     ``,
     `Best regards`,
@@ -28,7 +28,8 @@ export function ProspectsTab({ report }: { report: ScanReport }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-2xl text-sm leading-relaxed text-muted">
           Pages that already rank for your keywords or mention the brand without linking. Sorted by
-          priority — lost links and unlinked mentions are the cheapest to win back.
+          a heuristic review priority. Archive candidates and unlinked mentions are leads to check,
+          not guaranteed acquisitions or measured low-cost opportunities.
         </p>
         <Button
           variant="outline"

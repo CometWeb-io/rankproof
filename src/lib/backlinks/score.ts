@@ -1,5 +1,6 @@
 import { pageKey, registrableDomain, stripWww, tldOf } from "./parse.ts";
 import { computeUrlRating } from "./graph.ts";
+import { isCurrentBacklink } from "./link-state.ts";
 import type {
   Analytics,
   AnchorStat,
@@ -115,8 +116,8 @@ export type DomainSignals = {
 };
 
 /**
- * A domain authority proxy (0–100). Without paid APIs there is no way to compute DR,
- * so we combine public signals: TLD, age in the archive, presence in Wikipedia,
+ * An uncalibrated ordering heuristic (0–100), not measured authority or a
+ * commercial rating. It combines manually chosen priors with sampled signals: TLD, age in the archive, presence in Wikipedia,
  * the number of linking pages and the structure of the name.
  */
 export function domainScore(signals: DomainSignals): number {
@@ -319,7 +320,7 @@ export function buildReferringDomains(
   extras: DomainExtras = {},
 ): ReferringDomain[] {
   const map = new Map<string, ReferringDomain & { pageSet: Set<string> }>();
-  for (const item of items) {
+  for (const item of items.filter(isCurrentBacklink)) {
     const domain = item.sourceDomain || stripWww(item.sourceHost);
     const current = map.get(domain);
     if (!current) {
@@ -399,7 +400,7 @@ export function buildTargetPages(
   statuses?: Map<string, number>,
 ): TargetPageStat[] {
   const map = new Map<string, { links: Backlink[]; domains: Set<string> }>();
-  for (const item of items) {
+  for (const item of items.filter(isCurrentBacklink)) {
     const path = item.targetPath || "/";
     const entry = map.get(path) ?? { links: [], domains: new Set<string>() };
     entry.links.push(item);
@@ -436,6 +437,7 @@ export function buildAnalytics(
   target: SiteSnapshot,
   extras: AnalyticsExtras = {},
 ): Analytics {
+  backlinks = backlinks.filter(isCurrentBacklink);
   const total = backlinks.length;
   const referringDomains = buildReferringDomains(backlinks, extras);
 
@@ -507,7 +509,13 @@ export function buildAnalytics(
     extras.lostLinks ?? [],
     extras,
   );
-  const health = buildHealth(backlinks, referringDomains, anchors, issues, extras);
+  const health = buildHealth(
+    backlinks,
+    referringDomains,
+    anchors,
+    issues.filter((issue) => issue.id !== "lost"),
+    extras,
+  );
 
   return {
     referringDomains,
@@ -545,7 +553,7 @@ function buildIssues(
       severity: "high",
       title: "Broken backlinks",
       detail:
-        "Someone links to a URL that returns an error. A 301 redirect to a working page recovers the full value of those links.",
+        "Someone links to a URL that returns an error. Consider an appropriate redirect or restoring the page, then verify the response and link again; ranking effects are unknown.",
       count: broken.length,
       samples: broken.slice(0, 5).map((b) => `${b.sourceHost} → ${b.targetPath}`),
     });
@@ -558,7 +566,7 @@ function buildIssues(
       severity: "medium",
       title: "Links from noindex pages",
       detail:
-        "The source page is excluded from the index, so the link passes virtually no value to the search engine.",
+        "The fetched source declares noindex. Verify its current indexing context; this does not measure the link’s ranking value.",
       count: noindex.length,
       samples: noindex.slice(0, 5).map((b) => b.sourceUrl),
     });
@@ -571,7 +579,7 @@ function buildIssues(
       severity: spam.length > 3 ? "high" : "medium",
       title: "High spam-risk domains",
       detail:
-        "The domain name, anchors or site type point to a directory or link farm. Consider disavowing after manual review.",
+        "Heuristic name, anchor or site-type rules flagged these domains. Review the fetched evidence; this is not proof of spam or a reason for automatic disavow.",
       count: spam.length,
       samples: spam.slice(0, 5).map((d) => `${d.domain} (${d.spamScore}/100)`),
     });
@@ -584,7 +592,7 @@ function buildIssues(
       severity: "medium",
       title: "Template links dominate",
       detail:
-        "Most links sit in a footer or menu. Search engines weigh those far less than links inside article content.",
+        "Most sampled links sit in a footer or menu. Review their context; placement alone does not establish search-engine value.",
       count: boiler.length,
       samples: boiler.slice(0, 5).map((b) => `${b.sourceHost} · ${b.placement}`),
     });
@@ -595,9 +603,9 @@ function buildIssues(
     issues.push({
       id: "anchor-overopt",
       severity: "medium",
-      title: "Unnatural anchor distribution",
+      title: "Exact-match anchor concentration",
       detail:
-        "Too large a share of exact-match anchors looks like bought links. A healthy profile rests on the brand name and the URL.",
+        "Exact-match anchors exceed this tool’s heuristic review threshold in the sample. This does not establish purchased links; distributions vary by niche and language.",
       count: exact.length,
       samples: [...new Set(exact.map((b) => b.anchor))].slice(0, 5),
     });
@@ -610,7 +618,7 @@ function buildIssues(
       severity: "medium",
       title: "Off-topic links",
       detail:
-        "Most linking pages write about something entirely different from the target. Links from topically aligned sites are worth much more and carry less filter risk.",
+        "A local text-similarity heuristic found limited topic overlap in these sampled pages. Review their context; ranking impact and penalty risk are unknown.",
       count: offTopic.length,
       samples: offTopic.slice(0, 5).map((b) => `${b.sourceHost} (${b.relevance}/100)`),
     });
@@ -623,7 +631,7 @@ function buildIssues(
       severity: "low",
       title: "Links land on a redirect",
       detail:
-        "The linked URL redirects elsewhere. Every hop loses some value and slows the visit — it is worth asking for the link to be updated.",
+        "The fetched target redirects. Review the destination and avoid unnecessary hops; a redirect alone does not establish lost ranking value.",
       count: redirected.length,
       samples: redirected.slice(0, 5).map((b) => `${b.targetPath} → ${b.targetFinalUrl ?? "?"}`),
     });
@@ -636,7 +644,7 @@ function buildIssues(
       severity: "low",
       title: "Profile dominated by nofollow",
       detail:
-        "The links bring traffic and visibility but pass almost no PageRank. Editorial mentions inside content are worth pursuing.",
+        "Most sampled links have nofollow or another non-follow classification. This does not measure traffic, indexing or how a search engine treats them.",
       count: total - dofollow,
       samples: [],
     });
@@ -649,7 +657,7 @@ function buildIssues(
       severity: "info",
       title: "Unlinked mentions",
       detail:
-        "These pages write about the brand without linking. A short request to add a link is the cheapest way to a new backlink.",
+        "These fetched pages mention the brand without a confirmed link. Review relevance before considering a request; response and acquisition cost are unknown.",
       count: opportunities.length,
       samples: opportunities.slice(0, 5).map((m) => m.sourceHost),
     });
@@ -659,9 +667,9 @@ function buildIssues(
     issues.push({
       id: "lost",
       severity: "high",
-      title: "Lost backlinks",
+      title: "Archive recovery candidates",
       detail:
-        "These pages linked to the target in an archived version and no longer do. One email to the editors is usually enough to get it back.",
+        "An archive snapshot contains a link absent from the fetched current HTML. This is a recovery candidate, not a longitudinally confirmed loss or a guaranteed acquisition opportunity.",
       count: lostLinks.length,
       samples: lostLinks.slice(0, 5).map((l) => `${l.sourceHost} (ostatnio ${l.lastSeen ?? "?"})`),
     });
@@ -679,7 +687,7 @@ function buildIssues(
       severity: "medium",
       title: "Domains in the same subnet",
       detail:
-        "Several referring domains share a single /24 IP range. That is the usual trace of a private blog network or a single host — worth checking by hand.",
+        "Several sampled domains resolve to a shared /24 range. Shared hosting does not establish common ownership or a link network; inspect other evidence.",
       count: crowded.reduce((sum, [, count]) => sum + count, 0),
       samples: crowded
         .slice(0, 5)
@@ -694,7 +702,7 @@ function buildIssues(
       severity: "low",
       title: "Many reciprocal links",
       detail:
-        "More than a third of referring domains get a link back from you. Large-scale link exchange is devalued by search engines.",
+        "More than a third of sampled current referring domains also have a fetched outbound link. Reciprocity alone does not establish a link scheme or ranking effect.",
       count: reciprocal.length,
       samples: reciprocal.slice(0, 5).map((d) => d.domain),
     });
@@ -732,7 +740,7 @@ function buildIssues(
       severity: "medium",
       title: "No top-10 positions",
       detail:
-        "For keywords taken from the page and its anchors, the target does not appear in organic results. Content backlinks and on-page fixes (title, H1) are the fastest route to visibility.",
+        "For keywords taken from the page and its anchors, the target does not appear in organic results. Check measurement coverage before proposing changes; no particular intervention or ranking outcome is established.",
       count: keywordCount,
       samples: [],
     });
@@ -821,7 +829,8 @@ function buildHealth(
   });
 
   const topShare = anchors[0]?.share ?? 0;
-  const diversityPart = Math.round(Math.max(0, Math.min(1, (100 - topShare) / 70)) * 8);
+  const diversityPart =
+    total > 0 ? Math.round(Math.max(0, Math.min(1, (100 - topShare) / 70)) * 8) : 0;
   parts.push({
     key: "anchors",
     label: "Anchor diversity",
@@ -831,16 +840,21 @@ function buildHealth(
   });
 
   const spamDomains = domains.filter((d) => d.spamScore >= 55).length;
-  const riskPart = Math.max(
-    0,
-    6 - spamDomains * 2 - issues.filter((i) => i.severity === "high").length,
-  );
+  const riskPart =
+    domains.length > 0
+      ? Math.max(0, 6 - spamDomains * 2 - issues.filter((i) => i.severity === "high").length)
+      : 0;
   parts.push({
     key: "risk",
     label: "Profile safety",
     score: riskPart,
     max: 6,
-    hint: spamDomains > 0 ? `${plural(spamDomains, "risky domain")}` : "No spam signals",
+    hint:
+      domains.length === 0
+        ? "Unknown: no current verified referring domains"
+        : spamDomains > 0
+          ? `${plural(spamDomains, "risky domain")}`
+          : "No flags in this sampled profile; not a safety finding",
   });
 
   const vis = extras.visibility ?? 0;

@@ -3,9 +3,11 @@ import { Badge } from "@/components/ui/badge";
 import { ANCHOR_LABEL, FLAG_LABEL, PLACEMENT_LABEL, SOURCE_LABEL } from "@/components/scan/labels";
 import { Meter } from "@/components/scan/ui-primitives";
 import { relLabel, relVariant } from "@/components/scan/utils";
+import { isCurrentBacklink } from "@/lib/backlinks/link-state";
 import type { Backlink } from "@/lib/backlinks/types";
 
 export function BacklinkRow({ item, isNew }: { item: Backlink; isNew: boolean }) {
+  const current = isCurrentBacklink(item);
   return (
     <article className="grid gap-3 border-b border-border py-4 last:border-b-0 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_auto] md:items-start">
       <div className="min-w-0">
@@ -21,9 +23,13 @@ export function BacklinkRow({ item, isNew }: { item: Backlink; isNew: boolean })
         <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs text-muted">
           <span className="truncate">{item.sourceHost}</span>
           <span className="text-subtle">·</span>
-          <span title="Domain score (0–100)">DS {item.domainScore}</span>
+          <span title="Uncalibrated domain ordering heuristic">
+            DS {current ? item.domainScore : "unknown"}
+          </span>
           <span className="text-subtle">·</span>
-          <span title="Topical relevance (0–100)">TM {item.relevance}</span>
+          <span title="Estimated text similarity (0–100)">
+            TM {current ? item.relevance : "unknown"}
+          </span>
           {item.domainFirstArchivedAt ? (
             <>
               <span className="text-subtle">·</span>
@@ -41,8 +47,8 @@ export function BacklinkRow({ item, isNew }: { item: Backlink; isNew: boolean })
         </p>
         <div className="mt-2 max-w-[220px]">
           <Meter
-            value={item.domainScore}
-            tone={item.spamScore >= 55 ? "risk" : item.domainScore >= 70 ? "good" : "default"}
+            value={current ? item.domainScore : 0}
+            tone={current && item.spamScore >= 55 ? "risk" : "default"}
           />
         </div>
       </div>
@@ -64,7 +70,9 @@ export function BacklinkRow({ item, isNew }: { item: Backlink; isNew: boolean })
       <div className="flex flex-wrap items-center gap-2 md:justify-end">
         {isNew ? <Badge variant="accent">new</Badge> : null}
         {item.state === "lost" ? (
-          <Badge variant="nofollow">lost{item.lastSeen ? ` · ${item.lastSeen}` : ""}</Badge>
+          <Badge variant="nofollow">
+            archive candidate{item.lastSeen ? ` · ${item.lastSeen}` : ""}
+          </Badge>
         ) : (
           <Badge variant={relVariant(item)}>{relLabel(item.rel)}</Badge>
         )}
