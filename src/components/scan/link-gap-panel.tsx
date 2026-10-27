@@ -84,7 +84,7 @@ export function LinkGapPanel({ host }: { host: string }) {
                   <p className="mt-2 text-xs text-nofollow">{competitor.error}</p>
                 ) : (
                   <p className="mt-2 font-mono text-xs text-muted">
-                    DR {competitor.domainRating} · {competitor.referringDomains} domains ·{" "}
+                    sample index {competitor.domainRating} · {competitor.referringDomains} domains ·{" "}
                     {competitor.backlinks} links
                   </p>
                 )}

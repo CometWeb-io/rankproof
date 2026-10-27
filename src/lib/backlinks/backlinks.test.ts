@@ -637,7 +637,8 @@ test("collectKeywords takes titles, H1s and exact-match anchors", async () => {
   assert.equal(blockedOnly.visibility, 100, "blocked keywords must not dilute visibility");
 
   const stats = buildKeywordStats(seeds.slice(0, 3), [], []);
-  assert.ok(stats[0]!.opportunity >= 20);
+  assert.equal(stats[0]!.opportunity, 0);
+  assert.equal(stats[0]!.measurementStatus, "unmeasured");
 });
 
 test("SERP parsers extract organic positions and the target", async () => {
@@ -773,6 +774,7 @@ test("rank moves distinguish gains, drops, new and lost keywords", async () => {
       query({ keyword: "awans", targetPosition: 3 }),
       query({ keyword: "spadek", targetPosition: 9 }),
       query({ keyword: "nowa", targetPosition: 7 }),
+      query({ keyword: "znikla", targetPosition: null, status: "no-results" }),
     ],
     [
       { keyword: "awans", engine: "bing", position: 8 },
@@ -1130,7 +1132,8 @@ test("footprint detects subnet and anchor concentration", async () => {
   );
   const risky = buildFootprint(clustered, [], [{ key: "exact-match", share: 40 }]);
   assert.equal(risky.topSubnetShare, 100);
-  assert.equal(risky.verdict, "high");
+  assert.equal(risky.verdict, "inconclusive", "follow observations were not supplied");
+  assert.ok(risky.score >= 55, "observed concentration cues remain available");
   assert.ok(risky.reasons.length >= 3);
 
   const clean = buildFootprint(
@@ -1141,11 +1144,11 @@ test("footprint detects subnet and anchor concentration", async () => {
     [],
     [{ key: "exact-match", share: 5 }],
   );
-  assert.equal(clean.verdict, "low");
+  assert.equal(clean.verdict, "inconclusive", "missing features cannot prove low risk");
   assert.ok(clean.score < risky.score);
 });
 
-test("the visibility index sums to 100 and names the weakest component", async () => {
+test("the scorecard retains a 100-point budget without crediting unavailable components", async () => {
   const { buildScorecard, buildFootprint } = await import("./scorecard.ts");
   const footprint = buildFootprint([], [], []);
   const card = buildScorecard({
@@ -1175,8 +1178,14 @@ test("the visibility index sums to 100 and names the weakest component", async (
     card.parts.reduce((sum, part) => sum + part.score, 0),
   );
   assert.ok(card.parts.every((part) => part.score <= part.max));
-  // On-page 30/100 is the weakest part of this profile.
-  assert.equal(card.weakest, "On-page and structure");
+  assert.equal(
+    card.coverage.availableMax,
+    11,
+    "only landing-page and velocity inputs were supplied",
+  );
+  assert.equal(card.status, "inconclusive");
+  assert.equal(card.parts.find((part) => part.key === "risk")!.score, 0);
+  assert.match(card.weakest, /Unknown/);
   assert.ok(["A", "B", "C", "D", "E"].includes(card.grade));
 });
 
@@ -1973,7 +1982,7 @@ test("Google provider adapter parses OpenSERP-style JSON", async () => {
             { url: "https://b.example/y", title: "B", description: "two" },
           ],
         }),
-        { status: 200 },
+        { status: 200, headers: { "content-type": "application/json" } },
       )) as typeof fetch,
   });
   assert.equal(hits.length, 2);

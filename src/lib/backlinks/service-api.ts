@@ -88,6 +88,8 @@ export function scanOptionsFromBody(body: Record<string, unknown>): ScanOptions 
       ? Math.min(Math.max(Math.round(body.budgetMs), 8_000), 300_000)
       : undefined;
   return {
+    includeWebmaster: false,
+    profile: "quick",
     mode: pick(body.mode, ["full", "light"] as const),
     budgetMs: budget,
     market: pick(body.market, MARKETS),

@@ -37,6 +37,12 @@ jobs:
       - name: Tests
         run: npm test
 
+      - name: Agent contracts are current
+        run: npm run agent:contract -- --check
+
+      - name: Python SDK contract tests
+        run: PYTHONPATH=sdk/python python3 -m unittest discover -s sdk/python/tests -v
+
       - name: Build
         run: npm run build
 
@@ -71,3 +77,4 @@ jobs:
           npm install ./rankproof-*.tgz
           ./node_modules/.bin/rankproof version
           ./node_modules/.bin/rankproof help > /dev/null
+          node --input-type=module -e 'import { RankProofClient } from "rankproof/client"; if (typeof RankProofClient !== "function") process.exit(1)'

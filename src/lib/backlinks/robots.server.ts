@@ -38,21 +38,23 @@ export const ALLOW_ALL: RobotsRules = {
  * specific agent that applies: our own name wins over `*`.
  */
 export function parseRobots(text: string, agent = "rankproof"): RobotsRules {
-  const rules: RobotsRules = {
-    disallow: [],
-    allow: [],
-    crawlDelay: null,
-    sitemaps: [],
-    missing: false,
+  type Group = {
+    agents: string[];
+    allow: string[];
+    disallow: string[];
+    crawlDelay: number | null;
   };
-  const wildcard: RobotsRules = { ...ALLOW_ALL, disallow: [], allow: [], missing: false };
-
-  let currentAgents: string[] = [];
+  const groups: Group[] = [];
+  const sitemaps: string[] = [];
+  let group: Group | null = null;
   let sawDirective = false;
-  let sawNamedGroup = false;
-  const lower = agent.toLowerCase();
+  const productToken = agent.toLowerCase();
 
-  for (const rawLine of text.split(/\r?\n/).slice(0, 3000)) {
+  // UTF-8 BOM is allowed at the beginning of a robots.txt file.
+  const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/);
+  // Unread rules cannot establish permission to crawl.
+  if (lines.length > 3000) return { ...ALLOW_ALL, missing: false, disallow: ["/"] };
+  for (const rawLine of lines) {
     const line = rawLine.replace(/#.*$/, "").trim();
     if (!line) continue;
     const separator = line.indexOf(":");
@@ -61,47 +63,58 @@ export function parseRobots(text: string, agent = "rankproof"): RobotsRules {
     const value = line.slice(separator + 1).trim();
 
     if (field === "sitemap") {
-      if (value) rules.sitemaps.push(value);
+      if (value) sitemaps.push(value);
       continue;
     }
     if (field === "user-agent") {
-      // A new agent block starts only after directives, not between agents.
-      if (sawDirective) {
-        currentAgents = [];
+      if (!group || sawDirective) {
+        group = { agents: [], allow: [], disallow: [], crawlDelay: null };
+        groups.push(group);
         sawDirective = false;
       }
-      currentAgents.push(value.toLowerCase());
+      if (value) group.agents.push(value.toLowerCase());
       continue;
     }
-
+    if (!group) continue;
     sawDirective = true;
-    const targets: RobotsRules[] = [];
-    // Token matching, not substring matching. `lower.includes(item)` treated a
-    // group written for "a", "pro", "rank" or "roof" as if it addressed us.
-    // RFC 9309 matches on a prefix of the product token, so require that.
-    if (currentAgents.some((item) => item !== "*" && item !== "" && lower.startsWith(item))) {
-      targets.push(rules);
-      sawNamedGroup = true;
-    }
-    if (currentAgents.includes("*")) targets.push(wildcard);
-    if (targets.length === 0) continue;
-
-    for (const target of targets) {
-      if (field === "disallow") {
-        if (value) target.disallow.push(value);
-      } else if (field === "allow") {
-        if (value) target.allow.push(value);
-      } else if (field === "crawl-delay") {
-        const delay = Number(value.replace(",", "."));
-        if (Number.isFinite(delay) && delay >= 0) target.crawlDelay = Math.min(30, delay);
+    if (field === "allow" && value) group.allow.push(value);
+    if (field === "disallow" && value) group.disallow.push(value);
+    if (field === "crawl-delay") {
+      const delay = Number(value.replace(",", "."));
+      if (Number.isFinite(delay) && delay >= 0) {
+        group.crawlDelay = Math.min(30, delay);
       }
     }
   }
 
-  // A group addressed to us wins even when it produced no rules: `Disallow:`
-  // with an empty value is how a site says "fetch anything".
-  const chosen = sawNamedGroup ? rules : { ...wildcard, sitemaps: rules.sitemaps };
-  return { ...chosen, sitemaps: rules.sitemaps, missing: false };
+  // RFC 9309 merges rules from applicable groups, not rules belonging to
+  // shorter-prefix agents or the wildcard group when a specific one matches.
+  const matching: { group: Group; specificity: number }[] = [];
+  for (const candidate of groups) {
+    let specificity = 0;
+    for (const name of candidate.agents) {
+      if (name !== "*" && productToken.startsWith(name)) {
+        specificity = Math.max(specificity, name.length);
+      }
+    }
+    matching.push({ group: candidate, specificity });
+  }
+  const specificity = Math.max(0, ...matching.map((item) => item.specificity));
+  const chosen =
+    specificity > 0
+      ? matching.filter((item) => item.specificity === specificity)
+      : matching.filter((item) => item.group.agents.includes("*"));
+  const combined: RobotsRules = {
+    allow: chosen.flatMap((item) => item.group.allow),
+    disallow: chosen.flatMap((item) => item.group.disallow),
+    crawlDelay: chosen.reduce<number | null>((delay, item) => {
+      const value = item.group.crawlDelay;
+      return value === null ? delay : Math.max(delay ?? 0, value);
+    }, null),
+    sitemaps,
+    missing: false,
+  };
+  return combined;
 }
 
 function matches(path: string, prefix: string): boolean {
@@ -144,6 +157,7 @@ const CACHE = new Map<string, CacheEntry>();
 /** Successful fetches are cheap to keep; a back-off must not outlive the incident. */
 const CACHE_TTL_MS = 30 * 60_000;
 const ERROR_TTL_MS = 5 * 60_000;
+const MAX_ROBOTS_CACHE_ENTRIES = 512;
 
 /**
  * Fetches and caches robots.txt per origin. Entries expire: `scripts/serve-api.mjs`
@@ -162,27 +176,42 @@ export async function robotsFor(
   let rules = ALLOW_ALL;
   let ttl = CACHE_TTL_MS;
   try {
-    const { fetchText } = await import("./net.server.ts");
-    const { status, text } = await fetchText(`${origin}/robots.txt`, {
+    const { fetchText, API_UA } = await import("./net.server.ts");
+    const { status, text, truncated } = await fetchText(`${origin}/robots.txt`, {
       timeoutMs: budget.timeout(4000),
       maxBytes: 120_000,
       signal: budget.signal,
+      ua: API_UA,
       // robots.txt itself is always fetchable; skipping the guard here would
       // be circular.
       skipRobots: true,
     });
-    // 4xx means "no rules"; 5xx means the host is unhappy — back off politely.
-    if (status >= 200 && status < 300 && text.trim()) rules = parseRobots(text, agent);
-    else if (status >= 500) {
+    // A 200 HTML anti-bot challenge or a partially downloaded robots file
+    // is not proof that all paths are permitted.
+    const appearsHtml = /<\s*(?:!doctype\s+html|html|head|body|form|script)\b/i.test(
+      text.slice(0, 2_048),
+    );
+    if (truncated || appearsHtml || (status >= 300 && status < 400)) {
+      rules = { ...ALLOW_ALL, missing: false, disallow: ["/"] };
+      ttl = ERROR_TTL_MS;
+    } else if (status >= 200 && status < 300 && text.trim()) {
+      rules = parseRobots(text, agent);
+    } else if (status === 429 || status >= 500) {
       rules = { ...ALLOW_ALL, missing: false, disallow: ["/"] };
       ttl = ERROR_TTL_MS;
     }
   } catch {
-    rules = ALLOW_ALL;
+    // RFC 9309: unreachable robots.txt is not the same as a missing 404.
+    // A network/TLS/timeout failure must not grant crawl permission.
+    rules = { ...ALLOW_ALL, missing: false, disallow: ["/"] };
     ttl = ERROR_TTL_MS;
   }
 
   CACHE.set(key, { rules, until: Date.now() + ttl });
+  if (CACHE.size > MAX_ROBOTS_CACHE_ENTRIES) {
+    const oldest = CACHE.keys().next().value;
+    if (oldest) CACHE.delete(oldest);
+  }
   return rules;
 }
 

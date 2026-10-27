@@ -6,7 +6,7 @@ A standalone JSON server, independent of the web application.
 npm run api -- --port 8787 --host 127.0.0.1
 ```
 
-**By default it listens on `127.0.0.1` only.** These endpoints query other people's servers, and — if you have connected Search Console — they expose your own performance data. Exposing them publicly without a reverse proxy and authentication means anyone can use your machine as a proxy and read your analytics. See [`SECURITY.md`](../SECURITY.md).
+**By default it listens on `127.0.0.1` only.** These endpoints query other people's servers. Public binding requires a service token and pinned DNS; public scans always disable operator GSC/Bing credentials and use the bounded quick profile. Protect the crawling budget with authentication and rate limits. See [`SECURITY.md`](../SECURITY.md).
 
 ## Authentication
 
@@ -74,6 +74,18 @@ Accepts 1–50 pairs. Both URLs must be absolute public HTTP(S) URLs, at most 20
 - `confirmed`: a real HTML anchor has the exact requested target URL. Fragments are ignored; scheme, host, path, trailing slash and query remain significant. `www`, subdomains, tracking parameters and redirect-wrapper URLs are not collapsed. Relative anchors resolve against the final source URL and the document's first HTML `base` URL.
 - `not_found`: a successfully read HTML document has no matching anchor, or the source returns `404`/`410`. This establishes absence in fetched HTML only. It does not establish absence from a JavaScript-rendered page or prove when a link disappeared.
 - `error`: blocked URL/robots, DNS or network failure, timeout, HTTP failure other than `404`/`410`, challenge, non-HTML, empty, oversized, incomplete/unparseable or script-only page. Errors never establish link loss. `reason` explains the observation; `http_status` and `final_url` are `null` when no final response was obtained.
+
+HTML measurement supports UTF-8 text, including its decoder aliases and BOM.
+This admission policy is versioned as `html-anchor-v5`; earlier observations
+retain their original extractor version and cannot establish a cross-version
+relationship change. API schema `1` and its fields remain unchanged.
+Malformed UTF-8, NUL-bearing text, and unsupported HTTP, HTML meta or XHTML XML
+encoding declarations remain unavailable observations. The transport does not
+guess legacy character encodings or replace malformed bytes before evaluating
+links. A supported HTTP UTF-8 declaration takes precedence over HTML meta.
+Percent-encoded URLs and Unicode URL identity remain unchanged. A readable
+404/410 can establish `http_resource` absence independently of HTML admission;
+an unreadable response remains an error.
 
 `anchor` is bounded plain text (up to 160 characters). `rel` contains the anchor's actual tokens (up to 512 characters), with an empty string for no attribute; both fields are `null` unless confirmed. All result fields are present. `checked_at` is an ISO UTC observation timestamp. Item errors are returned inside an HTTP `200` batch response, so clients must inspect each status.
 

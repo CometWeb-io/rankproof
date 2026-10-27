@@ -2,6 +2,12 @@ import { ArrowUpRight, Fingerprint, Gauge, ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { BrandSerp, FootprintRisk, Scorecard } from "@/lib/backlinks/types";
+import {
+  FOOTPRINT_METHOD_VERSION,
+  footprintLabel,
+  qualifiedScorecard,
+  scorecardLabel,
+} from "@/lib/backlinks/scorecard";
 
 function Meter({
   value,
@@ -12,7 +18,7 @@ function Meter({
   max?: number;
   tone?: "default" | "risk" | "good";
 }) {
-  const width = Math.max(2, Math.min(100, Math.round((value / max) * 100)));
+  const width = max > 0 ? Math.max(0, Math.min(100, Math.round((value / max) * 100))) : 0;
   return (
     <span className="block h-1.5 w-full overflow-hidden rounded-full bg-surface-3">
       <span
@@ -29,32 +35,43 @@ function Meter({
 }
 
 /**
- * The headline visibility index — one number tying together links, SERP,
- * page readiness, risk and momentum, broken down into its components.
+ * Uncalibrated sample points with explicit availability for every component.
  */
 export function ScorecardPanel({ card }: { card: Scorecard }) {
+  const qualified = qualifiedScorecard(card);
   return (
     <div className="rounded-xl border border-border bg-surface p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Gauge className="size-4 text-fg-soft" />
           <div>
-            <p className="text-sm font-medium text-fg">RankProof visibility index</p>
+            <p className="text-sm font-medium text-fg">
+              RankProof sample heuristic{qualified && card.provisional ? " · partial" : ""}
+            </p>
             <p className="mt-1 text-xs text-muted">
-              Weakest component: <span className="text-fg-soft">{card.weakest}</span>
+              {scorecardLabel(card)}. Weights are uncalibrated; coverage is input availability, not
+              confidence or a probability.
+              {qualified ? (
+                <>
+                  {" "}
+                  Weakest fully available component:{" "}
+                  <span className="text-fg-soft">{card.weakest}</span>
+                </>
+              ) : null}
             </p>
           </div>
         </div>
         <p className="font-mono text-3xl tabular-nums text-fg">
-          {card.index}
-          <span className="ml-2 text-sm text-muted">/ 100 · {card.grade}</span>
+          {qualified && card.status !== "unknown" ? card.index : "Unknown"}
+          {qualified && card.status !== "unknown" ? (
+            <span className="ml-2 text-sm text-muted">
+              / 100{card.status === "estimated" ? ` · ${card.grade}` : " · partial"}
+            </span>
+          ) : null}
         </p>
       </div>
       <div className="mt-3">
-        <Meter
-          value={card.index}
-          tone={card.index >= 65 ? "good" : card.index < 40 ? "risk" : "default"}
-        />
+        {qualified && card.status !== "unknown" ? <Meter value={card.index} /> : null}
       </div>
       <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {card.parts.map((part) => (
@@ -62,23 +79,33 @@ export function ScorecardPanel({ card }: { card: Scorecard }) {
             <div className="flex items-baseline justify-between gap-2">
               <span className="text-sm text-fg-soft">{part.label}</span>
               <span className="font-mono text-xs tabular-nums text-muted">
-                {part.score}/{part.max}
+                {qualified && part.availableMax > 0
+                  ? `${part.score}/${part.max} · ${part.status}`
+                  : "Unknown"}
               </span>
             </div>
             <div className="mt-2">
-              <Meter
-                value={part.score}
-                max={part.max}
-                tone={
-                  part.score / part.max > 0.66
-                    ? "good"
-                    : part.score / part.max < 0.34
-                      ? "risk"
-                      : "default"
-                }
-              />
+              {qualified && part.availableMax > 0 ? (
+                <Meter
+                  value={part.score}
+                  max={part.max}
+                  tone={
+                    part.status !== "estimated"
+                      ? "default"
+                      : part.score / part.max > 0.66
+                        ? "good"
+                        : part.score / part.max < 0.34
+                          ? "risk"
+                          : "default"
+                  }
+                />
+              ) : null}
             </div>
-            <p className="mt-2 text-xs text-subtle">{part.hint}</p>
+            <p className="mt-2 text-xs text-subtle">
+              {qualified
+                ? part.hint
+                : "Legacy score has no qualified evidence coverage; rescan before interpreting it."}
+            </p>
           </li>
         ))}
       </ul>
@@ -154,28 +181,29 @@ export function BrandSerpPanel({ brand }: { brand: BrandSerp }) {
   );
 }
 
-/** Patterns of an artificially built link profile. */
+/** Observed concentration patterns, without attributing cause or penalty risk. */
 export function FootprintPanel({ footprint }: { footprint: FootprintRisk }) {
+  const qualified = footprint.methodVersion === FOOTPRINT_METHOD_VERSION && !!footprint.coverage;
   const metrics = [
     {
       label: "Largest /24 subnet",
       value: footprint.topSubnetShare,
-      risky: footprint.topSubnetShare >= 30,
+      risky: footprint.topSubnetShare !== null && footprint.topSubnetShare >= 30,
     },
     {
       label: "Sitewide domains",
       value: footprint.sitewideShare,
-      risky: footprint.sitewideShare >= 25,
+      risky: footprint.sitewideShare !== null && footprint.sitewideShare >= 25,
     },
     {
       label: "Exact-match anchors",
       value: footprint.exactAnchorShare,
-      risky: footprint.exactAnchorShare > 12,
+      risky: footprint.exactAnchorShare !== null && footprint.exactAnchorShare > 12,
     },
     {
       label: "Subnet diversity",
       value: footprint.subnetDiversity,
-      risky: footprint.subnetDiversity < 50,
+      risky: footprint.subnetDiversity !== null && footprint.subnetDiversity < 50,
     },
   ];
 
@@ -189,37 +217,45 @@ export function FootprintPanel({ footprint }: { footprint: FootprintRisk }) {
         <div className="flex items-center gap-2">
           <Badge
             variant={
-              footprint.verdict === "high"
+              qualified && footprint.status === "estimated" && footprint.verdict === "high"
                 ? "nofollow"
-                : footprint.verdict === "low"
-                  ? "follow"
-                  : "default"
+                : "default"
             }
           >
-            risk {footprint.verdict}
+            {qualified ? footprint.status : "unknown"}
           </Badge>
-          <span className="font-mono text-xl tabular-nums text-fg">{footprint.score}</span>
+          <span className="text-xs text-muted">{footprintLabel(footprint)}</span>
         </div>
       </div>
       <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted">
-        A natural profile is dispersed: different servers, different anchors, links inside content.
-        A repeating pattern signals that the links come from a single source.
+        Concentration cues in the observed current sample. Shared hosting or repeated anchors do not
+        establish artificial links, penalties or safety. Thresholds are uncalibrated review rules.
+        {qualified
+          ? ` Subnets observed for ${footprint.coverage.subnetDomains}/${footprint.coverage.domains} domains.`
+          : " Legacy coverage is unknown; rescan."}
       </p>
       <ul className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {metrics.map((metric) => (
           <li key={metric.label} className="rounded-lg border border-border p-3">
             <div className="flex items-baseline justify-between gap-2">
               <span className="text-xs text-fg-soft">{metric.label}</span>
-              <span className="font-mono text-xs tabular-nums text-muted">{metric.value}%</span>
+              <span className="font-mono text-xs tabular-nums text-muted">
+                {qualified && metric.value !== null ? `${metric.value}%` : "Unknown"}
+              </span>
             </div>
             <div className="mt-2">
-              <Meter value={metric.value} tone={metric.risky ? "risk" : "good"} />
+              {qualified && metric.value !== null ? (
+                <Meter value={metric.value} tone={metric.risky ? "risk" : "default"} />
+              ) : null}
             </div>
           </li>
         ))}
       </ul>
       <ul className="mt-3 flex flex-col gap-1">
-        {footprint.reasons.map((reason) => (
+        {(qualified
+          ? footprint.reasons
+          : ["Legacy report has no qualified footprint coverage."]
+        ).map((reason) => (
           <li key={reason} className="text-xs text-subtle">
             · {reason}
           </li>

@@ -7,24 +7,29 @@ import type {
   SerpFeature,
   SerpHit,
   SerpQuery,
+  SerpStatus,
 } from "./types.ts";
 
 /* ------------------------------------------------------------------ */
 /* CTR i szacowany ruch                                                */
 /* ------------------------------------------------------------------ */
 
-/**
- * An averaged CTR curve for organic positions 1–20 (as percentages).
- * Source: public SERP click-through studies — good enough as a proxy,
- * because we care about the ordering of opportunities, not absolute traffic.
- */
+/** Fixed, uncalibrated CTR model (%), not measured clicks or a traffic forecast. */
 const CTR_CURVE = [
   27.6, 15.8, 11.0, 8.4, 6.3, 4.9, 3.9, 3.3, 2.7, 2.4, 1.8, 1.6, 1.4, 1.2, 1.1, 1.0, 0.9, 0.8, 0.7,
   0.6,
 ];
 
+export function isValidPosition(position: number | null): position is number {
+  return position !== null && Number.isInteger(position) && position >= 1;
+}
+
+export function isMeasuredSerp(query: { status: SerpStatus }): boolean {
+  return query.status === "ok" || query.status === "no-results";
+}
+
 export function positionCtr(position: number | null): number {
-  if (position === null || position < 1) return 0;
+  if (!isValidPosition(position)) return 0;
   return CTR_CURVE[position - 1] ?? 0.4;
 }
 
@@ -139,6 +144,7 @@ export function buildSerpCompetitors(
   options: { linkingDomains?: Set<string>; limit?: number } = {},
 ): SerpCompetitor[] {
   const acc = new Map<string, CompetitorAcc>();
+  queries = queries.filter(isMeasuredSerp);
   const keywordCount = new Set(queries.map((q) => q.keyword)).size || 1;
   let totalVoice = 0;
 
@@ -236,22 +242,32 @@ export function detectCannibalization(queries: SerpQuery[]): Cannibalization[] {
 /* Position changes between scans                                       */
 /* ------------------------------------------------------------------ */
 
-export type PositionRow = { keyword: string; engine: string; position: number | null };
+export type PositionRow = {
+  keyword: string;
+  engine: string;
+  position: number | null;
+  market?: string;
+  device?: string;
+  depth?: number;
+  status?: string;
+};
 
 /** Compares current positions against stored ones — gains and drops. */
 export function buildRankMoves(queries: SerpQuery[], previous: PositionRow[]): RankMove[] {
-  const before = new Map<string, number | null>();
+  const before = new Map<string, PositionRow>();
   for (const row of previous) {
-    before.set(`${row.engine}|${row.keyword}`, row.position);
+    before.set(`${row.engine}|${row.keyword}`, row);
   }
   const out: RankMove[] = [];
-  const seen = new Set<string>();
-
   for (const query of queries) {
     const key = `${query.engine}|${query.keyword}`;
-    seen.add(key);
+    if (
+      !isMeasuredSerp(query) ||
+      (query.targetPosition !== null && !isValidPosition(query.targetPosition))
+    )
+      continue;
     if (!before.has(key)) {
-      if (query.targetPosition === null) continue;
+      if (!isValidPosition(query.targetPosition)) continue;
       out.push({
         keyword: query.keyword,
         engine: query.engine,
@@ -262,7 +278,16 @@ export function buildRankMoves(queries: SerpQuery[], previous: PositionRow[]): R
       });
       continue;
     }
-    const prev = before.get(key) ?? null;
+    const prior = before.get(key)!;
+    if (
+      (prior.market !== undefined && prior.market !== query.market) ||
+      (prior.device !== undefined && prior.device !== query.device) ||
+      (prior.depth !== undefined && prior.depth !== query.depth) ||
+      (prior.status !== undefined && prior.status !== "ok" && prior.status !== "no-results") ||
+      (prior.position !== null && !isValidPosition(prior.position))
+    )
+      continue;
+    const prev = prior.position;
     const current = query.targetPosition;
     if (prev === null && current === null) continue;
     if (prev === null) {
@@ -298,18 +323,7 @@ export function buildRankMoves(queries: SerpQuery[], previous: PositionRow[]): R
     });
   }
 
-  for (const [key, position] of before) {
-    if (seen.has(key) || position === null) continue;
-    const [engine, ...rest] = key.split("|");
-    out.push({
-      keyword: rest.join("|"),
-      engine: (engine ?? "bing") as RankMove["engine"],
-      previous: position,
-      current: null,
-      change: null,
-      state: "lost",
-    });
-  }
+  // An omitted query was not remeasured and cannot establish a ranking loss.
 
   const rank = (state: RankMove["state"]) =>
     state === "lost" ? 0 : state === "down" ? 1 : state === "up" ? 2 : state === "new" ? 3 : 4;
@@ -326,16 +340,24 @@ export function buildRankMoves(queries: SerpQuery[], previous: PositionRow[]): R
 export function serpAggregates(queries: SerpQuery[]): {
   avgPosition: number;
   trafficScore: number;
+  trafficScoreKind: "modeled_ctr_sum";
+  rankedKeywords: number;
 } {
   const best = new Map<string, { position: number; features: SerpFeature[] }>();
   for (const query of queries) {
-    if (query.targetPosition === null) continue;
+    if (!isMeasuredSerp(query) || !isValidPosition(query.targetPosition)) continue;
     const current = best.get(query.keyword);
     if (!current || query.targetPosition < current.position) {
       best.set(query.keyword, { position: query.targetPosition, features: query.features });
     }
   }
-  if (best.size === 0) return { avgPosition: 0, trafficScore: 0 };
+  if (best.size === 0)
+    return {
+      avgPosition: 0,
+      trafficScore: 0,
+      trafficScoreKind: "modeled_ctr_sum",
+      rankedKeywords: 0,
+    };
   const positions = [...best.values()].map((item) => item.position);
   const traffic = [...best.values()].reduce(
     (sum, item) => sum + adjustedCtr(item.position, item.features),
@@ -344,6 +366,8 @@ export function serpAggregates(queries: SerpQuery[]): {
   return {
     avgPosition: Math.round((positions.reduce((s, p) => s + p, 0) / positions.length) * 10) / 10,
     trafficScore: Math.round(traffic * 10) / 10,
+    trafficScoreKind: "modeled_ctr_sum",
+    rankedKeywords: best.size,
   };
 }
 

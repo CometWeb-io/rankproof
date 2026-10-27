@@ -1,3 +1,4 @@
+import { isMeasuredSerp } from "@/lib/backlinks/serp-intel";
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { KeyRound, Radar, Search } from "lucide-react";
@@ -178,8 +179,11 @@ export function CustomKeywordPanel({ host }: { host: string }) {
       {snapshot ? (
         <div className="mt-5 flex flex-col gap-3">
           <p className="font-mono text-xs text-muted">
-            visibility {snapshot.visibility}/100 · top 10: {snapshot.top10} · top 3: {snapshot.top3}{" "}
-            · traffic {snapshot.trafficScore} · avg {snapshot.avgPosition || "—"}
+            visibility{" "}
+            {snapshot.queries.some(isMeasuredSerp) ? `${snapshot.visibility}/100` : "not measured"}{" "}
+            · top 10: {snapshot.top10} · top 3: {snapshot.top3} · modeled CTR sum{" "}
+            {snapshot.queries.some(isMeasuredSerp) ? snapshot.trafficScore : "—"} · avg{" "}
+            {snapshot.avgPosition || "—"}
           </p>
           {keywords.map((row) => (
             <div
@@ -188,7 +192,11 @@ export function CustomKeywordPanel({ host }: { host: string }) {
             >
               <span className="text-sm text-fg">{row.keyword}</span>
               <span className="flex items-center gap-2 font-mono text-xs text-muted">
-                <Badge variant="accent">difficulty {row.difficulty}</Badge>
+                <Badge variant="accent">
+                  {row.measurementStatus === "unmeasured"
+                    ? "Not measured"
+                    : `difficulty ${row.difficulty}`}
+                </Badge>
                 {row.engines.map((e) => `${e.engine} ${posLabel(e.position)}`).join(" · ")}
               </span>
             </div>

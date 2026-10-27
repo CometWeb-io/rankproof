@@ -36,6 +36,7 @@ import {
 import { mergeTerms } from "./topic.ts";
 import { stripTags } from "./html.ts";
 import { auditOnPage } from "./onpage.ts";
+import { parseHtmlResponse } from "./evidence-response.ts";
 import { extractHeadings } from "./html.ts";
 import type { OnPageAudit, SiteSnapshot } from "./types.ts";
 
@@ -109,6 +110,7 @@ function collectOutbound(
   host: string,
   outbound: Candidate[],
   internal: string[],
+  via: "graph" | "archive" = "graph",
 ) {
   const anchors = html ? parseAnchors(html, baseUrl, { withPlacement: false }) : [];
   for (const a of anchors) {
@@ -124,7 +126,7 @@ function collectOutbound(
       continue;
     }
     if (isSkippableOutbound(a.href, h)) continue;
-    pushCandidate(outbound, { url: a.href, title: a.text || h, via: "graph" });
+    pushCandidate(outbound, { url: a.href, title: a.text || h, via });
   }
   for (const href of [...extractRelMe(html), ...extractJsonLdUrls(html)]) {
     let absolute = href;
@@ -135,7 +137,7 @@ function collectOutbound(
     }
     const h = hostFromUrl(absolute);
     if (!h || isTargetHost(h, host) || isSkippableOutbound(absolute, h)) continue;
-    pushCandidate(outbound, { url: absolute, title: h, via: "graph", boost: 1 });
+    pushCandidate(outbound, { url: absolute, title: h, via, boost: 1 });
   }
 }
 
@@ -262,9 +264,13 @@ export async function inspectTarget(host: string, budget: Budget): Promise<Targe
   for (const candidate of liveUrls) {
     try {
       const res = await fetchUsefulHtml(candidate, budget.timeout(9000), budget.signal, budget);
-      if (res.status >= 400 && !res.text) continue;
       liveUrl = normalizeUrl(res.finalUrl || candidate);
       liveStatus = res.status;
+      parseHtmlResponse({
+        ...res,
+        contentType: res.headers?.get("content-type") ?? "",
+        truncated: res.truncated === true,
+      });
       liveHtml = res.text;
       liveTitle = extractTitle(res.text);
       description = extractDescription(res.text);
@@ -324,7 +330,12 @@ export async function inspectTarget(host: string, budget: Budget): Promise<Targe
   for (const snapUrl of archiveTargets) {
     try {
       const snap = await fetchUsefulHtml(snapUrl, budget.timeout(13_000), budget.signal, budget);
-      if (snap.status < 400 && snap.text.length > 1200) {
+      parseHtmlResponse({
+        ...snap,
+        contentType: snap.headers?.get("content-type") ?? "",
+        truncated: snap.truncated === true,
+      });
+      if (snap.text.length > 1200) {
         archiveHtml = snap.text;
         archiveTitle = extractTitle(snap.text);
         pagesCrawled += 1;
@@ -344,7 +355,7 @@ export async function inspectTarget(host: string, budget: Budget): Promise<Targe
 
   if (liveHtml && !parked) collectOutbound(liveHtml, liveUrl, host, outbound, internalPool);
   if (archiveHtml) {
-    collectOutbound(archiveHtml, archiveUrl || liveUrl, host, outbound, internalPool);
+    collectOutbound(archiveHtml, archiveUrl || liveUrl, host, outbound, internalPool, "archive");
   }
 
   const [sitemapRes, cdxRes, ccRes, certRes] = await Promise.allSettled([
@@ -423,7 +434,12 @@ export async function inspectTarget(host: string, budget: Budget): Promise<Targe
     for (const url of urls.slice(0, 2)) {
       try {
         const res = await fetchUsefulHtml(url, budget.timeout(8000), budget.signal, budget);
-        if (res.status >= 400 || res.text.length < 800) continue;
+        parseHtmlResponse({
+          ...res,
+          contentType: res.headers?.get("content-type") ?? "",
+          truncated: res.truncated === true,
+        });
+        if (res.text.length < 800) continue;
         return { html: res.text, base: res.finalUrl || url };
       } catch {
         /* next url */
@@ -439,7 +455,14 @@ export async function inspectTarget(host: string, budget: Budget): Promise<Targe
   for (const page of internalFetches) {
     if (!page) continue;
     pagesCrawled += 1;
-    collectOutbound(page.html, page.base, host, outbound, internalPool);
+    collectOutbound(
+      page.html,
+      page.base,
+      host,
+      outbound,
+      internalPool,
+      hostFromUrl(page.base) === "web.archive.org" ? "archive" : "graph",
+    );
     textChunks.push(stripTags(page.html).slice(0, 12_000));
   }
 
@@ -519,20 +542,21 @@ export async function inspectTarget(host: string, budget: Budget): Promise<Targe
     h2: extractHeadings(pageHtml, "h2", 10),
   };
   const contentText = textChunks.join(" ").slice(0, 40_000);
-  const onPage = pageHtml
-    ? auditOnPage({
-        html: pageHtml,
-        url: liveUrl,
-        host,
-        https,
-        title,
-        description,
-        canonical,
-        robotsNoindex,
-        lang,
-        primaryKeyword: tokens[0] ?? sld(host),
-      })
-    : null;
+  const onPage =
+    liveHtml && !parked && liveStatus !== null && liveStatus >= 200 && liveStatus < 300
+      ? auditOnPage({
+          html: liveHtml,
+          url: liveUrl,
+          host,
+          https,
+          title: liveTitle,
+          description: extractDescription(liveHtml),
+          canonical: extractCanonical(liveHtml),
+          robotsNoindex: extractRobotsMeta(liveHtml).noindex,
+          lang: extractLang(liveHtml),
+          primaryKeyword: tokens[0] ?? sld(host),
+        })
+      : null;
 
   return {
     snapshot,

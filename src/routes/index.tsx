@@ -240,9 +240,10 @@ function Home() {
           Brave. Positions are a top-10 sample from those engines, not Google&rsquo;s full index —
           but every backlink shown here was confirmed in the source page. Connect Google Search
           Console and the report adds real clicks and Google positions alongside them. Scan history
-          (links, DR, visibility, keyword positions) stays in the database and in your browser, so
-          the next scan shows gains and drops. The visibility index is comparable between scans of
-          the same domain; it is not an equivalent of commercial metrics.
+          (link observations, sample indices, visibility, keyword positions) stays in the database
+          and in your browser, so the next scan shows gains and drops. The visibility index is
+          comparable between scans of the same domain; it is not an equivalent of commercial
+          metrics.
         </footer>
       </main>
     </>

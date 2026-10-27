@@ -9,7 +9,7 @@ import type {
 export const REASON_LABEL: Record<SerpProspect["reason"], string> = {
   "serp-coranker": "co-ranks, does not link",
   "unlinked-mention": "unlinked mention",
-  "lost-link": "lost link",
+  "lost-link": "archive candidate",
 };
 
 export const KEYWORD_SOURCE_LABEL: Record<KeywordStat["source"], string> = {

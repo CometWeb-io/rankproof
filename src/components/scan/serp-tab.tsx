@@ -1,3 +1,4 @@
+import { isMeasuredSerp } from "@/lib/backlinks/serp-intel";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CustomKeywordPanel } from "@/components/scan/custom-keyword-panel";
@@ -16,24 +17,37 @@ import type { ScanReport } from "@/lib/backlinks/types";
 
 export function SerpTab({ report }: { report: ScanReport }) {
   const { serp, stats } = report;
-  const avgDifficulty =
-    serp.queries.length > 0
-      ? Math.round(serp.queries.reduce((sum, q) => sum + q.difficulty, 0) / serp.queries.length)
-      : 0;
+  const measured = serp.queries.filter(isMeasuredSerp);
+  const avgDifficulty = measured.length
+    ? Math.round(measured.reduce((sum, q) => sum + q.difficulty, 0) / measured.length)
+    : 0;
 
   return (
     <div className="flex flex-col gap-4">
+      <p className="text-sm text-muted">
+        {measured.length}/{serp.queries.length} engine attempts measured. Blocked, failed and
+        unconfigured attempts cannot establish absence or zero visibility. CTR is modeled, not
+        measured traffic.
+      </p>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <div className="rounded-lg border border-border bg-surface p-4">
           <p className="text-xs font-medium tracking-wide text-muted uppercase">Visibility</p>
-          <p className="mt-2 font-mono text-3xl tabular-nums text-fg">{stats.serpVisibility}</p>
+          <p className="mt-2 font-mono text-3xl tabular-nums text-fg">
+            {measured.length ? stats.serpVisibility : "—"}
+          </p>
           <div className="mt-2">
-            <Meter value={stats.serpVisibility} tone="good" />
+            {measured.length ? (
+              <Meter value={stats.serpVisibility} tone="good" />
+            ) : (
+              <span className="text-xs text-muted">Not measured</span>
+            )}
           </div>
         </div>
         <div className="rounded-lg border border-border bg-surface p-4">
-          <p className="text-xs font-medium tracking-wide text-muted uppercase">Modelled traffic</p>
-          <p className="mt-2 font-mono text-3xl tabular-nums text-fg">{serp.trafficScore}</p>
+          <p className="text-xs font-medium tracking-wide text-muted uppercase">Modeled CTR sum</p>
+          <p className="mt-2 font-mono text-3xl tabular-nums text-fg">
+            {measured.length ? serp.trafficScore : "—"}
+          </p>
           <p className="mt-1 text-xs text-subtle">CTR sum from positions</p>
         </div>
         <div className="rounded-lg border border-border bg-surface p-4">
@@ -45,17 +59,23 @@ export function SerpTab({ report }: { report: ScanReport }) {
         <div className="rounded-lg border border-border bg-surface p-4">
           <p className="text-xs font-medium tracking-wide text-muted uppercase">TOP 3 / TOP 10</p>
           <p className="mt-2 font-mono text-3xl tabular-nums text-fg">
-            {serp.top3}
-            <span className="text-muted"> / {serp.top10}</span>
+            {measured.length ? serp.top3 : "—"}
+            <span className="text-muted"> / {measured.length ? serp.top10 : "—"}</span>
           </p>
         </div>
         <div className="rounded-lg border border-border bg-surface p-4">
           <p className="text-xs font-medium tracking-wide text-muted uppercase">
             Keyword difficulty
           </p>
-          <p className="mt-2 font-mono text-3xl tabular-nums text-fg">{avgDifficulty}</p>
+          <p className="mt-2 font-mono text-3xl tabular-nums text-fg">
+            {measured.length ? avgDifficulty : "—"}
+          </p>
           <div className="mt-2">
-            <Meter value={avgDifficulty} tone={difficultyTone(avgDifficulty)} />
+            {measured.length ? (
+              <Meter value={avgDifficulty} tone={difficultyTone(avgDifficulty)} />
+            ) : (
+              <span className="text-xs text-muted">Not measured</span>
+            )}
           </div>
         </div>
         <div className="rounded-lg border border-border bg-surface p-4">

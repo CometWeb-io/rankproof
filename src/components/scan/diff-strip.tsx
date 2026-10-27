@@ -10,8 +10,8 @@ export function DiffStrip({
   persisted,
 }: {
   diff: ScanDiff;
-  ratingDelta?: number;
-  visibilityDelta?: number;
+  ratingDelta?: number | null;
+  visibilityDelta?: number | null;
   persisted?: boolean;
 }) {
   const positive = diff.backlinkDelta >= 0;
@@ -26,7 +26,8 @@ export function DiffStrip({
         ) : (
           <TrendingDown className="size-4 text-nofollow" aria-hidden />
         )}
-        Change since {formatDate(diff.previousAt)}
+        {diff.basis === "discovery_sample" ? "Observed sample since " : "Change since "}
+        {formatDate(diff.previousAt)}
       </span>
       <span className="font-mono text-xs text-fg-soft">
         links {diff.backlinkDelta >= 0 ? "+" : ""}
@@ -36,19 +37,29 @@ export function DiffStrip({
         domains {diff.domainDelta >= 0 ? "+" : ""}
         {diff.domainDelta}
       </span>
-      <span className="font-mono text-xs text-follow">new {diff.newLinks}</span>
-      <span className="font-mono text-xs text-nofollow">lost {diff.lostLinks}</span>
-      <span className="font-mono text-xs text-muted">
-        health {diff.healthDelta >= 0 ? "+" : ""}
-        {diff.healthDelta}
+      <span className="font-mono text-xs text-follow">
+        {diff.basis ? "first observed" : "new"} {diff.newLinks}
       </span>
-      {ratingDelta !== undefined ? (
+      {diff.basis ? (
         <span className="font-mono text-xs text-muted">
-          DR {ratingDelta >= 0 ? "+" : ""}
+          not reobserved {diff.unobservedLinks}; loss unknown
+        </span>
+      ) : (
+        <span className="font-mono text-xs text-nofollow">lost {diff.lostLinks}</span>
+      )}
+      {diff.healthDelta !== null ? (
+        <span className="font-mono text-xs text-muted">
+          health {diff.healthDelta >= 0 ? "+" : ""}
+          {diff.healthDelta}
+        </span>
+      ) : null}
+      {ratingDelta != null ? (
+        <span className="font-mono text-xs text-muted">
+          sample index {ratingDelta >= 0 ? "+" : ""}
           {ratingDelta}
         </span>
       ) : null}
-      {visibilityDelta !== undefined ? (
+      {visibilityDelta != null ? (
         <span className="font-mono text-xs text-muted">
           SERP {visibilityDelta >= 0 ? "+" : ""}
           {visibilityDelta}

@@ -1,4 +1,8 @@
 node_modules/
+__pycache__/
+*.py[cod]
+sdk/python/*.egg-info/
+sdk/python/build/
 dist/
 .output/
 .nitro/
@@ -8,6 +12,9 @@ dist/
 .vercel/
 .cache/
 .rankproof/
+.rankproof-agent-history/
+.rankproof-calibration-receipts/
+.rankproof-monitor/
 *.log
 .env
 .env.local

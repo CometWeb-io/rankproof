@@ -6,11 +6,29 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semant
 
 ### Security
 
+- Web/API scans disable operator webmaster credentials and enforce a bounded quick profile. Private GSC/Bing performance requires explicit local `scan --webmaster` admission.
+- Public API binding requires authentication and pinned DNS; bounded HTTP/decompression, robots handling, cache privacy and scan admission retain explicit failures.
+- Reject local-use NAT64, deprecated IPv6 site-local, documentation and unallocated direct IPv6 destinations in the shared network guard.
+- Reject malformed UTF-8, NUL-bearing text and unsupported HTML encoding declarations before inferring link presence or absence; isolate older text caches under a new decoding-policy namespace.
 - Upgrade TanStack Start and its matching router to fix unauthenticated reflected XSS in server-function responses ([GHSA-qx66-fv34-fjm8](https://github.com/advisories/GHSA-qx66-fv34-fjm8)).
 - Upgrade Vite, Zod, `source-map-js` and the `fast-uri` override to patched versions. CI audits the complete dependency tree, including web dependencies listed under `devDependencies`.
 
 ### Added
 
+- Versioned measurement cohorts, immutable evidence exports and append-only Web ledger migrations, with explicit non-comparable deltas and relation chronology.
+- Vendored ICANN/private PSL with wildcard/exception semantics and exact URL identity kept separate from domain grouping.
+- Labelled synthetic backlink verification corpus, precision/recall intervals, coverage/freshness metadata and uncalibrated-model labels.
+- Versioned agent API, MCP stdio, TypeScript/Python clients, provider/data connector contracts and provenance-preserving dataset imports.
+- Technical graph capture, evidence-backed decision replay and observed/synthetic citation datasets.
+- Explicit private HTML capture and offline extraction replay, with sensitive-response omissions and bounded retained content.
+- Optional append-only SQLite agent history with restart-safe receipts and explicit capacity limits.
+- Frozen tuning/holdout calibration checks and measurement source-agreement/extraction-quality metadata; heuristic scores remain uncalibrated.
+- Optional isolated Chromium executor with pinned assets, deny-all container networking, guarded resource brokering and enforced CPU/RAM/request limits. Requires the separately provisioned qualified runtime; ordinary scans remain HTML-only.
+- Optional local leased verification queue, tenant/project boundaries, remediation records and measurement/cost telemetry.
+- Finite durable backlink monitoring with exact cohorts, restart-safe receipts, comparable HTML-absence alerts and explicitly authorized bounded relationship excerpts.
+- Origin-scoped technical graphs retain actual redirect/document identity, sitemap hashes, query-navigation evidence and complete per-URL repair exports through `graph --format csv`.
+- Controlled multi-process HTTP qualification with SIGKILL recovery, synchronized contention, shared request limits and explicit unknown monetary costs.
+- Offline `analyze`, `ledger` and `citations` CLI commands; explicit `quick`, `standard` and `deep` scan profiles.
 - **Versioned exact backlink verification:** `POST /v1/backlinks/verify` accepts up to 50 pairs and returns fresh, ordered `confirmed`, `not_found` or `error` observations with timestamps and anchor evidence. HTTP challenges, robots refusals, unsupported content and fetch failures do not count as missing links.
 - HTTP health now advertises contract capabilities, package version and optional `RANKPROOF_SERVICE_REVISION` for source-snapshot compatibility.
 - **Service token for the HTTP API.** With `RANKPROOF_API_TOKEN` set, every endpoint except `GET /health` requires `Authorization: Bearer <token>` and answers `401` otherwise — for running RankProof on a private port behind another service.
@@ -19,13 +37,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semant
 
 ### Changed
 
+- Search visibility remains nonnegative through position 20; blocked or omitted queries cannot become opportunities or lost rankings. GSC property totals are fetched independently of sampled query rows.
+- Missing reobservations remain unknown, archive candidates are labelled explicitly, and absent SERP measurements make the heuristic score provisional.
 - HTML anchor extraction v4 preserves equals signs in unquoted query values and decodes URL attribute entities once in shared parsing.
 
 - Exact HTML URL attributes use the full, case-sensitive runtime entity decoder; discovery revalidates source HTML rather than refreshing cached evidence timestamps.
 - Unknown acquisition remains unknown in the UI, CLI and HTML export; score comparability includes the actual scored subset and selection inputs.
 - Discovery separates provider reports from fetched-HTML confirmation, preserves overlapping source provenance and adds a versioned coverage/score/visibility manifest.
 - Exact source-target IDs preserve URL semantics and survive anchor edits. Legacy summary history without comparable manifests no longer emits new-report acquisition/loss or score deltas.
-- Source-domain archive age is separate from link observations; acquisition velocity remains unknown without dated cohorts. Rendered-DOM checking is deferred behind browser network/robots safety requirements.
+- Source-domain archive age is separate from link observations; acquisition velocity remains unknown without dated cohorts. Explicit rendered snapshots retain separate raw, fetched and DOM URL contexts and do not establish indexability or exhaustive absence.
 
 ## [8.1.0] — 2026-08-30
 

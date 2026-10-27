@@ -62,7 +62,7 @@ Put a reverse proxy (Caddy, nginx, Cloudflare Tunnel) in front with:
 - Authentication if exposed publicly (the scan endpoints accept URLs from callers)
 - Rate limiting on `/scan`, `/doctor`, and related POST routes
 
-Set `DATABASE_URL` for persistent scan history across restarts. Without it, embedded PGLite stores data locally inside the process working directory.
+Set `DATABASE_URL` for persistent scan history across restarts. Without it, embedded PGLite keeps history in process memory and resets on restart.
 
 ### Required environment
 
@@ -74,7 +74,7 @@ Set `DATABASE_URL` for persistent scan history across restarts. Without it, embe
 | `DATABASE_URL`         | Postgres connection string                          |
 | `RANKPROOF_USER_AGENT` | Include a contact URL site owners can reach         |
 
-Never expose `GOOGLE_OAUTH_*` or `BING_WEBMASTER_API_KEY` without treating the host as production.
+Keep `GOOGLE_OAUTH_*` and `BING_WEBMASTER_API_KEY` private. Only trusted local `scan --webmaster` uses them; API/Web scans disable operator credentials. A JSON report from that local command contains private data.
 
 ## HTTP API
 
@@ -82,7 +82,7 @@ Never expose `GOOGLE_OAUTH_*` or `BING_WEBMASTER_API_KEY` without treating the h
 RANKPROOF_RATE_LIMIT=20 npm run api -- --port 8787 --host 127.0.0.1
 ```
 
-Bind to loopback and proxy externally. See [`api.md`](api.md) for endpoints.
+Bind to loopback and proxy externally. Non-loopback binding requires `RANKPROOF_API_TOKEN` and `RANKPROOF_PIN_DNS=1` (production enables pinning by default); startup refuses unsafe settings. Public scans use the bounded quick profile. See [`api.md`](api.md) for endpoints.
 
 ## Disk cache
 
@@ -99,7 +99,7 @@ Repeat requests send `If-None-Match` and take `304` responses when sources uncha
 Scraping Google from RankProof is intentionally unsupported. For competitor Google positions, run a self-hosted JSON provider (e.g. [OpenSERP](https://openserp.org/docs/)) and set:
 
 ```bash
-export RANKPROOF_GOOGLE_PROVIDER_URL=http://127.0.0.1:7000
+export RANKPROOF_GOOGLE_PROVIDER_URL=https://serp-provider.example.com
 ```
 
 See [`providers.md`](providers.md).

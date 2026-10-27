@@ -3,9 +3,10 @@ import { createHash } from "node:crypto";
 import { DOMAIN_POLICY, URL_IDENTITY_POLICY } from "./parse.ts";
 import type { Backlink, DiscoverySource, SerpQuery } from "./types.ts";
 import type { DomainEdge } from "./graph.ts";
+import { isCurrentBacklink } from "./link-state.ts";
 
-export const EXTRACTION_VERSION = "html-anchor-v4";
-export const SCORE_VERSION = "local-graph-heuristic-v1";
+export const EXTRACTION_VERSION = "html-anchor-v5";
+export const SCORE_VERSION = "local-current-graph-heuristic-v2";
 export const sourceRevision = () => process.env.RANKPROOF_SERVICE_REVISION?.trim() || null;
 export const responseHash = (text: string) => createHash("sha256").update(text).digest("hex");
 
@@ -76,6 +77,8 @@ export function funnel(coverage: Coverage, source: string): SourceFunnel {
   });
 }
 
+export { measurementComparability } from "./measurement-comparison.ts";
+
 export type RunManifest = ReturnType<typeof buildRunManifest>;
 export function buildRunManifest(input: {
   startedAt: string;
@@ -90,6 +93,8 @@ export function buildRunManifest(input: {
   displayed: Backlink[];
   queries: SerpQuery[];
   visibilityCohort?: Pick<SerpQuery, "keyword" | "engine" | "market" | "device" | "depth">[];
+  graphPartitions?: { historical: DomainEdge[]; unverified: DomainEdge[] };
+  reported?: Backlink[];
 }) {
   const { observed, displayed, queries } = input;
   const graph = input.edges
@@ -101,12 +106,20 @@ export function buildRunManifest(input: {
   const requested = (input.visibilityCohort ?? queries).map(queryKey).sort();
   // Evidence timestamps change on recheck; every other row field can affect selection or analytics.
   const scoreInputs = (rows: Backlink[]) =>
-    rows.map(({ evidence: _evidence, ...signals }) => signals);
-  const scoredInputs = scoreInputs(observed)
+    rows.map(
+      ({
+        evidence: _evidence,
+        firstObserved: _firstObserved,
+        lastConfirmed: _lastConfirmed,
+        lastAttempted: _lastAttempted,
+        ...signals
+      }) => signals,
+    );
+  const scoredInputs = scoreInputs(observed.filter(isCurrentBacklink))
     .map((row) => JSON.stringify(row))
     .sort();
-  const displayedInputs = scoreInputs(displayed);
-  const domains = new Set(observed.filter((b) => b.state === "live").map((b) => b.sourceDomain));
+  const displayedInputs = scoreInputs(displayed.filter(isCurrentBacklink));
+  const domains = new Set(observed.filter(isCurrentBacklink).map((b) => b.sourceDomain));
   const displayedIds = new Set(displayed.map((b) => b.id));
   const coverage: Coverage = structuredClone(input.coverage);
   for (const b of observed) {
@@ -120,8 +133,27 @@ export function buildRunManifest(input: {
     maxVerify: input.maxVerify,
     maxBacklinks: input.maxBacklinks,
   };
+  const graphSummary = (edges: DomainEdge[]) => ({
+    nodes: new Set(edges.flatMap((edge) => [edge.from, edge.to])).size,
+    edges: edges.length,
+    signature: responseHash(
+      JSON.stringify(
+        edges.map(({ from, to, weight }) => JSON.stringify([from, to, weight])).sort(),
+      ),
+    ),
+  });
   return {
-    version: "measurement-v1",
+    version: "measurement-v2",
+    cohort: {
+      population: "verified_live_observations_v2",
+      key: responseHash(
+        JSON.stringify([policy, input.sources.map((source) => source.id).sort(), requested]),
+      ),
+      sources: input.sources.map((source) => source.id).sort(),
+      visibility: requested,
+      limitation:
+        "Discovery is an incomplete sample; missing rows require an explicit comparable recheck before a loss claim.",
+    },
     sourceRevision: sourceRevision(),
     extractionVersion: EXTRACTION_VERSION,
     identityPolicy: URL_IDENTITY_POLICY,
@@ -135,26 +167,41 @@ export function buildRunManifest(input: {
     observed: {
       pairs: observed.length,
       archivePairs: observed.filter((b) => b.state === "lost").length,
-      livePairs: observed.filter((b) => b.state === "live").length,
+      livePairs: observed.filter(isCurrentBacklink).length,
+      unverifiedPairs:
+        observed.filter((b) => b.state !== "lost" && !isCurrentBacklink(b)).length +
+        (input.reported?.length ?? 0),
       referringDomains: domains.size,
     },
     displayed: { pairs: displayed.length, omittedPairs: observed.length - displayed.length },
+    graphPartitions: {
+      live: graphSummary(input.edges),
+      historical: graphSummary(input.graphPartitions?.historical ?? []),
+      unverified: graphSummary(input.graphPartitions?.unverified ?? []),
+    },
     graph: {
+      scope: "live",
       nodes: new Set(input.edges.flatMap((e) => [e.from, e.to])).size,
       edges: graph.length,
       signature: responseHash(JSON.stringify(graph)),
     },
     scores: {
       version: SCORE_VERSION,
+      graphScope: "live",
+      unattributedCurrentPairs: observed.filter((b) => isCurrentBacklink(b) && !b.evidence).length,
+      interpretation:
+        "Uncalibrated ordering indices; legacy domainRating/urlRating names are not commercial ratings.",
       kind: "uncalibrated_run_relative_heuristic",
       components: [
-        "domain_tld_name_archive_age_page_count",
+        "domain_tld_name_archive_age_page_count_manual_trust_priors",
         "anchor_placement_risk_rules",
         "run_relative_pagerank",
         "follow_content_weights",
       ],
       missingArchiveDomains: new Set(
-        observed.filter((b) => !b.domainFirstArchivedAt).map((b) => b.sourceDomain),
+        observed
+          .filter((b) => isCurrentBacklink(b) && !b.domainFirstArchivedAt)
+          .map((b) => b.sourceDomain),
       ).size,
       comparisonKey: responseHash(
         JSON.stringify([policy, input.sources, graph, scoredInputs, displayedInputs]),
@@ -164,7 +211,7 @@ export function buildRunManifest(input: {
         "Coverage and graph composition change these scores. A score delta is not authority, Google value or backlink progress.",
     },
     visibility: {
-      method: "best-successful-engine-per-keyword-v1",
+      method: "best-successful-engine-per-keyword-v2",
       requested,
       successful: successful.map(queryKey).sort(),
       failed: Math.max(0, requested.length - successful.length),
@@ -176,28 +223,8 @@ export function buildRunManifest(input: {
     rendering: {
       enabled: false,
       reason:
-        "Deferred: no browser runtime with pinned DNS, redirect/subresource SSRF protection and robots enforcement. HTML absence does not establish rendered-page absence.",
+        "Automatic scans use fetched HTML only. The optional isolated renderer requires explicit qualified runtime configuration; HTML absence does not establish rendered-page absence.",
     },
-  };
-}
-
-export function measurementComparability(previous: RunManifest, current: RunManifest) {
-  const sameMethod =
-    previous.sourceRevision !== null &&
-    previous.sourceRevision === current.sourceRevision &&
-    previous.extractionVersion === current.extractionVersion &&
-    previous.identityPolicy === current.identityPolicy &&
-    previous.domainPolicy === current.domainPolicy;
-  return {
-    scores:
-      sameMethod &&
-      previous.scores.version === current.scores.version &&
-      previous.scores.comparisonKey === current.scores.comparisonKey,
-    visibility:
-      sameMethod &&
-      previous.visibility.measured &&
-      current.visibility.measured &&
-      previous.visibility.comparisonKey === current.visibility.comparisonKey,
   };
 }
 

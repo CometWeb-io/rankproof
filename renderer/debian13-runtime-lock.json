@@ -1,0 +1,366 @@
+{
+  "schemaVersion": 1,
+  "platform": "linux/arm64",
+  "base": "python@sha256:27e044f7e01fea05c1760324d58fc5360a0767b9ef098e74ddaf8c70b8f46d26",
+  "baseImageBytes": 398795434,
+  "distribution": "Debian 13 trixie",
+  "installation": "full-no-install-recommends-dependency-closure",
+  "archivesBytes": 43116852,
+  "plannedInstalledBytes": 204502016,
+  "requested": [
+    "libnspr4",
+    "libnss3",
+    "libatk1.0-0t64",
+    "libdbus-1-3",
+    "libxcomposite1",
+    "libxdamage1",
+    "libxfixes3",
+    "libxrandr2",
+    "libgbm1",
+    "libxkbcommon0",
+    "libasound2t64",
+    "libatspi2.0-0t64"
+  ],
+  "aptTrust": {
+    "sources": "http://deb.debian.org/debian trixie trixie-updates; http://deb.debian.org/debian-security trixie-security",
+    "verification": "apt-get update using packaged signed Debian InRelease metadata; no unauthenticated flags",
+    "keyringVersion": "2025.1",
+    "keyringSha256": "506b815cbb32d9b6066b4a2aa524071e071761e7e7f68c3ac74f3061ba852017"
+  },
+  "inRelease": [
+    {
+      "file": "deb.debian.org_debian-security_dists_trixie-security_InRelease",
+      "sha256": "4a0cc61797b432453263179f8ac471bad3a01b393a4bd2300402cd1f7afd601a"
+    },
+    {
+      "file": "deb.debian.org_debian_dists_trixie-updates_InRelease",
+      "sha256": "112b2bccdbbb4b09a4ab7081ff8a5854ea161b7f4b96171169026a0a382e3d62"
+    },
+    {
+      "file": "deb.debian.org_debian_dists_trixie_InRelease",
+      "sha256": "0584fba32e13e0ab8285fb16c27adea1ec03a73669c18702821094fd6ca86675"
+    }
+  ],
+  "packages": [
+    {
+      "Package": "at-spi2-common",
+      "Version": "2.56.2-1+deb13u2",
+      "Architecture": "all",
+      "Filename": "pool/main/a/at-spi2-core/at-spi2-common_2.56.2-1+deb13u2_all.deb",
+      "Size": "170748",
+      "Installed-Size": "1348",
+      "SHA256": "a2a7b53c9925ec33a471d56dd60f5effe35cece109ec4296cc8d98a1250213b4",
+      "downloadFile": "at-spi2-common_2.56.2-1+deb13u2_all.deb"
+    },
+    {
+      "Package": "libasound2-data",
+      "Version": "1.2.14-1+deb13u1",
+      "Architecture": "all",
+      "Filename": "pool/main/a/alsa-lib/libasound2-data_1.2.14-1+deb13u1_all.deb",
+      "Size": "21188",
+      "Installed-Size": "197",
+      "SHA256": "04688afdff3769c0f685541daed7b2f6f0cb946799ddf1d5847ddf11fe245559",
+      "downloadFile": "libasound2-data_1.2.14-1+deb13u1_all.deb"
+    },
+    {
+      "Package": "libasound2t64",
+      "Version": "1.2.14-1+deb13u1",
+      "Architecture": "arm64",
+      "Filename": "pool/main/a/alsa-lib/libasound2t64_1.2.14-1+deb13u1_arm64.deb",
+      "Size": "341632",
+      "Installed-Size": "1269",
+      "SHA256": "9c808d819ccddc37c793dd3186c2ecd858b2feb2474cebb883f70386e7890d39",
+      "downloadFile": "libasound2t64_1.2.14-1+deb13u1_arm64.deb"
+    },
+    {
+      "Package": "libatk1.0-0t64",
+      "Version": "2.56.2-1+deb13u2",
+      "Architecture": "arm64",
+      "Filename": "pool/main/a/at-spi2-core/libatk1.0-0t64_2.56.2-1+deb13u2_arm64.deb",
+      "Size": "50368",
+      "Installed-Size": "239",
+      "SHA256": "c35cd1a2bd7f6750e56a0755571b091a13fdb606354312088626ba639719c953",
+      "downloadFile": "libatk1.0-0t64_2.56.2-1+deb13u2_arm64.deb"
+    },
+    {
+      "Package": "libdbus-1-3",
+      "Version": "1.16.2-2",
+      "Architecture": "arm64",
+      "Filename": "pool/main/d/dbus/libdbus-1-3_1.16.2-2_arm64.deb",
+      "Size": "169068",
+      "Installed-Size": "489",
+      "SHA256": "ca6bb5f2047ad58d274cb7d14216035a07d8e5aae6f6a0122c4f6293c9c39515",
+      "downloadFile": "libdbus-1-3_1.16.2-2_arm64.deb"
+    },
+    {
+      "Package": "libxi6",
+      "Version": "2:1.8.2-1",
+      "Architecture": "arm64",
+      "Filename": "pool/main/libx/libxi/libxi6_1.8.2-1_arm64.deb",
+      "Size": "77768",
+      "Installed-Size": "135",
+      "SHA256": "b7148d371c908fa81bf45153fdcb3e7d178fe11e15f9907e29ce6e9ed9aaad24",
+      "downloadFile": "libxi6_2%3a1.8.2-1_arm64.deb"
+    },
+    {
+      "Package": "libatspi2.0-0t64",
+      "Version": "2.56.2-1+deb13u2",
+      "Architecture": "arm64",
+      "Filename": "pool/main/a/at-spi2-core/libatspi2.0-0t64_2.56.2-1+deb13u2_arm64.deb",
+      "Size": "76680",
+      "Installed-Size": "291",
+      "SHA256": "0b5266747ef215e161152772081ce3b2990d72d02447185faa1af661e11e2d39",
+      "downloadFile": "libatspi2.0-0t64_2.56.2-1+deb13u2_arm64.deb"
+    },
+    {
+      "Package": "libdrm-common",
+      "Version": "2.4.124-2",
+      "Architecture": "all",
+      "Filename": "pool/main/libd/libdrm/libdrm-common_2.4.124-2_all.deb",
+      "Size": "8288",
+      "Installed-Size": "45",
+      "SHA256": "9a8a6c65c165e9964f106fb4ac710959b5d33e0790227e3ab6b27c4742d1254a",
+      "downloadFile": "libdrm-common_2.4.124-2_all.deb"
+    },
+    {
+      "Package": "libdrm2",
+      "Version": "2.4.124-2",
+      "Architecture": "arm64",
+      "Filename": "pool/main/libd/libdrm/libdrm2_2.4.124-2_arm64.deb",
+      "Size": "38304",
+      "Installed-Size": "168",
+      "SHA256": "b535506630bb6a9a616bc07caf3b29915f980d8c3437852fb96ea64fb1a8a3f8",
+      "downloadFile": "libdrm2_2.4.124-2_arm64.deb"
+    },
+    {
+      "Package": "libdrm-amdgpu1",
+      "Version": "2.4.124-2",
+      "Architecture": "arm64",
+      "Filename": "pool/main/libd/libdrm/libdrm-amdgpu1_2.4.124-2_arm64.deb",
+      "Size": "21828",
+      "Installed-Size": "101",
+      "SHA256": "e36c72774cc215818b48ee2174c7ad1d9a2bf89a09cdee7a7a128d288d8eef43",
+      "downloadFile": "libdrm-amdgpu1_2.4.124-2_arm64.deb"
+    },
+    {
+      "Package": "libwayland-server0",
+      "Version": "1.23.1-3",
+      "Architecture": "arm64",
+      "Filename": "pool/main/w/wayland/libwayland-server0_1.23.1-3_arm64.deb",
+      "Size": "33656",
+      "Installed-Size": "152",
+      "SHA256": "062702d57cf07b42ab7f0fa1aac8bc3f605eb47f2f0b9ecb1614674140d79f1b",
+      "downloadFile": "libwayland-server0_1.23.1-3_arm64.deb"
+    },
+    {
+      "Package": "libz3-4",
+      "Version": "4.13.3-1",
+      "Architecture": "arm64",
+      "Filename": "pool/main/z/z3/libz3-4_4.13.3-1_arm64.deb",
+      "Size": "7506868",
+      "Installed-Size": "26286",
+      "SHA256": "29a7b924a5a38c9ac4e2a64aa11586a9c54f26b579b18e4f75adf8f7c1106e45",
+      "downloadFile": "libz3-4_4.13.3-1_arm64.deb"
+    },
+    {
+      "Package": "libllvm19",
+      "Version": "1:19.1.7-3+b1",
+      "Architecture": "arm64",
+      "Filename": "pool/main/l/llvm-toolchain-19/libllvm19_19.1.7-3+b1_arm64.deb",
+      "Size": "23285344",
+      "Installed-Size": "120416",
+      "SHA256": "8a48e1a49f7fcc3be74e697767d72902f4b03041401d1529bcfad1849df39148",
+      "downloadFile": "libllvm19_1%3a19.1.7-3+b1_arm64.deb"
+    },
+    {
+      "Package": "libsensors-config",
+      "Version": "1:3.6.2-2",
+      "Architecture": "all",
+      "Filename": "pool/main/l/lm-sensors/libsensors-config_3.6.2-2_all.deb",
+      "Size": "16236",
+      "Installed-Size": "37",
+      "SHA256": "3056da80c7d963af795dab480ab6f6f4b154ad4ac39f522dc52d17c834fea253",
+      "downloadFile": "libsensors-config_1%3a3.6.2-2_all.deb"
+    },
+    {
+      "Package": "libsensors5",
+      "Version": "1:3.6.2-2",
+      "Architecture": "arm64",
+      "Filename": "pool/main/l/lm-sensors/libsensors5_3.6.2-2_arm64.deb",
+      "Size": "36444",
+      "Installed-Size": "96",
+      "SHA256": "7469f1ccce8afdba33d3b11847d0ecdf2221805a0694dee21ee4d622e8f72145",
+      "downloadFile": "libsensors5_1%3a3.6.2-2_arm64.deb"
+    },
+    {
+      "Package": "libx11-xcb1",
+      "Version": "2:1.8.12-1",
+      "Architecture": "arm64",
+      "Filename": "pool/main/libx/libx11/libx11-xcb1_1.8.12-1_arm64.deb",
+      "Size": "247336",
+      "Installed-Size": "358",
+      "SHA256": "1eafaa4295e129d6a81e742ab8da43194daa6b916199923c8cef8ad358985894",
+      "downloadFile": "libx11-xcb1_2%3a1.8.12-1_arm64.deb"
+    },
+    {
+      "Package": "libxcb-dri3-0",
+      "Version": "1.17.0-2+b1",
+      "Architecture": "arm64",
+      "Filename": "pool/main/libx/libxcb/libxcb-dri3-0_1.17.0-2+b1_arm64.deb",
+      "Size": "107068",
+      "Installed-Size": "181",
+      "SHA256": "247bf758dd78d6c285fdd47942ddacf4a3189fd50de4f0891c9bd9aea12da3a1",
+      "downloadFile": "libxcb-dri3-0_1.17.0-2+b1_arm64.deb"
+    },
+    {
+      "Package": "libxcb-present0",
+      "Version": "1.17.0-2+b1",
+      "Architecture": "arm64",
+      "Filename": "pool/main/libx/libxcb/libxcb-present0_1.17.0-2+b1_arm64.deb",
+      "Size": "105784",
+      "Installed-Size": "180",
+      "SHA256": "73521d715554a2230901d1d480465d6358b3083a5ce8801639595ffde6f31441",
+      "downloadFile": "libxcb-present0_1.17.0-2+b1_arm64.deb"
+    },
+    {
+      "Package": "libxcb-randr0",
+      "Version": "1.17.0-2+b1",
+      "Architecture": "arm64",
+      "Filename": "pool/main/libx/libxcb/libxcb-randr0_1.17.0-2+b1_arm64.deb",
+      "Size": "116736",
+      "Installed-Size": "193",
+      "SHA256": "dbeb78d1d032959fe65548758ab12bfc6bb5919ec2984c3d871496b52aef929a",
+      "downloadFile": "libxcb-randr0_1.17.0-2+b1_arm64.deb"
+    },
+    {
+      "Package": "libxcb-sync1",
+      "Version": "1.17.0-2+b1",
+      "Architecture": "arm64",
+      "Filename": "pool/main/libx/libxcb/libxcb-sync1_1.17.0-2+b1_arm64.deb",
+      "Size": "108792",
+      "Installed-Size": "182",
+      "SHA256": "eb428ac77daac9e5eea8a4e9ba48d1d78cc8ca400e415c8e4628cc729c6f4749",
+      "downloadFile": "libxcb-sync1_1.17.0-2+b1_arm64.deb"
+    },
+    {
+      "Package": "libxcb-xfixes0",
+      "Version": "1.17.0-2+b1",
+      "Architecture": "arm64",
+      "Filename": "pool/main/libx/libxcb/libxcb-xfixes0_1.17.0-2+b1_arm64.deb",
+      "Size": "109644",
+      "Installed-Size": "184",
+      "SHA256": "19cdb8502827bc010993e69eaba09c670024976f7edd35b2b504bd646b141b0a",
+      "downloadFile": "libxcb-xfixes0_1.17.0-2+b1_arm64.deb"
+    },
+    {
+      "Package": "libxshmfence1",
+      "Version": "1.3.3-1",
+      "Architecture": "arm64",
+      "Filename": "pool/main/libx/libxshmfence/libxshmfence1_1.3.3-1_arm64.deb",
+      "Size": "11104",
+      "Installed-Size": "88",
+      "SHA256": "34b494c83cebcf138d1f87c2cbdd5ee8efe9da2befbd69c2a025b0e214c64d2d",
+      "downloadFile": "libxshmfence1_1.3.3-1_arm64.deb"
+    },
+    {
+      "Package": "mesa-libgallium",
+      "Version": "25.0.7-2+deb13u1",
+      "Architecture": "arm64",
+      "Filename": "pool/main/m/mesa/mesa-libgallium_25.0.7-2+deb13u1_arm64.deb",
+      "Size": "8032536",
+      "Installed-Size": "34238",
+      "SHA256": "a27576030704ff305adaef8bd143954b281680861d5bfe21aabd7d376a939149",
+      "downloadFile": "mesa-libgallium_25.0.7-2+deb13u1_arm64.deb"
+    },
+    {
+      "Package": "libgbm1",
+      "Version": "25.0.7-2+deb13u1",
+      "Architecture": "arm64",
+      "Filename": "pool/main/m/mesa/libgbm1_25.0.7-2+deb13u1_arm64.deb",
+      "Size": "44144",
+      "Installed-Size": "184",
+      "SHA256": "2beb8d20ca715a01b7b2352c1167c0d7097c9d8a486704a9a966f95d4077cdfc",
+      "downloadFile": "libgbm1_25.0.7-2+deb13u1_arm64.deb"
+    },
+    {
+      "Package": "libnspr4",
+      "Version": "2:4.36-1",
+      "Architecture": "arm64",
+      "Filename": "pool/main/n/nspr/libnspr4_4.36-1_arm64.deb",
+      "Size": "102088",
+      "Installed-Size": "425",
+      "SHA256": "b8cd0221e4c35a77ec6e3b89959ca96deb75919a3c55b6735ca0288a1b61bdbb",
+      "downloadFile": "libnspr4_2%3a4.36-1_arm64.deb"
+    },
+    {
+      "Package": "libnss3",
+      "Version": "2:3.110-1+deb13u4",
+      "Architecture": "arm64",
+      "Filename": "pool/main/n/nss/libnss3_3.110-1+deb13u4_arm64.deb",
+      "Size": "1292972",
+      "Installed-Size": "4588",
+      "SHA256": "1a9f35c238e8bbb570fbdae88ffe43a3cf3462e1582cbe0903a9aa949e61f3e8",
+      "downloadFile": "libnss3_2%3a3.110-1+deb13u4_arm64.deb"
+    },
+    {
+      "Package": "libxcomposite1",
+      "Version": "1:0.4.6-1",
+      "Architecture": "arm64",
+      "Filename": "pool/main/libx/libxcomposite/libxcomposite1_0.4.6-1_arm64.deb",
+      "Size": "16440",
+      "Installed-Size": "92",
+      "SHA256": "0fa60d7733d6354c94cea0b0b8e772a2e317db7040dee4ac84df5d844918a79c",
+      "downloadFile": "libxcomposite1_1%3a0.4.6-1_arm64.deb"
+    },
+    {
+      "Package": "libxdamage1",
+      "Version": "1:1.1.6-1+b2",
+      "Architecture": "arm64",
+      "Filename": "pool/main/libx/libxdamage/libxdamage1_1.1.6-1+b2_arm64.deb",
+      "Size": "15640",
+      "Installed-Size": "91",
+      "SHA256": "7803f925e0940b720594f47bab4bc55bea1bdf6f2a3216442c78e53a77f4e19a",
+      "downloadFile": "libxdamage1_1%3a1.1.6-1+b2_arm64.deb"
+    },
+    {
+      "Package": "libxfixes3",
+      "Version": "1:6.0.0-2+b4",
+      "Architecture": "arm64",
+      "Filename": "pool/main/libx/libxfixes/libxfixes3_6.0.0-2+b4_arm64.deb",
+      "Size": "20456",
+      "Installed-Size": "95",
+      "SHA256": "d29134cbb9230a50ba1d097743d4d4fcf7826c6b48a2d8a303a0e3fc20b837e6",
+      "downloadFile": "libxfixes3_1%3a6.0.0-2+b4_arm64.deb"
+    },
+    {
+      "Package": "xkb-data",
+      "Version": "2.42-1",
+      "Architecture": "all",
+      "Filename": "pool/main/x/xkeyboard-config/xkb-data_2.42-1_all.deb",
+      "Size": "789736",
+      "Installed-Size": "6911",
+      "SHA256": "196ff18533382f64e057ea49df2bb486bd4275a4cc0917361edb560b8756dada",
+      "downloadFile": "xkb-data_2.42-1_all.deb"
+    },
+    {
+      "Package": "libxkbcommon0",
+      "Version": "1.7.0-2",
+      "Architecture": "arm64",
+      "Filename": "pool/main/libx/libxkbcommon/libxkbcommon0_1.7.0-2_arm64.deb",
+      "Size": "106024",
+      "Installed-Size": "345",
+      "SHA256": "866888d3cfeb32388dd88a2615c4f78ebf8dd7b272821a83494cba260d8fa7d1",
+      "downloadFile": "libxkbcommon0_1.7.0-2_arm64.deb"
+    },
+    {
+      "Package": "libxrandr2",
+      "Version": "2:1.5.4-1+b3",
+      "Architecture": "arm64",
+      "Filename": "pool/main/libx/libxrandr/libxrandr2_1.5.4-1+b3_arm64.deb",
+      "Size": "35932",
+      "Installed-Size": "105",
+      "SHA256": "607a23d6d2cb920e000b24870531a86821cf4e141a4eb0bf38212b47b892d597",
+      "downloadFile": "libxrandr2_2%3a1.5.4-1+b3_arm64.deb"
+    }
+  ]
+}

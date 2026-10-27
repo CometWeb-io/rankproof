@@ -45,10 +45,12 @@ export function KeywordsTab({ report }: { report: ScanReport }) {
                   <Badge>{KEYWORD_SOURCE_LABEL[row.source]}</Badge>
                   <Badge variant="accent">{INTENT_LABEL[row.intent]}</Badge>
                   <Badge variant={row.bestPosition && row.bestPosition <= 3 ? "follow" : "default"}>
-                    {posLabel(row.bestPosition)}
+                    {row.measurementStatus === "unmeasured"
+                      ? "Not measured"
+                      : posLabel(row.bestPosition)}
                   </Badge>
                   <span className="font-mono text-xs tabular-nums text-muted">
-                    opportunity {row.opportunity}
+                    opportunity {row.measurementStatus === "unmeasured" ? "—" : row.opportunity}
                   </span>
                 </div>
               </div>
@@ -56,7 +58,11 @@ export function KeywordsTab({ report }: { report: ScanReport }) {
                 <div>
                   <p className="text-xs text-subtle">SERP difficulty</p>
                   <div className="mt-1">
-                    <Meter value={row.difficulty} tone={difficultyTone(row.difficulty)} />
+                    {row.measurementStatus === "unmeasured" ? (
+                      <span className="text-xs text-muted">Not measured</span>
+                    ) : (
+                      <Meter value={row.difficulty} tone={difficultyTone(row.difficulty)} />
+                    )}
                   </div>
                 </div>
                 <div>
@@ -71,7 +77,11 @@ export function KeywordsTab({ report }: { report: ScanReport }) {
                 <div>
                   <p className="text-xs text-subtle">Growth opportunity</p>
                   <div className="mt-1">
-                    <Meter value={row.opportunity} />
+                    {row.measurementStatus === "unmeasured" ? (
+                      <span className="text-xs text-muted">Not measured</span>
+                    ) : (
+                      <Meter value={row.opportunity} />
+                    )}
                   </div>
                 </div>
               </div>
@@ -79,7 +89,7 @@ export function KeywordsTab({ report }: { report: ScanReport }) {
                 {row.engines.map((e) => `${e.engine} ${posLabel(e.position)}`).join(" · ") ||
                   "no SERP data"}
                 {row.matchingAnchors > 0 ? ` · ${row.matchingAnchors} anchors` : ""}
-                {row.trafficShare > 0 ? ` · CTR ~${row.trafficShare}%` : ""}
+                {row.trafficShare > 0 ? ` · modeled CTR ${row.trafficShare}%` : ""}
               </p>
             </article>
           ))

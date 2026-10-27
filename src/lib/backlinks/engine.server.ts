@@ -43,6 +43,7 @@ import {
   type ProbeResult,
 } from "./verify.server.ts";
 import { computeDomainRating, pageRank, rankToScore, type DomainEdge } from "./graph.ts";
+import { isCurrentBacklink, partitionLinkGraphs } from "./link-state.ts";
 import { resolveDomains } from "./dns.server.ts";
 import {
   backlinkId,
@@ -84,7 +85,7 @@ import type {
   SourceStatus,
 } from "./types.ts";
 
-export const REPORT_VERSION = 5;
+export const REPORT_VERSION = 6;
 
 const MAX_MENTIONS = 120;
 const MAX_DEEP = 28;
@@ -201,6 +202,9 @@ function pushCandidates(list: Candidate[], incoming: Candidate[] | undefined, co
 }
 
 export type ScanOptions = {
+  /** Trusted local caller opt-in; public inputs must never enable server credentials. */
+  includeWebmaster?: boolean;
+  profile?: import("./config.ts").ScanProfile;
   /** "light" = faster helper scan (e.g. a competitor in a link-gap analysis). */
   mode?: "full" | "light";
   budgetMs?: number;
@@ -235,7 +239,14 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
   }
 
   const { host } = parsed;
-  const runtime = config();
+  const runtime = config(options.profile);
+  if (options.profile) {
+    options = {
+      ...options,
+      budgetMs: Math.min(options.budgetMs ?? runtime.scanBudgetMs, runtime.scanBudgetMs),
+      depth: Math.min(options.depth ?? runtime.serpDepth, runtime.serpDepth),
+    };
+  }
   const budget = new Budget(
     options.budgetMs ?? (light ? runtime.lightBudgetMs : runtime.scanBudgetMs),
   );
@@ -460,12 +471,15 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
       limit: budget.scale(14, 6000),
     });
     if (lostLinks.length > 0) {
-      notes.push(`Archive: ${lostLinks.length} lost links available to recover.`);
+      notes.push(
+        `Archive: ${lostLinks.length} recovery candidates; current HTML absence is not a confirmed longitudinal loss.`,
+      );
     }
   }
 
   /* --- Phase 5: enrichment and scoring ---------------------------------- */
-  let enriched = markSitewide([...backlinks, ...lostLinks]);
+  let enriched = markSitewide(backlinks.filter(isCurrentBacklink));
+  const historical = markSitewide(lostLinks);
 
   const wikiDomains = new Set(
     enriched.filter((b) => b.discoveredVia === "wikipedia").map((b) => b.sourceDomain),
@@ -547,10 +561,12 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
   });
 
   /* --- Phase 6: domain graph, PageRank and subnets ---------------------- */
-  for (const item of enriched) {
-    edges.push({ from: item.sourceDomain, to: parsed.domain, weight: 3 });
-  }
-  const ranks = rankToScore(pageRank(edges));
+  const graphs = partitionLinkGraphs(
+    [...enriched, ...historical, ...providerReports],
+    parsed.domain,
+    edges,
+  );
+  const ranks = rankToScore(pageRank(graphs.live.edges));
 
   const ipLookup =
     light || budget.spent(0.94)
@@ -562,7 +578,7 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
         );
 
   const lostByDomain = new Map<string, number>();
-  for (const item of enriched) {
+  for (const item of historical) {
     if (item.state !== "lost") continue;
     lostByDomain.set(item.sourceDomain, (lostByDomain.get(item.sourceDomain) ?? 0) + 1);
   }
@@ -626,7 +642,13 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
   const serpQueries = serpR.value ?? [];
   enriched = markSerpCorankers(enriched, serpQueries);
 
-  const ranked = capPerDomain(sortBacklinks(enriched), 25).slice(0, runtime.maxBacklinks);
+  // Display caps never select the population used for current profile metrics.
+  const displayedLive = capPerDomain(sortBacklinks(enriched), 25).slice(0, runtime.maxBacklinks);
+  const displayedHistorical = capPerDomain(sortBacklinks(historical), 25).slice(
+    0,
+    Math.max(0, runtime.maxBacklinks - displayedLive.length),
+  );
+  const ranked = [...displayedLive, ...displayedHistorical];
 
   const site: SiteSnapshot = intelR.value?.snapshot ?? {
     host,
@@ -659,7 +681,7 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
     h2: intelR.value?.headings.h2,
     brandTokens: tokens,
     content: intelR.value?.contentText,
-    anchors: ranked.map((item) => ({
+    anchors: enriched.map((item) => ({
       text: item.anchor,
       type: item.anchorType,
       count: 1,
@@ -683,17 +705,17 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
     queries: serpQueries,
     linkingDomains,
     mentions: mentionList,
-    lost: ranked.filter((b) => b.state === "lost"),
+    lost: historical,
   });
   const onPage = intelR.value?.onPage ?? null;
 
-  const analytics = buildAnalytics(ranked, mentionList, site, {
+  const analytics = buildAnalytics(enriched, mentionList, site, {
     ranks,
     ips: ipLookup,
     lostByDomain,
     reciprocal,
     outbound: outboundDomains.slice(0, 60),
-    lostLinks: ranked.filter((b) => b.state === "lost"),
+    lostLinks: historical,
     visibility: serpSnapshot.visibility,
     rankedKeywords: serpSnapshot.ranked,
     keywordCount: keywordSeeds.length,
@@ -703,11 +725,11 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
   const domainRating = computeDomainRating(analytics.referringDomains);
   site.domainRating = domainRating;
   const keywordStats = buildKeywordStats(keywordSeeds, serpQueries, analytics.anchors, tokens);
-  const toxic = buildToxicReport(ranked, analytics.referringDomains);
+  const toxic = buildToxicReport(enriched, analytics.referringDomains);
   const anchorAudit = buildAnchorAudit(analytics.anchors, analytics.anchorTypes);
-  const segments = buildSegments(analytics.referringDomains, ranked);
+  const segments = buildSegments(analytics.referringDomains, enriched);
   const velocity = buildVelocity(analytics.referringDomains, []);
-  const footprint = buildFootprint(analytics.referringDomains, ranked, analytics.anchorTypes);
+  const footprint = buildFootprint(analytics.referringDomains, enriched, analytics.anchorTypes);
   const brandSerp = buildBrandSerp(serpQueries, {
     host,
     brandTokens: tokens,
@@ -728,14 +750,18 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
           site.url,
           host,
           new Budget(Math.max(8_000, Math.min(25_000, budget.left() + 12_000))),
-          ranked,
+          enriched,
           Math.max(10, budget.scale(80, 15_000)),
         );
 
   // Real clicks and impressions, but only when the operator connected an account.
-  const searchConsole = light
-    ? null
-    : buildSearchConsoleInsights(await fetchSearchConsoleData(host).catch(() => []), serpQueries);
+  const searchConsole =
+    light || options.includeWebmaster !== true
+      ? null
+      : buildSearchConsoleInsights(
+          await fetchSearchConsoleData(host, true).catch(() => []),
+          serpQueries,
+        );
 
   const scorecard = buildScorecard({
     analytics,
@@ -752,11 +778,11 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
     searchConsole,
   });
 
-  const brokenTargetLinks = ranked.filter((b) => b.flags.includes("broken-target")).length;
+  const brokenTargetLinks = enriched.filter((b) => b.flags.includes("broken-target")).length;
   const plan = buildActionPlan({
     host,
     stats: {
-      backlinks: ranked.length,
+      backlinks: enriched.length,
       brokenLinks: brokenTargetLinks,
     },
     analytics,
@@ -775,7 +801,7 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
   });
 
   const referring = analytics.referringDomains;
-  const dofollow = ranked.filter((b) => b.effectiveFollow).length;
+  const dofollow = enriched.filter((b) => b.effectiveFollow).length;
   const avgDomainScore =
     referring.length > 0
       ? Math.round(referring.reduce((sum, d) => sum + d.domainScore, 0) / referring.length)
@@ -879,8 +905,10 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
       maxBacklinks: runtime.maxBacklinks,
       sources: sources.map(({ id, status }) => ({ id, status })),
       coverage,
-      edges,
-      observed: enriched,
+      edges: graphs.live.edges,
+      graphPartitions: { historical: graphs.historical.edges, unverified: graphs.unverified.edges },
+      reported: providerReports,
+      observed: [...enriched, ...historical],
       displayed: ranked,
       queries: serpQueries,
       visibilityCohort: (light ? [] : serpKeywords).flatMap((keyword) =>
@@ -895,26 +923,26 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
     }),
     mentions: mentionList,
     stats: {
-      backlinks: ranked.length,
+      backlinks: enriched.length,
       referringDomains: referring.length,
       dofollow,
-      nofollow: ranked.length - dofollow,
+      nofollow: enriched.length - dofollow,
       mentions: mentionList.length,
       pagesCrawled: intelR.value?.pagesCrawled ?? 0,
       candidatesChecked: checked,
       brokenLinks: brokenTargetLinks,
-      sitewideLinks: ranked.filter((b) => b.sitewide).length,
-      contentLinks: ranked.filter((b) => b.placement === "content").length,
+      sitewideLinks: enriched.filter((b) => b.sitewide).length,
+      contentLinks: enriched.filter((b) => b.placement === "content").length,
       spamDomains: referring.filter((d) => d.spamScore >= 55).length,
       authorityDomains: referring.filter((d) => d.domainScore >= 75).length,
-      uniqueAnchors: new Set(ranked.map((b) => b.anchor.toLowerCase())).size,
+      uniqueAnchors: new Set(enriched.map((b) => b.anchor.toLowerCase())).size,
       avgDomainScore,
       avgRelevance:
-        ranked.length > 0
-          ? Math.round(ranked.reduce((sum, b) => sum + b.relevance, 0) / ranked.length)
+        enriched.length > 0
+          ? Math.round(enriched.reduce((sum, b) => sum + b.relevance, 0) / enriched.length)
           : 0,
       domainRating,
-      redirectedLinks: ranked.filter((b) => b.flags.includes("redirected-target")).length,
+      redirectedLinks: enriched.filter((b) => b.flags.includes("redirected-target")).length,
       brokenOutbound: outboundDomains.filter(
         (o) => o.status !== null && (o.status === 404 || o.status === 410 || o.status >= 500),
       ).length,
@@ -922,7 +950,7 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
       referringSubnets: new Set(
         analytics.referringDomains.map((d) => d.subnet).filter((s): s is string => Boolean(s)),
       ).size,
-      lostLinks: ranked.filter((b) => b.state === "lost").length,
+      lostLinks: historical.length,
       outboundDomains: outboundDomains.length,
       reciprocalDomains: reciprocal.size,
       durationMs: Date.now() - startedAt,
@@ -948,8 +976,8 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
     notes: [
       ...new Set([
         "Discovery is a selected sample, not a backlink census. Provider reports are excluded until confirmed in fetched HTML.",
-        "Scores are uncalibrated run-relative heuristics. Coverage changes prevent interpreting score deltas as progress.",
-        "Domain grouping uses an incomplete suffix subset; private/wildcard suffixes can merge publishers.",
+        "Current metrics use all verified live observations before display caps; archive and provider graphs are separate. Scores are uncalibrated heuristics, not commercial ratings or progress measures.",
+        "Domain grouping uses the pinned ICANN/private Public Suffix List; shared registrable domains do not establish common ownership.",
         ...notes,
       ]),
     ].slice(0, 8),

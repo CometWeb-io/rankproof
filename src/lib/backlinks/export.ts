@@ -1,4 +1,7 @@
+import type { TechnicalGraphReport } from "./technical-graph.ts";
 import { disavowFile as buildDisavow } from "./toxic.ts";
+import { footprintLabel, qualifiedScorecard, scorecardLabel } from "./scorecard.ts";
+import { isCurrentBacklink } from "./link-state.ts";
 import type {
   KeywordIdea,
   LinkGapReport,
@@ -159,6 +162,9 @@ export function keywordsCsv(report: ScanReport): string {
     "link_equity",
     "matching_anchors",
     "opportunity",
+    "measurement_status",
+    "google",
+    "traffic_share_kind",
   ];
   const rows = report.keywords.map((row) => {
     const pos = (engine: string) => row.engines.find((e) => e.engine === engine)?.position ?? "";
@@ -171,12 +177,15 @@ export function keywordsCsv(report: ScanReport): string {
       pos("duckduckgo"),
       pos("mojeek"),
       pos("brave"),
-      row.difficulty,
+      row.measurementStatus === "unmeasured" ? "" : row.difficulty,
       row.intent,
-      row.trafficShare,
+      row.measurementStatus === "unmeasured" ? "" : row.trafficShare,
       row.linkEquity,
       row.matchingAnchors,
-      row.opportunity,
+      row.measurementStatus === "unmeasured" ? "" : row.opportunity,
+      row.measurementStatus ?? "unknown_legacy",
+      pos("google"),
+      row.trafficShareKind ?? "modeled_ctr",
     ]
       .map(csvCell)
       .join(",");
@@ -513,22 +522,37 @@ function esc(value: unknown): string {
  */
 export function reportHtml(report: ScanReport): string {
   const { stats, analytics, target } = report;
+  const hasCurrentProfile =
+    report.measurement?.scores?.graphScope === "live" && analytics.referringDomains.length > 0;
   const cards: [string, string | number][] = [
-    ["Visibility index", `${report.scorecard.index}/100 (${report.scorecard.grade})`],
-    ["Domain Rating", stats.domainRating],
-    ["SERP visibility", `${stats.serpVisibility}/100`],
-    ["On-page SEO", `${stats.onPageScore}/100`],
-    ["Health", `${analytics.health.total}/100 (${analytics.health.grade})`],
+    ["Sample heuristic", scorecardLabel(report.scorecard)],
+    ["Sampled profile index (uncalibrated)", hasCurrentProfile ? stats.domainRating : "Unknown"],
+    [
+      "SERP visibility",
+      report.serp.queries.some((q) => q.status === "ok" || q.status === "no-results")
+        ? `${stats.serpVisibility}/100`
+        : "Not measured",
+    ],
+    [
+      "On-page heuristic",
+      report.measurement?.scores?.graphScope === "live" && report.onPage
+        ? `${stats.onPageScore}/100`
+        : "Unknown",
+    ],
+    [
+      "Profile heuristic",
+      hasCurrentProfile ? `${analytics.health.total}/100 · uncalibrated` : "Unknown",
+    ],
     ["Backlinks", stats.backlinks],
     ["Referring domains", stats.referringDomains],
     ["Dofollow", stats.dofollow],
     ["In content", stats.contentLinks],
     ["Keywords in top 10", stats.rankedKeywords],
     ["Link opportunities", stats.prospects],
-    ["Lost links", stats.lostLinks],
+    ["Archive candidates", stats.lostLinks],
     ["Broken links", stats.brokenLinks],
     ["For review (toxic)", stats.toxicDomains],
-    ["Footprint", `${report.footprint.score}/100 (${report.footprint.verdict})`],
+    ["Footprint", footprintLabel(report.footprint)],
     [
       "Link velocity",
       report.velocity.verdict === "unknown" ? "unknown" : `${report.velocity.perMonth}/mo`,
@@ -547,7 +571,7 @@ export function reportHtml(report: ScanReport): string {
         <td>${esc(row.placement)}</td>
         <td class="n">${row.domainScore}</td>
         <td class="n">${row.relevance}</td>
-        <td>${row.state === "lost" ? "lost" : "active"}</td>
+        <td>${row.state === "lost" ? "archive candidate" : isCurrentBacklink(row) ? "current observation" : "unverified candidate"}</td>
       </tr>`,
     )
     .join("");
@@ -601,11 +625,12 @@ export function reportHtml(report: ScanReport): string {
 <div class="grid">${cards
     .map(([label, value]) => `<div class="card"><b>${esc(value)}</b>${esc(label)}</div>`)
     .join("")}</div>
-<h2>Visibility index</h2>
+<h2>Uncalibrated sample heuristic</h2>
+<p class="muted">Input coverage is availability, not confidence. Missing components earn no points; partial scores are not normalized to 100.</p>
 <table><thead><tr><th>Component</th><th>Points</th><th>Comment</th></tr></thead><tbody>${report.scorecard.parts
     .map(
       (part) =>
-        `<tr><td>${esc(part.label)}</td><td class="n">${part.score}/${part.max}</td><td class="s">${esc(part.hint)}</td></tr>`,
+        `<tr><td>${esc(part.label)}</td><td class="n">${qualifiedScorecard(report.scorecard) && part.availableMax > 0 ? `${part.score}/${part.max} (${part.status}; inputs ${part.availableMax}/${part.max})` : "Unknown"}</td><td class="s">${esc(qualifiedScorecard(report.scorecard) ? part.hint : "Legacy score has no qualified evidence coverage; rescan.")}</td></tr>`,
     )
     .join("")}</tbody></table>
 ${
@@ -674,7 +699,7 @@ ${
 <table><thead><tr><th>Keyword</th><th>Source</th><th>Position</th><th>Link equity</th><th>Opportunity</th></tr></thead><tbody>${report.keywords
         .map(
           (row) =>
-            `<tr><td>${esc(row.keyword)}</td><td>${esc(row.source)}</td><td class="n">${row.bestPosition ?? "—"}</td><td class="n">${row.linkEquity}</td><td class="n">${row.opportunity}</td></tr>`,
+            `<tr><td>${esc(row.keyword)}</td><td>${esc(row.source)}</td><td class="n">${row.bestPosition ?? "—"}</td><td class="n">${row.linkEquity}</td><td class="n">${row.measurementStatus === "unmeasured" ? "Not measured" : row.opportunity}</td></tr>`,
         )
         .join("")}</tbody></table>`
     : ""
@@ -696,7 +721,7 @@ ${
 <table><thead><tr><th>Domain</th><th>DS</th><th>PR</th><th>Links</th><th>Dofollow</th><th>Topic</th><th>Spam</th><th>Subnet</th></tr></thead><tbody>${domainRows}</tbody></table>
 <h2>Backlinks</h2>
 <table><thead><tr><th>Source</th><th>Anchor</th><th>Target</th><th>Rel</th><th>Placement</th><th>DS</th><th>Topic</th><th>State</th></tr></thead><tbody>${linkRows}</tbody></table>
-<p class="muted">Generated by RankProof. Every link was confirmed in the source page HTML; DS/PR/DR are approximations computed from open data.</p>
+<p class="muted">Generated by RankProof. Link rows retain their evidence state: archive candidates do not establish a current link or a confirmed loss. Domain, page and local graph indices are uncalibrated heuristics of the observed sample, not equivalents of commercial metrics.</p>
 </body></html>`;
 }
 
@@ -709,4 +734,24 @@ export function download(filename: string, content: string, mime: string) {
   a.rel = "noopener";
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** Full per-URL graph investigations; no legacy page/sample cap or HTML payload. */
+export function technicalGraphCsv(report: TechnicalGraphReport): string {
+  const safeCell = (value: unknown) => {
+    const text = String(value ?? "");
+    return csvCell(/^[\s]*[=+@-]/.test(text) ? "'" + text : text);
+  };
+  return [
+    ["kind", "url", "related_urls", "certainty", "evidence_refs"],
+    ...report.repairTargets.map((target) => [
+      target.kind,
+      target.url,
+      JSON.stringify(target.relatedUrls),
+      target.certainty,
+      JSON.stringify(target.evidenceRefs),
+    ]),
+  ]
+    .map((row) => row.map(safeCell).join(","))
+    .join("\n");
 }

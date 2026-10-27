@@ -59,13 +59,20 @@ export const scanBacklinks = createServerFn({ method: "POST" })
     device: readDevice(data),
   }))
   .handler(async ({ data }): Promise<ScanResult> => {
-    const { runScan } = await import("./engine.server.ts");
-    const result = await runScan(data.url, { market: data.market, device: data.device });
-    if (!result.ok) return result;
-    const { config } = await import("./config.ts");
-    if (!config().persistHistory) return result;
-    const { attachHistory } = await import("./store.server.ts");
-    return { ok: true, report: await attachHistory(result.report) };
+    const { withScanCapacity } = await import("./capacity.server.ts");
+    return withScanCapacity(async () => {
+      const { runScan } = await import("./engine.server.ts");
+      const result = await runScan(data.url, {
+        profile: "quick",
+        market: data.market,
+        device: data.device,
+      });
+      if (!result.ok) return result;
+      const { config } = await import("./config.ts");
+      if (!config().persistHistory) return result;
+      const { attachHistory } = await import("./store.server.ts");
+      return { ok: true, report: await attachHistory(result.report) };
+    });
   });
 
 export const scanLinkGap = createServerFn({ method: "POST" })
@@ -84,8 +91,11 @@ export const scanLinkGap = createServerFn({ method: "POST" })
     return { url, competitors };
   })
   .handler(async ({ data }): Promise<GapResult> => {
-    const { runLinkGap } = await import("./gap.server.ts");
-    return runLinkGap(data.url, data.competitors);
+    const { withScanCapacity } = await import("./capacity.server.ts");
+    return withScanCapacity(async () => {
+      const { runLinkGap } = await import("./gap.server.ts");
+      return runLinkGap(data.url, data.competitors, { profile: "quick" });
+    });
   });
 
 export const checkSerpKeywords = createServerFn({ method: "POST" })
@@ -104,21 +114,33 @@ export const checkSerpKeywords = createServerFn({ method: "POST" })
     return { url, keywords, engines, depth, market: readMarket(data), device: readDevice(data) };
   })
   .handler(async ({ data }): Promise<SerpCheckResult> => {
-    const { runKeywordSerp } = await import("./serp.server.ts");
-    const { loadPreviousPositions } = await import("./store.server.ts");
-    let previous: { keyword: string; engine: string; position: number | null }[] | undefined;
-    try {
-      const { parseTarget } = await import("./parse.ts");
-      previous = await loadPreviousPositions(parseTarget(data.url).host, new Date().toISOString());
-    } catch {
-      previous = undefined;
-    }
-    return runKeywordSerp(data.url, data.keywords, {
-      engines: data.engines,
-      depth: data.depth,
-      market: data.market,
-      device: data.device,
-      previous,
+    const { withScanCapacity } = await import("./capacity.server.ts");
+    return withScanCapacity(async () => {
+      const { runKeywordSerp } = await import("./serp.server.ts");
+      const { loadPreviousPositions } = await import("./store.server.ts");
+      let previous: { keyword: string; engine: string; position: number | null }[] | undefined;
+      try {
+        const { parseTarget } = await import("./parse.ts");
+        const { DEFAULT_MARKET } = await import("./market.ts");
+        previous = await loadPreviousPositions(
+          parseTarget(data.url).host,
+          new Date().toISOString(),
+          {
+            market: data.market ?? DEFAULT_MARKET,
+            device: data.device ?? "desktop",
+            depth: data.depth,
+          },
+        );
+      } catch {
+        previous = undefined;
+      }
+      return runKeywordSerp(data.url, data.keywords, {
+        engines: data.engines,
+        depth: data.depth,
+        market: data.market,
+        device: data.device,
+        previous,
+      });
     });
   });
 
@@ -133,6 +155,9 @@ export const suggestKeywordIdeas = createServerFn({ method: "POST" })
     return { seeds, brandTokens };
   })
   .handler(async ({ data }): Promise<SuggestResult> => {
-    const { suggestKeywords } = await import("./suggest.server.ts");
-    return suggestKeywords(data.seeds, { brandTokens: data.brandTokens });
+    const { withScanCapacity } = await import("./capacity.server.ts");
+    return withScanCapacity(async () => {
+      const { suggestKeywords } = await import("./suggest.server.ts");
+      return suggestKeywords(data.seeds, { brandTokens: data.brandTokens });
+    });
   });

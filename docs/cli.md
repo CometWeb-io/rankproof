@@ -22,7 +22,54 @@ npm run cli -- scan example.com --format html --out report.html
 npm run cli -- scan example.com --format disavow --out disavow.txt
 ```
 
+Private GSC/Bing data is disabled by default. Use `scan --webmaster` only for a local report you are authorized to read. `--profile quick|standard|deep` selects a bounded workload; API/Web scans enforce quick.
+
 Formats: `text` (default, readable in a terminal), `json` (full report), `csv` (backlinks), `html` (standalone report), `disavow` (file for Google Search Console).
+
+### `capture <pairs.json>` and `replay <capture.json>`
+
+Capture is explicit and requires `--out` with a new file. It writes compact JSON
+with owner-only permissions and never overwrites an existing path. Replay checks
+hashes, method versions and the original HTML extraction without network access.
+
+```sh
+node bin/rankproof.mjs capture pairs.json --out private-capture.json
+node bin/rankproof.mjs replay private-capture.json --out replay.json
+```
+
+See [capture/replay](evidence-replay.md) for sensitive-response omissions and
+retention limits. The default verifier does not retain source bodies.
+
+### `graph <report.json>`
+
+Export a scan's retained technical graph as JSON, or its complete per-URL
+investigation list as CSV. This runs offline and requires a current graph export;
+legacy scans cannot reconstruct missing edges or repair URLs.
+
+```sh
+node bin/rankproof.mjs graph report.json --out graph.json
+node bin/rankproof.mjs graph report.json --format csv --out repair-urls.csv
+```
+
+CSV includes the finding kind, exact URL, related URLs, certainty and evidence
+references. It retains candidates as candidates and does not authenticate the
+imported graph or establish current page state.
+
+### `render <request.json>`
+
+Compare fetched HTML with an actual Chromium DOM snapshot. Supply only `url` and
+trusted operator `runtime` configuration in the JSON file. A new `--out` file is
+required and is written with owner-only permissions. Browser assets and the exact
+qualified Docker image must already exist; the command never installs them.
+
+```sh
+node bin/rankproof.mjs render request.json --out private-render.json
+```
+
+See [isolated rendering](../renderer/README.md) for the runtime configuration,
+platform qualification and enforced limits. Output contains source bodies and may
+be sensitive. A rendered anchor is an observed DOM link, not proof of search
+indexability. Ordinary scans and backlink verification remain HTML-only.
 
 ### `serp <domain> [keywords...]`
 
@@ -74,6 +121,8 @@ Exits with code `1` when no engine returns results — useful as a CI canary, be
 | `--out`         | `-o`  | file path                                     | stdout             |
 | `--quiet`       | `-q`  | —                                             | off                |
 | `--no-audit`    |       | —                                             | off                |
+| `--profile`     |       | `quick` `standard` `deep`                     | from configuration |
+| `--webmaster`   |       | private local GSC/Bing opt-in (scan only)     | off                |
 
 Progress messages go to **stderr**, results to **stdout**. `npm run` prints its own banner to stdout, so redirect from the binary rather than through npm — `node bin/rankproof.mjs scan example.com --format json > report.json` — or use `--out report.json`, which npm cannot pollute.
 
@@ -99,12 +148,11 @@ node bin/rankproof.mjs doctor --quiet || echo "RankProof: no engine is returning
 
 ```bash
 #!/bin/bash
-# Weekly audit with rank history recorded.
+# Weekly audit with a dated JSON export.
 export RANKPROOF_MARKET=us
-export DATABASE_URL="postgres://..."
 cd /opt/rankproof
 node bin/rankproof.mjs scan example.com --quiet --format json \
   --out "/var/log/rankproof/$(date +%F).json"
 ```
 
-Rank history is written on every scan, so the next one will show gains and drops.
+Standalone CLI scans write the requested export; they do not persist Web database history. Retain dated exports for offline analysis. The Web application records cohort-scoped history when persistence is enabled; its embedded in-memory database resets on restart unless a persistent PostgreSQL database is configured.

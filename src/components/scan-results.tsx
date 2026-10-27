@@ -79,6 +79,9 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
         backlinkDelta: report.delta.backlinkDelta,
         domainDelta: report.delta.domainDelta,
         healthDelta: report.delta.healthDelta,
+        unobservedLinks: report.delta.unobservedLinks,
+        commonLinks: report.delta.commonLinks,
+        basis: report.delta.basis,
         newIds: new Set(report.delta.newIds),
       };
     }
@@ -129,6 +132,8 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
   }, [effectiveDiff, filter, query, report.backlinks, sort]);
 
   const health = analytics.health;
+  const profileQualified = report.measurement?.scores?.graphScope === "live";
+  const hasProfile = profileQualified && stats.backlinks > 0;
 
   const tabs = useMemo<TabItem[]>(
     () => [
@@ -291,48 +296,56 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
         />
       ) : null}
 
+      {!profileQualified ? (
+        <p className="text-sm text-muted">
+          This saved report predates current-only scoring. Its legacy profile numbers are
+          unqualified; rescan for current metrics.
+        </p>
+      ) : null}
       {/* Statystyki */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
         <div className="col-span-2 rounded-lg border border-border-strong bg-surface p-4 shadow-[var(--shadow-panel)] md:col-span-2">
           <p className="text-xs font-medium tracking-wide text-muted uppercase">
-            Domain Rating (proxy)
+            Sampled profile index
           </p>
           <div className="mt-2 flex items-end gap-3">
             <p className="font-mono text-4xl tabular-nums tracking-tight text-fg">
-              {stats.domainRating}
+              {hasProfile ? stats.domainRating : "Unknown"}
             </p>
             <p className="pb-1 text-xs text-subtle">
-              from the discovered graph · PageRank over {stats.referringDomains} domains
+              Uncalibrated · current sampled graph, {stats.referringDomains} domains
             </p>
           </div>
-          <div className="mt-3">
-            <Meter value={stats.domainRating} tone="good" />
-          </div>
+          <div className="mt-3">{hasProfile ? <Meter value={stats.domainRating} /> : null}</div>
         </div>
         <StatCard
-          label="Verified backlinks"
-          value={stats.backlinks}
+          label="Current verified sample"
+          value={profileQualified ? stats.backlinks : "Unknown"}
           hint={`${stats.contentLinks} in content`}
         />
         <StatCard
           label="Referring domains"
-          value={stats.referringDomains}
-          hint={`${stats.authorityDomains} strong`}
+          value={profileQualified ? stats.referringDomains : "Unknown"}
+          hint={`${stats.authorityDomains} above the heuristic threshold`}
         />
         <StatCard
           label="Dofollow"
-          value={`${percent(stats.dofollow, stats.backlinks)}%`}
+          value={hasProfile ? `${percent(stats.dofollow, stats.backlinks)}%` : "Unknown"}
           hint={`${stats.dofollow} of ${stats.backlinks}`}
           tone="follow"
         />
         <StatCard
           label="Profile health"
-          value={`${health.total}`}
-          hint={`grade ${health.grade} · avg domain ${stats.avgDomainScore}/100`}
+          value={hasProfile ? `${health.total}` : "Unknown"}
+          hint={
+            hasProfile
+              ? `uncalibrated index · avg ordering score ${stats.avgDomainScore}/100`
+              : "No qualified current profile"
+          }
         />
         <StatCard
           label="Broken links"
-          value={stats.brokenLinks}
+          value={profileQualified ? stats.brokenLinks : "Unknown"}
           hint={`${stats.sitewideLinks} sitewide links`}
           tone={stats.brokenLinks > 0 ? "nofollow" : "default"}
         />
@@ -343,18 +356,18 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
         />
         <StatCard
           label="Topical match"
-          value={`${stats.avgRelevance}/100`}
+          value={hasProfile ? `${stats.avgRelevance}/100` : "Unknown"}
           hint={`${stats.redirectedLinks} links via redirect`}
         />
         <StatCard
           label="SERP visibility"
-          value={stats.serpVisibility}
+          value={report.serp.measured ? stats.serpVisibility : "Unknown"}
           hint={`${stats.rankedKeywords} in the top 10`}
           tone={stats.serpVisibility >= 40 ? "follow" : "default"}
         />
         <StatCard
           label="On-page SEO"
-          value={stats.onPageScore}
+          value={profileQualified && report.onPage ? stats.onPageScore : "Unknown"}
           hint={`${stats.prospects} link opportunities`}
         />
         <StatCard
@@ -363,9 +376,9 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
           hint="unique addresses and /24 ranges"
         />
         <StatCard
-          label="Lost links"
+          label="Archive candidates"
           value={stats.lostLinks}
-          hint={`${stats.reciprocalDomains} reciprocal domains`}
+          hint={`Current link loss is unconfirmed · ${stats.reciprocalDomains} reciprocal domains`}
           tone={stats.lostLinks > 0 ? "nofollow" : "default"}
         />
       </div>
@@ -380,11 +393,13 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <Gauge className="size-4 text-fg-soft" />
-                <p className="text-sm font-medium text-fg">Link profile health</p>
+                <p className="text-sm font-medium text-fg">Current profile heuristic</p>
               </div>
               <p className="font-mono text-2xl tabular-nums text-fg">
-                {health.total}
-                <span className="ml-2 text-sm text-muted">/ 100 · {health.grade}</span>
+                {hasProfile ? health.total : "Unknown"}
+                {hasProfile ? (
+                  <span className="ml-2 text-sm text-muted">/ 100 · uncalibrated</span>
+                ) : null}
               </p>
             </div>
             <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -393,12 +408,12 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
                   <div className="flex items-baseline justify-between gap-2">
                     <span className="text-sm text-fg-soft">{part.label}</span>
                     <span className="font-mono text-xs tabular-nums text-muted">
-                      {part.score}/{part.max}
+                      {hasProfile ? `${part.score}/${part.max}` : "Unknown"}
                     </span>
                   </div>
                   <div className="mt-2">
                     <Meter
-                      value={part.score}
+                      value={hasProfile ? part.score : 0}
                       max={part.max}
                       tone={part.score / part.max > 0.66 ? "good" : "default"}
                     />
@@ -430,7 +445,7 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
           <FootprintPanel footprint={report.footprint} />
           <TrendChart points={report.trend} />
           <GrowthChart stats={analytics.growth} />
-          {report.onPage ? <OnPagePanel audit={report.onPage} /> : null}
+          {profileQualified && report.onPage ? <OnPagePanel audit={report.onPage} /> : null}
           <SerpOverviewHint />
 
           {report.notes.length > 0 ? (
@@ -481,7 +496,8 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2 text-sm text-muted">
                 <Link2 className="size-4" />
-                {filtered.length} of {stats.backlinks} records
+                {filtered.length} of {report.backlinks.length} displayed records · {stats.backlinks}{" "}
+                current observed links
               </div>
               <div className="flex items-center gap-2">
                 <Filter className="size-4 text-subtle" />
@@ -519,7 +535,7 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
                   ["authority", "Strong domains"],
                   ["risk", "Risky"],
                   ["broken", "Broken"],
-                  ["lost", "Lost"],
+                  ["lost", "Archive candidates"],
                   ["ontopic", "On topic"],
                   ...(effectiveDiff ? ([["new", "New"]] as const) : []),
                 ] as const
@@ -576,9 +592,11 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
 
       {tab === "domains" ? (
         <div className="rounded-xl border border-border bg-surface px-4 md:px-5">
-          {analytics.referringDomains.length === 0 ? (
+          {!profileQualified || analytics.referringDomains.length === 0 ? (
             <p className="py-12 text-center text-sm text-muted">
-              No referring domains in this scan.
+              {profileQualified
+                ? "No current referring domains in this scan."
+                : "Legacy domain aggregates are unqualified; rescan for current metrics."}
             </p>
           ) : (
             analytics.referringDomains.map((domain) => (
@@ -613,7 +631,9 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs text-muted">
-                  <span title="Domain score">DS {domain.domainScore}</span>
+                  <span title="Uncalibrated domain ordering heuristic">
+                    DS {domain.domainScore}
+                  </span>
                   <span title="Rank in the discovered graph (PageRank)">PR {domain.rank}</span>
                   <span>{domain.links} links</span>
                   <span>{domain.pages} pages</span>
@@ -628,7 +648,7 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
                 </div>
                 <div className="flex flex-wrap gap-2 md:justify-end">
                   {domain.lostLinks > 0 ? (
-                    <Badge variant="nofollow">lost {domain.lostLinks}</Badge>
+                    <Badge variant="nofollow">archive {domain.lostLinks}</Badge>
                   ) : null}
                   {domain.reciprocal ? <Badge>reciprocal</Badge> : null}
                   {domain.spamScore >= 55 ? (
@@ -637,7 +657,7 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
                   {domain.sitewide ? <Badge>sitewide</Badge> : null}
                   <Badge>{domain.tld}</Badge>
                   <Badge variant={domain.dofollow > 0 ? "follow" : "default"}>
-                    {domain.dofollow > 0 ? "passes value" : "nofollow"}
+                    {domain.dofollow > 0 ? "follow classification" : "nofollow"}
                   </Badge>
                 </div>
               </article>
@@ -678,10 +698,14 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
         <div className="rounded-xl border border-border bg-surface px-4 md:px-5">
           <div className="flex items-center gap-2 border-b border-border py-4 text-sm text-muted">
             <Gauge className="size-4" />
-            The target&rsquo;s strongest pages — URL Rating computed from the link profile
+            Current sampled pages — uncalibrated page index from verified live links
           </div>
-          {analytics.targetPages.length === 0 ? (
-            <p className="py-12 text-center text-sm text-muted">No linked pages in this scan.</p>
+          {!profileQualified || analytics.targetPages.length === 0 ? (
+            <p className="py-12 text-center text-sm text-muted">
+              {profileQualified
+                ? "No linked pages in this scan."
+                : "Legacy page indices are unqualified; rescan for current metrics."}
+            </p>
           ) : (
             analytics.targetPages.map((page) => (
               <article
@@ -699,11 +723,11 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
                     <ArrowUpRight className="size-3.5 shrink-0 text-subtle" />
                   </a>
                   <div className="mt-2 max-w-[240px]">
-                    <Meter value={page.urlRating} tone="good" />
+                    <Meter value={page.urlRating} />
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs text-muted">
-                  <span title="URL Rating">UR {page.urlRating}</span>
+                  <span title="Uncalibrated sampled page index">page index {page.urlRating}</span>
                   <span>{page.links} links</span>
                   <span>{page.domains} domains</span>
                   <span>{page.dofollow} dofollow</span>
@@ -846,13 +870,11 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
 
       <aside className="rounded-xl border border-border bg-surface-2 px-5 py-4 text-sm leading-relaxed text-muted">
         <p>
-          Wikipedia, Reddit, Hacker News and Stack Exchange mark external links as{" "}
-          <span className="text-fg-soft">nofollow</span> — they bring traffic and visibility, but
-          pass no PageRank. The &ldquo;passes value&rdquo; column also accounts for the source
-          page&rsquo;s meta robots: a dofollow link from a noindex page contributes nothing in
-          practice. The domain score (DS) is an approximation built from public signals — age in the
-          archive, TLD, presence in Wikipedia and the number of linking pages — not DR from a paid
-          tool.
+          Follow attributes and robots directives are observations, not measurements of ranking
+          value. Domain ordering scores and sampled profile/page indices use manually chosen rules,
+          including name, TLD and trust-list priors. They are not calibrated probabilities, measured
+          authority or equivalents of another provider&rsquo;s ratings. Archive candidates and
+          provider assertions are excluded from current profile metrics.
         </p>
       </aside>
     </section>

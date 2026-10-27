@@ -9,7 +9,7 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "noEmit": false,
-    "declaration": false,
+    "declaration": true,
     "sourceMap": false,
     "module": "NodeNext",
     "moduleResolution": "nodenext",
