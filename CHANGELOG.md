@@ -27,6 +27,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semant
 - Exact source-target IDs preserve URL semantics and survive anchor edits. Legacy summary history without comparable manifests no longer emits new-report acquisition/loss or score deltas.
 - Source-domain archive age is separate from link observations; acquisition velocity remains unknown without dated cohorts. Rendered-DOM checking is deferred behind browser network/robots safety requirements.
 
+### Fixed
+
+- **Scans stalled on a busy host.** A request waiting for a per-host slot waited forever: when every slot was held by requests that redirected to another origin on the same host (`http` → `https`), each needed that origin's `robots.txt` and queued behind itself. The scan then ran out its whole budget, later phases shrank, and the CLI could exit mid-scan with code 13 (empty event loop). `robots.txt` now bypasses the limiter, and a queued request leaves at its own timeout or abort signal.
+- **Navigation anchors were scored as exact-match.** Any short anchor that was not a URL, brand or listed generic phrase fell through to `exact-match`, so "Visit the official website" or "Blog" raised the over-optimisation and spam heuristics. Anchors made only of navigation words (English and Polish) are now `generic`.
+
 ## [8.1.0] — 2026-08-30
 
 First stable public release after the RC hardening pass.

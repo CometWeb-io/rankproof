@@ -170,6 +170,8 @@ export async function robotsFor(
       // robots.txt itself is always fetchable; skipping the guard here would
       // be circular.
       skipRobots: true,
+      // Called while the caller may hold this host's last free slot.
+      bypassHostLimit: true,
     });
     // 4xx means "no rules"; 5xx means the host is unhappy — back off politely.
     if (status >= 200 && status < 300 && text.trim()) rules = parseRobots(text, agent);
