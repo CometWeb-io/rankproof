@@ -9,14 +9,14 @@ Test **verifying known source–target backlinks** as the first adoption wedge f
 
 ## Material facts and falsifiers
 
-| Claim | Basis | Counterevidence / limit | Decision |
-| --- | --- | --- | --- |
-| RankProof can verify provided source–target pairs | Source `docs/api.md`, `POST /v1/backlinks/verify`, current main | Only fetched HTML; up to 50 pairs per batch; endpoint is under **Unreleased** in CHANGELOG; no measured field reliability | Show a source-checkout developer preview, not an established SaaS feature |
-| Three-way result avoids treating blocked requests as absence | `docs/api.md` | `not_found` proves absence only in inspected representation; no JS rendering | Use precise scoped language |
-| Unique advantage is backlink verification | **Refuted** by Linkody docs | Linkody also checks live links, wrong anchor, rel, landing page and alerts | Never claim uniqueness |
-| Discovery can replace major commercial indexes | **Not demonstrated**; `docs/metrics.md` says coverage is incomplete | Unknown web population and upstream data limitations | Lead with known-pair checking, not backlink count |
-| Existing open-source brand can launch unmodified | **Contradicted** by third-party RankProof websites | `rankproof.io` and `rankproof.eu` sell/offer SEO tools under same name | Conduct naming, domain and trademark counsel check before broader marketing |
-| Users will pay for hosted monitoring | **Hypothesis** | Linkody offers 500 monitored links for €13.90/month; Linkcheck.io includes 200 free | Collect workflow evidence before pricing or building hosted product |
+| Claim                                                        | Basis                                                               | Counterevidence / limit                                                                                                   | Decision                                                                    |
+| ------------------------------------------------------------ | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| RankProof can verify provided source–target pairs            | Source `docs/api.md`, `POST /v1/backlinks/verify`, current main     | Only fetched HTML; up to 50 pairs per batch; endpoint is under **Unreleased** in CHANGELOG; no measured field reliability | Show a source-checkout developer preview, not an established SaaS feature   |
+| Three-way result avoids treating blocked requests as absence | `docs/api.md`                                                       | `not_found` proves absence only in inspected representation; no JS rendering                                              | Use precise scoped language                                                 |
+| Unique advantage is backlink verification                    | **Refuted** by Linkody docs                                         | Linkody also checks live links, wrong anchor, rel, landing page and alerts                                                | Never claim uniqueness                                                      |
+| Discovery can replace major commercial indexes               | **Not demonstrated**; `docs/metrics.md` says coverage is incomplete | Unknown web population and upstream data limitations                                                                      | Lead with known-pair checking, not backlink count                           |
+| Existing open-source brand can launch unmodified             | **Contradicted** by third-party RankProof websites                  | `rankproof.io` and `rankproof.eu` sell/offer SEO tools under same name                                                    | Conduct naming, domain and trademark counsel check before broader marketing |
+| Users will pay for hosted monitoring                         | **Hypothesis**                                                      | Linkody offers 500 monitored links for €13.90/month; Linkcheck.io includes 200 free                                       | Collect workflow evidence before pricing or building hosted product         |
 
 Source references (observed 2026-11-06):
 - Code and limitations: `docs/api.md`, `docs/metrics.md`, `CHANGELOG.md`.
@@ -80,27 +80,27 @@ The thresholds above are proposed decision rules, not forecasts or achieved resu
 
 ## Product and distribution backlog, dependency order
 
-| Order | Action | Acceptance evidence | Status 2026-11-06 |
-| --- | --- | --- | --- |
-| 0 | Resolve external name collision for any public-facing brand/domain | Naming decision and counsel check if needed | BLOCKED / undecided |
-| 1 | Document exact verification workflow with source checkout and scoped claims | Independently followable steps, read-back | DOCUMENTED; live execution not verified |
-| 2 | Measure outcome validity on known-pair fixtures and field links | Case ledger + denominators + manual labels | OPEN |
-| 3 | Observe five agency/developer onboarding tasks | Task observation, obstacles, return-use | OPEN |
-| 4 | If CSV friction is observed, add CSV import and exception export | Contract tests + pilot re-run | CONDITIONAL |
-| 5 | Publish an npm/portable installation path | Packed-install smoke in fresh environment | OPEN |
-| 6 | Build versioned paired observations + history | Deterministic diff across same exact pairs; unknown stays unknown | OPEN |
-| 7 | Add MCP tool surface on top of versioned API | Security review + tool schema + tested local/remote trust boundaries | CONDITIONAL |
-| 8 | Only then publish external benchmark/showcase | Reproducible study, uncertainty and brand gate | NOT AUTHORIZED |
+| Order | Action                                                                      | Acceptance evidence                                                  | Status 2026-11-06                       |
+| ----- | --------------------------------------------------------------------------- | -------------------------------------------------------------------- | --------------------------------------- |
+| 0     | Resolve external name collision for any public-facing brand/domain          | Naming decision and counsel check if needed                          | BLOCKED / undecided                     |
+| 1     | Document exact verification workflow with source checkout and scoped claims | Independently followable steps, read-back                            | DOCUMENTED; live execution not verified |
+| 2     | Measure outcome validity on known-pair fixtures and field links             | Case ledger + denominators + manual labels                           | OPEN                                    |
+| 3     | Observe five agency/developer onboarding tasks                              | Task observation, obstacles, return-use                              | OPEN                                    |
+| 4     | If CSV friction is observed, add CSV import and exception export            | Contract tests + pilot re-run                                        | CONDITIONAL                             |
+| 5     | Publish an npm/portable installation path                                   | Packed-install smoke in fresh environment                            | OPEN                                    |
+| 6     | Build versioned paired observations + history                               | Deterministic diff across same exact pairs; unknown stays unknown    | OPEN                                    |
+| 7     | Add MCP tool surface on top of versioned API                                | Security review + tool schema + tested local/remote trust boundaries | CONDITIONAL                             |
+| 8     | Only then publish external benchmark/showcase                               | Reproducible study, uncertainty and brand gate                       | NOT AUTHORIZED                          |
 
 ## Trust, reading, usage, purchasing rubric
 
-| Lens | Trust now? | Read? | Use? | Buy? | What changes answer |
-| --- | --- | --- | --- | --- | --- |
-| Technical SEO buyer | Conditional | Yes, short proof | Only trial | No | CSV, reproducible exceptions, saved time and evidence |
-| OSS maintainer | Conditional | Yes | Likely local try | N/A | Release artifact, reproducible tests, clear contract |
-| Methods reviewer | Partial | Yes | In controlled test | No | Measured field confusion matrix, scope, re-checks |
-| GTM practitioner | Conditional | Yes | Pilot | No | Narrow conversion path and repeat users |
-| Portfolio investor | Low | Yes | Pilot only | No | Clear strategic boundary, avoided infrastructure costs, paid signal |
+| Lens                | Trust now?  | Read?            | Use?               | Buy? | What changes answer                                                 |
+| ------------------- | ----------- | ---------------- | ------------------ | ---- | ------------------------------------------------------------------- |
+| Technical SEO buyer | Conditional | Yes, short proof | Only trial         | No   | CSV, reproducible exceptions, saved time and evidence               |
+| OSS maintainer      | Conditional | Yes              | Likely local try   | N/A  | Release artifact, reproducible tests, clear contract                |
+| Methods reviewer    | Partial     | Yes              | In controlled test | No   | Measured field confusion matrix, scope, re-checks                   |
+| GTM practitioner    | Conditional | Yes              | Pilot              | No   | Narrow conversion path and repeat users                             |
+| Portfolio investor  | Low         | Yes              | Pilot only         | No   | Clear strategic boundary, avoided infrastructure costs, paid signal |
 
 ## What not to ship in this cycle
 
