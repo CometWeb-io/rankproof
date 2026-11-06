@@ -42,7 +42,7 @@ Weighted strength of the domains in the top results (higher positions weigh more
 
 `serp-intel.ts` → `positionCtr()`, `adjustedCtr()`
 
-An averaged click-through curve for positions 1–20 taken from public studies, multiplied by SERP-feature coefficients (featured snippet −25%, ads −15%, knowledge panel −10%…).
+A modelled click-through curve for positions 1–20, multiplied by fixed SERP-feature coefficients (featured snippet −25%, ads −15%, knowledge panel −10%…). A source-and-calibration dataset for this default curve is not currently provided here, so the coefficients and model should be treated as assumptions rather than established observations.
 
 **What it does not measure:** this is **not a visit count**. It is an ordering signal — it shows which position is worth how much relative to the others.
 
@@ -66,7 +66,7 @@ The sum of adjusted CTR across every appearance of a domain, divided by the sum 
 
 `serp-cluster.ts` → `clusterKeywords()`
 
-Two keywords land in the same cluster when they share **at least 3 URLs in the top 10**. This is the industry-standard threshold: lower merges unrelated topics, higher splits genuine clusters.
+Two keywords land in the same cluster when they share **at least 3 URLs in the top 10**. This is a threshold chosen for this implementation, not a universal industry standard. Changing it changes cluster boundaries; there is no documented validation study here establishing that 3 is optimal for all markets and query sets.
 
 **What it does not measure:** it does not understand meaning — it relies purely on what the search engine shows.
 
