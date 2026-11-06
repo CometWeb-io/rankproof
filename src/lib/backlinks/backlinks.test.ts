@@ -115,6 +115,11 @@ test("classifyAnchor distinguishes brand, URL and keyword anchors", () => {
   assert.equal(classifyAnchor("Studio Cel", "cel.pl", ["Studio Cel"], false), "brand");
   assert.equal(classifyAnchor("kliknij tutaj", "cel.pl", [], false), "generic");
   assert.equal(classifyAnchor("fotografia produktowa", "cel.pl", [], false), "exact-match");
+  // Navigation wording names the destination, not a keyword.
+  for (const anchor of ["Visit website", "Visit the official website", "Blog", "Odwiedź stronę"]) {
+    assert.equal(classifyAnchor(anchor, "cel.pl", [], false), "generic", anchor);
+  }
+  assert.equal(classifyAnchor("product photography blog", "cel.pl", [], false), "exact-match");
   assert.equal(classifyAnchor("", "cel.pl", [], true), "image");
   assert.equal(
     classifyAnchor("najlepsze studio fotografii produktowej w Krakowie", "cel.pl", [], false),

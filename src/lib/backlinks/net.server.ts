@@ -26,20 +26,54 @@ export type FetchResult = {
 const CACHE = new Map<string, FetchResult>();
 const CACHE_LIMIT = 400;
 
-/** A simple limiter: at most N parallel requests to a single host. */
+/**
+ * A simple limiter: at most N parallel requests to a single host.
+ *
+ * Waiting for a slot is bounded by the request's own timeout and signal. An
+ * unbounded wait has no socket and no timer behind it, so when nothing frees a
+ * slot the scan stalls until its budget runs out — and a CLI process, with an
+ * empty event loop, exits mid-scan.
+ */
 const HOST_SLOTS = new Map<string, number>();
 const HOST_QUEUE = new Map<string, (() => void)[]>();
 const HOST_CONCURRENCY = config().hostConcurrency;
 
-async function acquireHost(host: string): Promise<() => void> {
+async function acquireHost(
+  host: string,
+  signal?: AbortSignal,
+  waitMs?: number,
+): Promise<() => void> {
   const used = HOST_SLOTS.get(host) ?? 0;
   if (used < HOST_CONCURRENCY) {
     HOST_SLOTS.set(host, used + 1);
     return () => releaseHost(host);
   }
-  await new Promise<void>((resolve) => {
+  if (signal?.aborted) throw new Error("Request aborted.");
+  await new Promise<void>((resolve, reject) => {
     const queue = HOST_QUEUE.get(host) ?? [];
-    queue.push(resolve);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const settle = () => {
+      if (timer) clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
+    };
+    const grant = () => {
+      settle();
+      resolve();
+    };
+    const leave = (message: string) => {
+      settle();
+      const waiting = HOST_QUEUE.get(host);
+      const at = waiting?.indexOf(grant) ?? -1;
+      if (waiting && at !== -1) waiting.splice(at, 1);
+      if (waiting && waiting.length === 0) HOST_QUEUE.delete(host);
+      reject(new Error(message));
+    };
+    const onAbort = () => leave("Request aborted.");
+    signal?.addEventListener("abort", onAbort, { once: true });
+    if (waitMs && waitMs > 0) {
+      timer = setTimeout(() => leave(`Timed out waiting for a free slot on ${host}.`), waitMs);
+    }
+    queue.push(grant);
     HOST_QUEUE.set(host, queue);
   });
   return () => releaseHost(host);
@@ -91,6 +125,12 @@ export type FetchOptions = {
   headers?: Record<string, string>;
   /** Budget used when robots.txt has to be fetched first. */
   budget?: Budget;
+  /**
+   * Skips the per-host limiter. Only for robots.txt: a request that already
+   * holds a slot fetches it after a redirect to another origin on the same
+   * host, and queueing behind itself would deadlock.
+   */
+  bypassHostLimit?: boolean;
 };
 
 /** Raised when a URL is refused before any connection is made. */
@@ -283,7 +323,9 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
   const cacheable = method === "GET" && opts.cache !== false && cache.enabled;
   const stored: CachedResponse | null = cacheable ? await cache.get(key) : null;
 
-  const release = await acquireHost(host);
+  const release = opts.bypassHostLimit
+    ? () => {}
+    : await acquireHost(host, opts.signal, opts.timeoutMs);
   await respectCrawlDelay(origin, crawlDelay);
 
   const controller = new AbortController();
