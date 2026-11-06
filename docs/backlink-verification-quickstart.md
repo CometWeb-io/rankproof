@@ -44,11 +44,11 @@ Batch size is 1–50 exact source/target pairs. Use *different registrable domai
 
 ## 3. Interpret each result
 
-| Status | What it establishes | What it does not establish |
-| --- | --- | --- |
-| `confirmed` | A matching anchor was found in fetched HTML | Browser visibility, indexing, ranking value or future persistence |
-| `not_found` | No match in successfully parsed fetched HTML, or source was 404/410 | No JavaScript-inserted link, or exact date of loss |
-| `error` | Verification failed or was blocked; read `reason` | Link absence or a link-loss event |
+| Status      | What it establishes                                                 | What it does not establish                                        |
+| ----------- | ------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `confirmed` | A matching anchor was found in fetched HTML                         | Browser visibility, indexing, ranking value or future persistence |
+| `not_found` | No match in successfully parsed fetched HTML, or source was 404/410 | No JavaScript-inserted link, or exact date of loss                |
+| `error`     | Verification failed or was blocked; read `reason`                   | Link absence or a link-loss event                                 |
 
 A batch HTTP 200 can include item-level `error` results. Inspect **each** result; do not treat the batch status as successful verification for every pair.
 
