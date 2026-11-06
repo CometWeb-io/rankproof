@@ -174,3 +174,4 @@ It scans the competitors as well, so a response can take several minutes. Set a 
 | `401` | `RANKPROOF_API_TOKEN` is set and the bearer token is missing or wrong      |
 | `405` | Wrong method (`/health` and `/doctor` accept GET; everything else is POST) |
 | `429` | Rate limit exceeded                                                        |
+| `503` | `GET /doctor`: no configured SERP engine returned usable results           |
