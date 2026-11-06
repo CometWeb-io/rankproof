@@ -68,15 +68,15 @@ Read the [metric definitions](docs/metrics.md) before comparing scores.
 
 ## Go further
 
-| Task                                  | Guide                                                     |
-| ------------------------------------- | --------------------------------------------------------- |
-| CLI commands and flags                | [CLI reference](docs/cli.md)                              |
-| Verify known backlinks                 | [Step-by-step quickstart](docs/backlink-verification-quickstart.md) |
-| Run the HTTP service                  | [API reference](docs/api.md)                              |
-| Configure engines and integrations    | [.env.example](.env.example)                              |
-| Understand discovery and verification | [Architecture](docs/architecture.md)                      |
-| Deploy beyond localhost               | [Production operations](docs/production-ops.md)           |
-| Contribute or report a vulnerability  | [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) |
+| Task                                  | Guide                                                               |
+| ------------------------------------- | ------------------------------------------------------------------- |
+| CLI commands and flags                | [CLI reference](docs/cli.md)                                        |
+| Verify known backlinks                | [Step-by-step quickstart](docs/backlink-verification-quickstart.md) |
+| Run the HTTP service                  | [API reference](docs/api.md)                                        |
+| Configure engines and integrations    | [.env.example](.env.example)                                        |
+| Understand discovery and verification | [Architecture](docs/architecture.md)                                |
+| Deploy beyond localhost               | [Production operations](docs/production-ops.md)                     |
+| Contribute or report a vulnerability  | [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)           |
 
 ```bash
 npm run check
