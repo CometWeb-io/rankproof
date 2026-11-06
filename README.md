@@ -30,6 +30,8 @@ The source-checkout HTTP API accepts exact public source/target URL pairs (up to
 
 Start with the [known-backlink verification quickstart](docs/backlink-verification-quickstart.md). For API response semantics and safe hosting, see [HTTP API](docs/api.md). This capability is currently described under **Unreleased** in the changelog.
 
+**Local API security:** keep it on loopback. Without `RANKPROOF_API_TOKEN` the API does not authenticate callers; a publicly exposed deployment also requires the documented proxy, rate limits and DNS-pinning controls. See [production operations](docs/production-ops.md) before deploying beyond localhost.
+
 ## Try the CLI
 
 ```bash
