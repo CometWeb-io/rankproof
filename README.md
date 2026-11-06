@@ -1,13 +1,15 @@
 # RankProof
 
-Audit search visibility, backlinks and internal links from your own machine. Inspect the evidence behind a finding and export the results.
+**Verify backlinks you already know about, with inspectable evidence.** RankProof checks source-page HTML and tells you when a link was confirmed, not found in the inspected HTML, or could not be verified. It also offers local search-visibility and site-structure audits.
 
 ![RankProof discovers public signals, verifies source pages, and produces a report with explicit gaps.](docs/media/overview.svg)
 
 [![CI](https://github.com/CometWeb-io/rankproof/actions/workflows/ci.yml/badge.svg)](https://github.com/CometWeb-io/rankproof/actions/workflows/ci.yml)
 [![MIT](https://img.shields.io/badge/license-MIT-034C32)](LICENSE)
 
-**Node.js 22+ · Web UI, CLI and HTTP API · Version 8.1.0**
+**Node.js 22+ · Web UI, CLI and HTTP API · Package version 8.1.0**
+
+Main contains changes recorded under **Unreleased** in [CHANGELOG](CHANGELOG.md); check API capabilities rather than assuming every checkout or package has the same endpoints.
 
 ## Run locally
 
@@ -21,6 +23,12 @@ npm run dev
 Open **http://localhost:8080**. Local history uses embedded PGLite when `DATABASE_URL` is unset. The development server binds to localhost.
 
 ![The local RankProof app with domain, market and device controls, before running a scan.](docs/media/app.png)
+
+## Verify a backlink you already track
+
+The source-checkout HTTP API accepts exact public source/target URL pairs (up to 50 per request) and reports `confirmed`, `not_found` or `error` with observation details. **`not_found` is scoped to fetched HTML; `error` is not evidence of a missing backlink.** JavaScript-inserted links are not rendered.
+
+Start with the [known-backlink verification quickstart](docs/backlink-verification-quickstart.md). For API response semantics and safe hosting, see [HTTP API](docs/api.md). This capability is currently described under **Unreleased** in the changelog.
 
 ## Try the CLI
 
@@ -61,6 +69,7 @@ Read the [metric definitions](docs/metrics.md) before comparing scores.
 | Task                                  | Guide                                                     |
 | ------------------------------------- | --------------------------------------------------------- |
 | CLI commands and flags                | [CLI reference](docs/cli.md)                              |
+| Verify known backlinks                 | [Step-by-step quickstart](docs/backlink-verification-quickstart.md) |
 | Run the HTTP service                  | [API reference](docs/api.md)                              |
 | Configure engines and integrations    | [.env.example](.env.example)                              |
 | Understand discovery and verification | [Architecture](docs/architecture.md)                      |
