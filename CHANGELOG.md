@@ -4,6 +4,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semant
 
 ## [Unreleased]
 
+### Fixed
+
+- Anchor text no longer contains raw markup when a link wraps a long inline SVG icon. Such links read as image links with no text unless they carry an `aria-label`, `title`, `<img alt>` or an SVG `<title>`. Anchor extraction is now `html-anchor-v5`.
+- `<wbr>` inside a link no longer inserts a space into the anchor text ("backlinks", not "back links").
+- The action plan tab showed four Polish labels in the English interface.
+
 ## [1.0.0] — 2026-11-07
 
 First release under restarted numbering. Earlier internal versions are listed under [History before 1.0](#history-before-10).

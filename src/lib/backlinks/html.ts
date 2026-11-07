@@ -1,5 +1,5 @@
 import { decodeHTMLAttribute } from "entities/decode";
-import { tokenizeHtml, type HtmlDocument } from "./html-tokenizer.ts";
+import { tokenizeHtml, type HtmlDocument, type HtmlToken } from "./html-tokenizer.ts";
 import type { AnchorType, LinkPlacement } from "./types.ts";
 
 const SOCIAL_HOST_RE =
@@ -413,6 +413,69 @@ export type ParsedAnchor = {
   index: number;
 };
 
+/** Markup between an `<a>` start tag and the tag that ends it, bounded in length. */
+function anchorInner(html: string, tokens: HtmlToken[], position: number): string {
+  const start = tokens[position]!.end;
+  let end = Math.min(html.length, start + 600);
+  for (let next = position + 1; next < tokens.length; next++) {
+    // A new `<a>` implicitly closes the current one.
+    if (tokens[next]!.name === "a") {
+      end = tokens[next]!.index;
+      break;
+    }
+  }
+  return html.slice(start, Math.min(end, start + 20_000));
+}
+
+/**
+ * Visible text of an anchor's content. `<wbr>` adds no text, inline SVG
+ * contributes only its `<title>`, and a tag cut off by the length bound is
+ * dropped rather than leaking markup into the anchor text. Linear in length.
+ */
+function anchorContentText(inner: string): string {
+  const lower = inner.replace(/[A-Z]/g, (char) => char.toLowerCase());
+  const parts: string[] = [];
+  let cursor = 0;
+  while (cursor < inner.length) {
+    const lt = inner.indexOf("<", cursor);
+    if (lt === -1) {
+      parts.push(inner.slice(cursor));
+      break;
+    }
+    parts.push(inner.slice(cursor, lt));
+    const name = /^<\/?([a-z][a-z0-9-]*)/.exec(lower.slice(lt, lt + 32))?.[1] ?? "";
+    if (!name && !/^<[!/?]/.test(inner.slice(lt, lt + 2))) {
+      // A bare less-than in text is not a tag.
+      parts.push("<");
+      cursor = lt + 1;
+      continue;
+    }
+    const gt = inner.indexOf(">", lt);
+    if (gt === -1) break;
+    cursor = gt + 1;
+    if (name === "wbr") continue;
+    parts.push(" ");
+    if (inner[lt + 1] === "/" || !INERT_IN_ANCHOR.has(name) || inner[gt - 1] === "/") continue;
+    const close = lower.indexOf(`</${name}`, cursor);
+    const block = close === -1 ? lower.slice(cursor) : lower.slice(cursor, close);
+    if (name === "svg") {
+      const titleStart = block.indexOf("<title");
+      const titleOpen = titleStart === -1 ? -1 : block.indexOf(">", titleStart);
+      const titleEnd = titleOpen === -1 ? -1 : block.indexOf("</title", titleOpen);
+      if (titleEnd !== -1) {
+        parts.push(inner.slice(cursor + titleOpen + 1, cursor + titleEnd), " ");
+      }
+    }
+    if (close === -1) break;
+    const closeEnd = inner.indexOf(">", close);
+    if (closeEnd === -1) break;
+    cursor = closeEnd + 1;
+  }
+  return decodeText(parts.join("")).replace(/\s+/g, " ").trim();
+}
+
+const INERT_IN_ANCHOR = new Set(["svg", "script", "style", "noscript", "template"]);
+
 /** Parses `<a>` with its context: image alt, rel and document section. */
 export function parseAnchors(
   html: string,
@@ -423,8 +486,10 @@ export function parseAnchors(
   const regions = opts.withPlacement === false ? [] : buildRegions(html);
   const out: ParsedAnchor[] = [];
   const document = opts.document ?? tokenizeHtml(html, opts.exact);
+  const tokens = document.tokens;
   let count = 0;
-  for (const token of document.tokens) {
+  for (let position = 0; position < tokens.length; position++) {
+    const token = tokens[position]!;
     if (token.closing || token.name !== "a") continue;
     if (count++ >= limit) break;
     const attributes = token.attrs;
@@ -448,15 +513,10 @@ export function parseAnchors(
     } catch {
       continue;
     }
-    const afterStart = token.end;
-    const after = html.slice(afterStart, afterStart + 600);
-    const close = after.search(/<\s*\/\s*a\s*>/i);
-    const inner = close >= 0 ? after.slice(0, close) : after.slice(0, 200);
+    const inner = anchorInner(html, tokens, position);
     const imgAlt = inner.match(/<img[^>]+alt\s*=\s*["']([^"']{1,140})["']/i)?.[1] ?? "";
-    const isImage = /<img\b/i.test(inner);
-    const rawText = decodeText(inner.replace(/<[^>]+>/g, " "))
-      .replace(/\s+/g, " ")
-      .trim();
+    const isImage = /<(img|svg)\b/i.test(inner);
+    const rawText = anchorContentText(inner);
     const ariaLabel = attributes["aria-label"];
     const titleAttr = attributes.title;
     const text = (rawText || decodeText(imgAlt) || ariaLabel || titleAttr || "")
