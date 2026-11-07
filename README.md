@@ -7,9 +7,9 @@
 [![CI](https://github.com/CometWeb-io/rankproof/actions/workflows/ci.yml/badge.svg)](https://github.com/CometWeb-io/rankproof/actions/workflows/ci.yml)
 [![MIT](https://img.shields.io/badge/license-MIT-034C32)](LICENSE)
 
-**Node.js 22+ · Web UI, CLI and HTTP API · Package version 8.1.0**
+**Node.js 22+ · Web UI, CLI and HTTP API · Package version 8.2.0**
 
-Main contains changes recorded under **Unreleased** in [CHANGELOG](CHANGELOG.md); check API capabilities rather than assuming every checkout or package has the same endpoints.
+`main` may contain changes recorded under **Unreleased** in [CHANGELOG](CHANGELOG.md); check API capabilities rather than assuming every checkout or package has the same endpoints.
 
 ## Run locally
 
@@ -26,9 +26,9 @@ Open **http://localhost:8080**. Local history uses embedded PGLite when `DATABAS
 
 ## Verify a backlink you already track
 
-The source-checkout HTTP API accepts exact public source/target URL pairs (up to 50 per request) and reports `confirmed`, `not_found` or `error` with observation details. **`not_found` is scoped to fetched HTML; `error` is not evidence of a missing backlink.** JavaScript-inserted links are not rendered.
+The HTTP API accepts exact public source/target URL pairs (up to 50 per request) and reports `confirmed`, `not_found` or `error` with observation details. **`not_found` is scoped to fetched HTML; `error` is not evidence of a missing backlink.** JavaScript-inserted links are not rendered.
 
-Start with the [known-backlink verification quickstart](docs/backlink-verification-quickstart.md). For API response semantics and safe hosting, see [HTTP API](docs/api.md). This capability is currently described under **Unreleased** in the changelog.
+Start with the [known-backlink verification quickstart](docs/backlink-verification-quickstart.md). For API response semantics and safe hosting, see [HTTP API](docs/api.md). Available since 8.2.0.
 
 **Local API security:** keep it on loopback. Without `RANKPROOF_API_TOKEN` the API does not authenticate callers; a publicly exposed deployment also requires the documented proxy, rate limits and DNS-pinning controls. See [production operations](docs/production-ops.md) before deploying beyond localhost.
 

@@ -1,6 +1,6 @@
 # Verify known backlinks with the local HTTP API
 
-This quickstart applies to the **current GitHub source checkout**. The exact-pair verification endpoint is documented under **Unreleased** in `CHANGELOG.md`; it is not independently guaranteed to be in a published npm package. Node.js 22+ required.
+The exact-pair verification endpoint ships in **RankProof 8.2.0** (tag `v8.2.0`). RankProof is not on the npm registry yet, so run it from a clone or a GitHub release tarball. Node.js 22+ required.
 
 The endpoint answers a narrow question: _does the HTML fetched from a supplied source URL contain an anchor pointing to the exact supplied target URL?_ It does not crawl the browser-rendered DOM, establish Google ranking value, or discover every backlink on the web.
 
