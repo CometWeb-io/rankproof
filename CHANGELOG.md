@@ -4,8 +4,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semant
 
 ## [Unreleased]
 
+## [8.2.0] — 2026-11-07
+
 ### Security
 
+- Upgrade `better-auth` to 1.7.18 for [GHSA-r4xp-prcw-77qf](https://github.com/advisories/GHSA-r4xp-prcw-77qf) and [GHSA-965c-763c-88jm](https://github.com/advisories/GHSA-965c-763c-88jm) (sign-in as another user through the OAuth proxy or OAuth state), [GHSA-q84f-53jg-9ppm](https://github.com/advisories/GHSA-q84f-53jg-9ppm) and [GHSA-44jh-23m7-hpcf](https://github.com/advisories/GHSA-44jh-23m7-hpcf).
+- Pin `minimatch` 11.0.5 under `typescript-eslint` for [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249).
+- `RANKPROOF_GOOGLE_PROVIDER_URL` (and the legacy OpenVis / SerpRadar aliases)
+  goes through the same guard before fetch. Loopback, link-local and metadata
+  addresses are refused, including after DNS resolution.
+- Dependency overrides clear the high advisories on `fast-uri`, `js-yaml` and
+  `brace-expansion`. CI runs `prettier --check`.
 - Upgrade TanStack Start and its matching router to fix unauthenticated reflected XSS in server-function responses ([GHSA-qx66-fv34-fjm8](https://github.com/advisories/GHSA-qx66-fv34-fjm8)).
 - Upgrade Vite, Zod, `source-map-js` and the `fast-uri` override to patched versions. CI audits the complete dependency tree, including web dependencies listed under `devDependencies`.
 
@@ -20,12 +29,28 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semant
 ### Changed
 
 - HTML anchor extraction v4 preserves equals signs in unquoted query values and decodes URL attribute entities once in shared parsing.
-
 - Exact HTML URL attributes use the full, case-sensitive runtime entity decoder; discovery revalidates source HTML rather than refreshing cached evidence timestamps.
 - Unknown acquisition remains unknown in the UI, CLI and HTML export; score comparability includes the actual scored subset and selection inputs.
 - Discovery separates provider reports from fetched-HTML confirmation, preserves overlapping source provenance and adds a versioned coverage/score/visibility manifest.
 - Exact source-target IDs preserve URL semantics and survive anchor edits. Legacy summary history without comparable manifests no longer emits new-report acquisition/loss or score deltas.
 - Source-domain archive age is separate from link observations; acquisition velocity remains unknown without dated cohorts. Rendered-DOM checking is deferred behind browser network/robots safety requirements.
+
+### Fixed
+
+- Unknown `--market`, `--device` and `--depth` values error with the allow-list
+  instead of falling back. `scan --depth` is the depth the scan uses (10 or 20).
+- The CLI exits before `--experimental-strip-types` when Node is older than 22,
+  with a message that names the floor. `doctor` stays non-zero when unhealthy,
+  matching HTTP 503.
+- Install docs no longer tell people to `npm install rankproof` while the
+  registry 404s. Clone and `npm ci` is the path that works.
+- The CLI imports `scripts/node-version.mjs` before any command runs. That file
+  is now in the published `files` list, so an installed package can start.
+
+### Documentation
+
+- New [backlink verification quickstart](docs/backlink-verification-quickstart.md); README leads with the known-backlink verification workflow and its limits.
+- `docs/metrics.md` no longer presents the clustering threshold or CTR curve as established standards; `docs/api.md` documents the `503` from `GET /doctor`.
 
 ## [8.1.0] — 2026-08-30
 
@@ -45,7 +70,7 @@ First stable public release after the RC hardening pass.
 - `scan-results.tsx` refactored from a single 1.5k-line module into focused subcomponents.
 - `scan-serp.tsx` split into `src/components/scan/` modules (barrel re-export; largest file ~250 lines).
 
-## [Unreleased] — open-source readiness
+## Open-source readiness (pre-8.1.0, shipped in 8.1.0)
 
 Pre-publication pass: a security fix, the last of the Polish surface, engine
 truthfulness, and the packaging a stranger's first clone runs into.
@@ -61,9 +86,6 @@ truthfulness, and the packaging a stranger's first clone runs into.
   NAT64 and 6to4, plus `ff00::/8`, `100::/64`, `2001:db8::/32` and `2001::/23`.
   Regression tests cover the URL-normalised spelling, which is the one that
   actually arrives.
-- `RANKPROOF_GOOGLE_PROVIDER_URL` (and the legacy OpenVis / SerpRadar aliases)
-  goes through the same guard before fetch. Loopback, link-local and metadata
-  addresses are refused, including after DNS resolution.
 - `GET /doctor` is rate-limited like the POST endpoints; it runs five sequential
   engine probes and previously skipped the limiter entirely. `GET /health` stays
   free as a liveness probe.
@@ -79,15 +101,6 @@ truthfulness, and the packaging a stranger's first clone runs into.
 
 ### Fixed
 
-- Unknown `--market`, `--device` and `--depth` values error with the allow-list
-  instead of falling back. `scan --depth` is the depth the scan uses (10 or 20).
-- The CLI exits before `--experimental-strip-types` when Node is older than 22,
-  with a message that names the floor. `doctor` stays non-zero when unhealthy,
-  matching HTTP 503.
-- Install docs no longer tell people to `npm install rankproof` while the
-  registry 404s. Clone and `npm ci` is the path that works.
-- Dependency overrides clear the high advisories on `fast-uri`, `js-yaml` and
-  `brace-expansion`. CI runs `prettier --check`.
 - **`.env` was never read.** README and `.env.example` both told people to create
   one; nothing loaded it, so every variable was silently ignored. The CLI, the
   HTTP API and `dev`/`build`/`preview` now load it via `util.parseEnv` — no new
@@ -155,8 +168,6 @@ truthfulness, and the packaging a stranger's first clone runs into.
   (`prepack` builds it). A clone still runs the TypeScript sources directly, and
   sources win when present so a stale `dist/` cannot shadow what you are editing.
   CI installs the real tarball into a path with a space and runs it.
-- The CLI imports `scripts/node-version.mjs` before any command runs. That file
-  is now in the published `files` list, so an installed package can start.
 - The tarball is 153 kB across 52 files with **no runtime dependencies**, down
   from shipping all of `src/` — React routes, styles and tests included — plus
   51 dependencies the CLI never imports. Every one of them is consumed by the
