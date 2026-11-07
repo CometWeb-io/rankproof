@@ -2,7 +2,7 @@
 
 This quickstart applies to the **current GitHub source checkout**. The exact-pair verification endpoint is documented under **Unreleased** in `CHANGELOG.md`; it is not independently guaranteed to be in a published npm package. Node.js 22+ required.
 
-The endpoint answers a narrow question: *does the HTML fetched from a supplied source URL contain an anchor pointing to the exact supplied target URL?* It does not crawl the browser-rendered DOM, establish Google ranking value, or discover every backlink on the web.
+The endpoint answers a narrow question: _does the HTML fetched from a supplied source URL contain an anchor pointing to the exact supplied target URL?_ It does not crawl the browser-rendered DOM, establish Google ranking value, or discover every backlink on the web.
 
 ## 1. Run locally
 
@@ -40,7 +40,7 @@ curl -sS -X POST http://127.0.0.1:8787/v1/backlinks/verify \
   }'
 ```
 
-Batch size is 1–50 exact source/target pairs. Use *different registrable domains* for backlink checks. An optional `RANKPROOF_API_TOKEN` requires the matching Bearer authorization header.
+Batch size is 1–50 exact source/target pairs. Use _different registrable domains_ for backlink checks. An optional `RANKPROOF_API_TOKEN` requires the matching Bearer authorization header.
 
 ## 3. Interpret each result
 
@@ -67,4 +67,4 @@ The response may contain `checked_at`, `http_status`, `anchor`, `rel`, `raw_href
 
 For a team with an existing spreadsheet of backlinks, first test whether conversion to the documented JSON contract is acceptable. A native CSV importer and continuous monitoring are proposed roadmap items, **not features demonstrated by this guide**.
 
-References: [HTTP API](api.md) · [Methodology](metrics.md) · [GTM and validation gates](gtm-validation-2026.md) · [Changelog](../CHANGELOG.md).
+References: [HTTP API](api.md) · [Methodology](metrics.md) · [Changelog](../CHANGELOG.md).
