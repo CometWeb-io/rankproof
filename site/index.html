@@ -415,524 +415,158 @@
         height: 14px;
       }
 
-      /* ---------- hero scanner ---------- */
-      .xray {
-        position: relative;
-        height: min(620px, 74vh);
-        min-height: 500px;
-        perspective: 1600px;
-      }
-      .xray::before {
-        content: "";
-        position: absolute;
-        left: 6%;
-        right: 6%;
-        bottom: 4%;
-        height: 46%;
-        border-radius: 50%;
-        background: radial-gradient(ellipse at center, rgba(5, 242, 155, 0.16), transparent 68%);
-        filter: blur(10px);
-        pointer-events: none;
-      }
-      .deck {
-        position: absolute;
-        left: 4%;
-        top: 9%;
-        width: 74%;
-        height: 74%;
-        transform-style: preserve-3d;
-        transform: rotateX(9deg) rotateY(-14deg) rotateZ(1deg);
-      }
-      .page {
-        position: absolute;
-        inset: 0;
-        border-radius: 14px;
-        border: 1px solid #2f2f33;
-        background: linear-gradient(180deg, #19191c, #141416);
-        box-shadow:
-          0 40px 80px -30px rgba(0, 0, 0, 0.9),
-          0 0 0 1px rgba(255, 255, 255, 0.02) inset;
-        overflow: hidden;
-        transition:
-          transform 0.7s var(--ease),
-          opacity 0.7s var(--ease),
-          filter 0.7s var(--ease);
-        will-change: transform, opacity;
-      }
-      .page[data-pos="0"] {
-        transform: translate3d(0, 0, 0);
-        opacity: 1;
-        z-index: 3;
-      }
-      .page[data-pos="1"] {
-        transform: translate3d(22px, -22px, -60px);
-        opacity: 0.55;
-        filter: brightness(0.7);
-        z-index: 2;
-      }
-      .page[data-pos="2"] {
-        transform: translate3d(44px, -44px, -120px);
-        opacity: 0.28;
-        filter: brightness(0.5);
-        z-index: 1;
-      }
-      .page[data-pos="out"] {
-        transform: translate3d(-60px, 60px, 80px) rotateZ(-4deg);
-        opacity: 0;
-        z-index: 4;
-      }
-      .pbar {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        height: 38px;
-        padding: 0 12px;
-        border-bottom: 1px solid #26262a;
-        background: #1c1c1f;
-      }
-      .pbar .dots {
-        display: flex;
-        gap: 6px;
-      }
-      .pbar .dots i {
-        width: 9px;
-        height: 9px;
-        border-radius: 50%;
-        background: #3a3a3e;
-      }
-      .pbar .addr {
-        flex: 1;
-        min-width: 0;
-        padding: 4px 10px;
-        border-radius: 6px;
-        background: #121214;
-        border: 1px solid #2a2a2e;
-        font-family: var(--mono);
-        font-size: 11.5px;
-        color: var(--soft);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .pbar .code {
-        font-family: var(--mono);
-        font-size: 11px;
-        padding: 2px 7px;
-        border-radius: 5px;
-        color: var(--muted);
-        background: #232327;
-        opacity: 0;
-        transition: opacity 0.3s;
-      }
-      .page.done .pbar .code {
-        opacity: 1;
-      }
-      .page.k-ok .pbar .code {
-        color: var(--ok);
-      }
-      .page.k-err .pbar .code {
-        color: var(--err);
-      }
-      .pbody {
-        position: relative;
-        padding: 22px 22px 0;
-      }
-      .sk {
-        height: 9px;
-        border-radius: 5px;
-        background: #2a2a2e;
-        margin-bottom: 11px;
-      }
-      .sk.h {
-        height: 16px;
-        width: 62%;
-        background: #34343a;
-        margin-bottom: 18px;
-      }
-      .sk.img {
-        height: 70px;
-        border-radius: 8px;
-        background: linear-gradient(135deg, #222226, #2b2b30);
-        margin: 6px 0 16px;
-      }
-      .skrow {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 11px;
-      }
-      .skrow .sk {
+      /* ---------- hero: your links -> RankProof -> verdict ---------- */
+      .hv {
         margin: 0;
       }
-      .chip {
-        position: relative;
-        flex: none;
-        font-family: var(--mono);
-        font-size: 11px;
-        line-height: 1;
-        padding: 4px 8px;
-        border-radius: 5px;
-        color: #8fdcc0;
-        background: rgba(5, 242, 155, 0.06);
-        border: 1px solid rgba(5, 242, 155, 0.18);
-        transition:
-          background 0.3s,
-          border-color 0.3s,
-          box-shadow 0.3s,
-          color 0.3s;
-      }
-      .page.hit .chip {
-        color: #04140d;
-        background: var(--accent);
-        border-color: var(--accent);
-        box-shadow:
-          0 0 0 4px rgba(5, 242, 155, 0.18),
-          0 0 26px rgba(5, 242, 155, 0.7);
-      }
-      .snippet {
-        position: absolute;
-        left: 22px;
-        right: 22px;
-        padding: 9px 11px;
-        border-radius: 8px;
-        background: #0c0c0d;
-        border: 1px solid rgba(5, 242, 155, 0.35);
-        font-family: var(--mono);
-        font-size: 11px;
-        line-height: 1.6;
-        color: var(--soft);
-        opacity: 0;
-        transform: translateY(6px);
-        transition:
-          opacity 0.35s var(--ease),
-          transform 0.35s var(--ease);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        z-index: 3;
-      }
-      .snippet b {
-        font-weight: 400;
-        color: var(--accent);
-      }
-      .snippet i {
-        font-style: normal;
-        color: var(--err);
-      }
-      .page.hit .snippet {
-        opacity: 1;
-        transform: none;
-      }
-      .captcha {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin: 4px 0 16px;
-        padding: 14px;
-        border-radius: 8px;
-        border: 1px solid #36363b;
-        background: #1f1f23;
-        font-size: 12.5px;
-        color: var(--soft);
-      }
-      .captcha span {
-        width: 18px;
-        height: 18px;
-        border-radius: 4px;
-        border: 2px solid #55555c;
-        flex: none;
-      }
-      .page.k-err.done .captcha {
-        border-color: rgba(255, 176, 32, 0.5);
-        box-shadow: 0 0 22px rgba(255, 176, 32, 0.18);
-      }
-      .beam {
-        position: absolute;
-        left: 0;
-        right: 0;
-        top: 38px;
-        height: 2px;
-        z-index: 4;
-        opacity: 0;
-        background: linear-gradient(
-          90deg,
-          transparent,
-          var(--accent) 18%,
-          #b9ffe2 50%,
-          var(--accent) 82%,
-          transparent
-        );
-        box-shadow:
-          0 0 14px rgba(5, 242, 155, 0.9),
-          0 0 40px rgba(5, 242, 155, 0.45);
-        pointer-events: none;
-      }
-      .beam::before {
-        content: "";
-        position: absolute;
-        left: 0;
-        right: 0;
-        bottom: 2px;
-        height: 90px;
-        background: linear-gradient(180deg, transparent, rgba(5, 242, 155, 0.1));
-      }
-      .page.scanning .beam {
-        opacity: 1;
-      }
-      .page.k-err .beam {
-        background: linear-gradient(
-          90deg,
-          transparent,
-          var(--err) 18%,
-          #ffe0a3 50%,
-          var(--err) 82%,
-          transparent
-        );
-        box-shadow:
-          0 0 14px rgba(255, 176, 32, 0.9),
-          0 0 40px rgba(255, 176, 32, 0.4);
-      }
-      .page.k-err .beam::before {
-        background: linear-gradient(180deg, transparent, rgba(255, 176, 32, 0.1));
-      }
-      .stamp {
-        position: absolute;
-        left: 22px;
-        bottom: 26px;
-        z-index: 5;
-        display: grid;
-        gap: 2px;
-        padding: 10px 14px;
-        border-radius: 10px;
-        border: 2px solid currentColor;
-        background: rgba(12, 12, 13, 0.86);
-        font-size: 12px;
-        font-weight: 800;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        opacity: 0;
-        transform: rotate(-7deg) scale(1.6);
-        transition:
-          opacity 0.25s,
-          transform 0.4s cubic-bezier(0.2, 1.6, 0.4, 1);
-      }
-      .stamp small {
-        font-family: var(--mono);
-        font-size: 10.5px;
-        font-weight: 400;
-        letter-spacing: 0;
-        text-transform: none;
-        opacity: 0.85;
-      }
-      .page.done .stamp {
-        opacity: 1;
-        transform: rotate(-7deg) scale(1);
-      }
-      .page.k-ok .stamp {
-        color: var(--ok);
-      }
-      .page.k-miss .stamp {
-        color: #c9c9cf;
-      }
-      .page.k-err .stamp {
-        color: var(--err);
-      }
-
-      .target {
-        position: absolute;
-        right: 0;
-        top: 4%;
-        z-index: 6;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 10px 14px 10px 10px;
-        border-radius: 12px;
-        border: 1px solid #2f2f33;
-        background: rgba(20, 20, 22, 0.92);
-        backdrop-filter: blur(6px);
-        box-shadow: 0 20px 40px -20px rgba(0, 0, 0, 0.8);
-        transition:
-          border-color 0.3s,
-          box-shadow 0.3s;
-      }
-      .target.lit {
-        border-color: rgba(5, 242, 155, 0.6);
-        box-shadow:
-          0 0 0 4px rgba(5, 242, 155, 0.1),
-          0 20px 40px -20px rgba(0, 0, 0, 0.8);
-      }
-      .target .ico {
-        width: 34px;
-        height: 34px;
-        margin: 0;
-        border-radius: 9px;
-      }
-      .target .ico svg {
-        width: 18px;
-        height: 18px;
-      }
-      .target small {
+      .hv-svg {
         display: block;
-        font-size: 10.5px;
+        width: 100%;
+        height: auto;
+        overflow: visible;
+        font-family: var(--sans);
+      }
+      .hv-agent rect {
+        fill: var(--panel);
+        stroke: var(--line-2);
+        stroke-width: 1;
+        transition:
+          stroke 0.35s,
+          fill 0.35s;
+      }
+      .hv-host {
+        fill: var(--fg);
+        font-size: 15px;
+        font-weight: 700;
+      }
+      .hv-path {
+        fill: var(--muted);
+        font-size: 12.5px;
+        font-family: var(--mono);
+      }
+      .hv-agent.on rect {
+        stroke: var(--accent);
+        fill: #13201b;
+      }
+      .hv-wire {
+        fill: none;
+        stroke: #34343a;
+        stroke-width: 1.5;
+        transition: stroke 0.35s;
+      }
+      .hv-wire.on {
+        stroke: var(--accent);
+      }
+      .hv-core rect {
+        fill: #121214;
+        stroke: #3a3a3f;
+        stroke-width: 1.5;
+      }
+      .hv-name {
+        fill: var(--fg);
+        font-size: 16px;
+        font-weight: 800;
+      }
+      .hv-sub {
+        fill: var(--muted);
+        font-size: 12px;
+      }
+      .hv-card rect {
+        fill: var(--panel);
+        stroke: var(--line-2);
+        transition: stroke 0.35s;
+      }
+      .hv-card line {
+        stroke: var(--line-2);
+      }
+      .hv-card text {
+        transition: opacity 0.25s;
+      }
+      .hv-card .fade {
+        opacity: 0;
+      }
+      .hv-k {
+        fill: var(--muted);
+        font-size: 11px;
         font-weight: 700;
         letter-spacing: 0.08em;
         text-transform: uppercase;
-        color: var(--muted);
       }
-      .target b {
-        font-family: var(--mono);
-        font-size: 12.5px;
-        font-weight: 400;
+      .hv-verdict {
+        font-size: 22px;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+        fill: var(--accent);
       }
-      .wire {
-        position: absolute;
-        inset: 0;
-        z-index: 5;
-        width: 100%;
-        height: 100%;
-        overflow: visible;
-        pointer-events: none;
-      }
-      .wire path {
-        fill: none;
+      .hv-card.v-ok rect {
         stroke: var(--accent);
-        stroke-width: 1.6;
-        stroke-linecap: round;
-        filter: drop-shadow(0 0 6px rgba(5, 242, 155, 0.8));
-        stroke-dasharray: 600;
-        stroke-dashoffset: 600;
-        opacity: 0;
-        transition:
-          stroke-dashoffset 0.7s var(--ease),
-          opacity 0.3s;
       }
-      .wire.on path {
-        stroke-dashoffset: 0;
+      .hv-card.v-miss rect {
+        stroke: #ff6b6b;
+      }
+      .hv-card.v-miss .hv-verdict {
+        fill: #ff6b6b;
+      }
+      .hv-card.v-err rect {
+        stroke: #ffb020;
+      }
+      .hv-card.v-err .hv-verdict {
+        fill: #ffb020;
+      }
+      .hv-d {
+        fill: var(--soft);
+        font-size: 13.5px;
+      }
+      .hv-code {
+        fill: var(--dim);
+        font-size: 12px;
+        font-family: var(--mono);
+      }
+      .hv-q {
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+      .hv-q.on {
         opacity: 1;
       }
-
-      .xlog {
-        position: absolute;
-        right: 0;
-        bottom: 2%;
-        z-index: 6;
-        width: min(330px, 62%);
-        border-radius: 14px;
-        border: 1px solid #2f2f33;
-        background: rgba(17, 17, 19, 0.94);
-        backdrop-filter: blur(8px);
-        box-shadow: 0 30px 60px -24px rgba(0, 0, 0, 0.9);
-        overflow: hidden;
+      .hv-q rect {
+        fill: var(--accent);
       }
-      .xlog-head {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 10px 14px;
-        border-bottom: 1px solid #26262a;
-        font-family: var(--mono);
-        font-size: 11px;
+      .hv-q text {
+        fill: var(--accent-ink);
+        font-size: 13px;
+        font-weight: 800;
+      }
+      .hv-dot {
+        fill: var(--accent);
+      }
+      .hv-note {
+        margin: 12px 0 0;
+        font-size: 13px;
+        line-height: 1.55;
+        color: var(--dim);
+        text-align: center;
+      }
+      .hv-note code {
+        font-size: 12px;
         color: var(--muted);
       }
-      .xlog-head .live {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        color: var(--accent);
-      }
-      .xlog-head .live::before {
-        content: "";
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: var(--accent);
-        animation: livepulse 1.4s ease-in-out infinite;
-      }
-      @keyframes livepulse {
-        50% {
-          opacity: 0.25;
-        }
-      }
-      .xlog ul {
-        list-style: none;
-        margin: 0;
-        padding: 6px 0;
-        min-height: 122px;
-      }
-      .xlog li {
-        display: grid;
-        grid-template-columns: 82px minmax(0, 1fr) auto;
-        align-items: center;
-        gap: 10px;
-        padding: 6px 14px;
-        font-family: var(--mono);
-        font-size: 11px;
+      .hv-note a {
         color: var(--soft);
-        animation: logIn 0.45s var(--ease);
       }
-      .xlog li span:nth-child(2) {
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+      .fact .d {
+        margin: -10px 0 0;
+        font-size: 13.5px;
+        line-height: 1.5;
+        color: var(--dim);
       }
-      .xlog li em {
-        font-style: normal;
-        color: var(--muted);
-      }
-      .xlog li .tag {
-        font-size: 10.5px;
-        padding: 2px 7px;
-      }
-      @keyframes logIn {
-        from {
-          opacity: 0;
-          transform: translateY(-8px);
-          background: rgba(5, 242, 155, 0.08);
-        }
-      }
-      @media (max-width: 960px) {
-        .xray {
-          height: 470px;
-          min-height: 0;
-          margin-top: 16px;
-        }
-        .deck {
-          left: 0;
-          width: 86%;
-          top: 12%;
-          height: 66%;
-        }
-      }
-      @media (max-width: 560px) {
-        .xray {
-          height: 430px;
-        }
-        .deck {
-          transform: rotateX(6deg) rotateY(-8deg);
-        }
-        .xray {
-          height: 520px;
-        }
-        .deck {
-          top: 17%;
-          height: 54%;
-        }
-        .target {
-          top: 0;
-          padding: 8px 12px 8px 8px;
-        }
-        .xlog {
-          width: 84%;
-        }
-        .xlog ul {
-          min-height: 84px;
-        }
-        .xlog li {
-          grid-template-columns: 74px minmax(0, 1fr);
-        }
-        .xlog li em {
-          display: none;
+      @media (prefers-reduced-motion: reduce) {
+        .hv-agent rect,
+        .hv-wire,
+        .hv-card rect,
+        .hv-q,
+        .hv-card text {
+          transition: none !important;
         }
       }
 
@@ -2635,8 +2269,8 @@
             <div class="eyebrow hero-eyebrow">Open source · MIT · v1.0.0</div>
             <h1>Backlinks you can prove</h1>
             <p class="sub">
-              <b>Check the links you track</b> against the page that should carry them. Confirmed,
-              not found or couldn't check, each with the HTML evidence behind it.
+              <b>Paste the links you paid for or earned.</b> RankProof opens each page and tells you
+              whether your link is still there, gone, or could not be checked, with the proof.
             </p>
             <div class="ctas">
               <a class="btn btn-accent" href="#install">Run it locally</a>
@@ -2658,21 +2292,70 @@
             </div>
           </div>
 
-          <div class="xray" id="xray" aria-hidden="true">
-            <div class="deck" id="deck"></div>
-            <svg class="wire" id="wire"><path d="" /></svg>
-            <div class="target" id="target">
-              <div class="ico">
-                <svg><use href="#i-globe" /></svg>
-              </div>
-              <div><small>target_url</small><b>your-site.example/</b></div>
-            </div>
-            <div class="xlog">
-              <div class="xlog-head">
-                <span>POST /v1/backlinks/verify</span><span class="live">live</span>
-              </div>
-              <ul id="xlog"></ul>
-            </div>
+          <div class="hv-wrap">
+            <figure class="hv" id="hv">
+              <svg class="hv-svg" viewBox="0 0 600 360" role="img" aria-labelledby="hv-t">
+                <title id="hv-t">
+                  Four pages that should link to your site go through RankProof, which reports each
+                  link as confirmed, not found or could not be checked.
+                </title>
+                <path class="hv-wire" data-wire="0" d="M216 62 C 236 62, 236 190, 256 190" />
+                <path class="hv-wire" data-wire="1" d="M216 142 C 236 142, 236 190, 256 190" />
+                <path class="hv-wire" data-wire="2" d="M216 222 C 236 222, 236 190, 256 190" />
+                <path class="hv-wire" data-wire="3" d="M216 302 C 236 302, 236 190, 256 190" />
+                <path class="hv-wire" data-wire="out" d="M368 190 L 392 190" />
+                <g class="hv-agent" data-agent="0">
+                  <rect x="8" y="32" width="208" height="60" rx="14" />
+                  <text x="26" y="58" class="hv-host">en.wikipedia.org</text>
+                  <text x="26" y="78" class="hv-path">→ news.ycombinator.com</text>
+                </g>
+                <g class="hv-agent" data-agent="1">
+                  <rect x="8" y="112" width="208" height="60" rx="14" />
+                  <text x="26" y="138" class="hv-host">en.wikipedia.org</text>
+                  <text x="26" y="158" class="hv-path">→ example.com</text>
+                </g>
+                <g class="hv-agent" data-agent="2">
+                  <rect x="8" y="192" width="208" height="60" rx="14" />
+                  <text x="26" y="218" class="hv-host">httpbin.org</text>
+                  <text x="26" y="238" class="hv-path">→ example.com</text>
+                </g>
+                <g class="hv-agent" data-agent="3">
+                  <rect x="8" y="272" width="208" height="60" rx="14" />
+                  <text x="26" y="298" class="hv-host">httpbin.org</text>
+                  <text x="26" y="318" class="hv-path">→ example.com</text>
+                </g>
+                <g class="hv-core">
+                  <rect x="256" y="134" width="112" height="112" rx="20" />
+                  <use href="#i-logo" x="296" y="152" width="32" height="32" />
+                  <text x="312" y="208" text-anchor="middle" class="hv-name">RankProof</text>
+                  <text x="312" y="227" text-anchor="middle" class="hv-sub">opens the page</text>
+                </g>
+                <g class="hv-card" id="hv-card">
+                  <rect x="392" y="104" width="200" height="172" rx="14" />
+                  <text x="410" y="132" class="hv-k">the link</text>
+                  <text x="410" y="164" class="hv-verdict" id="hv-v">Confirmed</text>
+                  <line x1="410" y1="182" x2="574" y2="182" />
+                  <text x="410" y="206" class="hv-d" id="hv-d1">Anchor “Official website”</text>
+                  <text x="410" y="228" class="hv-d" id="hv-d2">rel nofollow</text>
+                  <text x="410" y="256" class="hv-code" id="hv-c">HTTP 200</text>
+                </g>
+                <g class="hv-q" id="hv-q">
+                  <rect x="250" y="40" width="200" height="30" rx="15" />
+                  <text x="350" y="60" text-anchor="middle" id="hv-qt">
+                    Is my link still there?
+                  </text>
+                </g>
+                <circle class="hv-dot" id="hv-dot" r="4" cx="0" cy="0" style="opacity: 0" />
+              </svg>
+            </figure>
+            <p class="hv-note">
+              Four real checks run on 7 Nov 2026 with RankProof 1.0.0: does this page link to that
+              site?
+              <a
+                href="https://github.com/CometWeb-io/rankproof/blob/main/site/media/hero-verify.json"
+                >Raw response</a
+              >.
+            </p>
           </div>
         </div>
       </div>
@@ -2684,28 +2367,36 @@
               <svg aria-hidden="true"><use href="#i-layers" /></svg>
             </div>
             <div class="n">3</div>
-            <div class="k">Verdicts · error ≠ missing</div>
+            <div class="k">Clear answers</div>
+            <p class="d">Still there, gone, or could not be checked. Never a guess between them.</p>
+          </div>
+          <div class="fact">
+            <div class="fico">
+              <svg aria-hidden="true"><use href="#i-shield-alert" /></svg>
+            </div>
+            <div class="n">0</div>
+            <div class="k">Blocked pages counted as lost</div>
+            <p class="d">
+              A bot check, 403 or timeout is reported as “could not check”, not as a lost link.
+            </p>
           </div>
           <div class="fact">
             <div class="fico">
               <svg aria-hidden="true"><use href="#i-send" /></svg>
             </div>
-            <div class="n">50<sup>pairs</sup></div>
-            <div class="k">Per API request</div>
+            <div class="n">50</div>
+            <div class="k">Links per request</div>
+            <p class="d">
+              Check a whole list in one call, from the app, the command line or your own code.
+            </p>
           </div>
           <div class="fact">
             <div class="fico">
               <svg aria-hidden="true"><use href="#i-dollar-off" /></svg>
             </div>
             <div class="n">0</div>
-            <div class="k">Paid SEO APIs needed</div>
-          </div>
-          <div class="fact">
-            <div class="fico">
-              <svg aria-hidden="true"><use href="#i-cpu" /></svg>
-            </div>
-            <div class="n">v4</div>
-            <div class="k">Versioned anchor extractor</div>
+            <div class="k">SEO subscriptions needed</div>
+            <p class="d">It reads the pages directly. No paid SEO API, account or key.</p>
           </div>
         </div>
       </div>
@@ -3497,215 +3188,102 @@ optional Bearer token</pre>
           }
         });
 
-        /* ---------- hero scanner ----------
-           Illustration of the three verdicts on made-up pages. */
-        var CASES = [
+        /* ---------- hero: four real checks (media/hero-verify.json) ---------- */
+        var hv = document.getElementById("hv");
+        var hvQ = document.getElementById("hv-q");
+        var hvDot = document.getElementById("hv-dot");
+        var hvCard = document.getElementById("hv-card");
+        var CHECKS = [
           {
-            kind: "ok",
-            host: "blog.northwind.dev/launch-notes",
-            code: "HTTP 200",
-            stamp: "Confirmed",
-            note: "anchor + rel recorded",
-            stop: 0.62,
-            body:
-              '<div class="sk h"></div><div class="sk" style="width:92%"></div><div class="sk" style="width:84%"></div>' +
-              '<div class="sk img"></div>' +
-              '<div class="skrow"><div class="sk" style="width:28%"></div><span class="chip">your-site.example</span><div class="sk" style="flex:1"></div></div>' +
-              '<div class="sk" style="width:76%"></div><div class="sk" style="width:88%"></div><div class="sk" style="width:58%"></div>',
-            snippet:
-              '&lt;a href="<b>https://your-site.example/</b>" rel="<i>nofollow</i>"&gt;your-site.example&lt;/a&gt;',
+            v: "Confirmed",
+            k: "ok",
+            d: ["Anchor “Official website”", "rel nofollow"],
+            c: "HTTP 200 · confirmed",
           },
           {
-            kind: "err",
-            host: "forum.makers.io/t/seo-stack",
-            code: "HTTP 403",
-            stamp: "Error",
-            note: "blocked · not counted as lost",
-            stop: 0.36,
-            body:
-              '<div class="sk h" style="width:44%"></div>' +
-              '<div class="captcha"><span></span>Verify you are human to continue</div>' +
-              '<div class="sk" style="width:70%;opacity:.35"></div><div class="sk" style="width:82%;opacity:.35"></div><div class="sk" style="width:54%;opacity:.35"></div>',
+            v: "Not found",
+            k: "miss",
+            d: ["The page loads, but", "your link is not in it"],
+            c: "HTTP 200 · not_found",
           },
           {
-            kind: "miss",
-            host: "news.example.org/tools-2026",
-            code: "HTTP 200",
-            stamp: "Not found",
-            note: "scope: fetched_html",
-            stop: 1,
-            body:
-              '<div class="sk h" style="width:70%"></div><div class="sk" style="width:94%"></div><div class="sk" style="width:86%"></div><div class="sk" style="width:90%"></div>' +
-              '<div class="sk img" style="height:54px"></div>' +
-              '<div class="sk" style="width:80%"></div><div class="sk" style="width:72%"></div><div class="sk" style="width:88%"></div><div class="sk" style="width:46%"></div>',
+            v: "Couldn’t check",
+            k: "err",
+            d: ["The page refused the visit.", "Not counted as lost."],
+            c: "HTTP 403 · error",
+          },
+          {
+            v: "Not found",
+            k: "miss",
+            d: ["The page itself", "no longer exists"],
+            c: "HTTP 404 · not_found",
           },
         ];
-        var LABEL = { ok: "confirmed", miss: "not_found", err: "error" };
-        var deck = document.getElementById("deck");
-        var xray = document.getElementById("xray");
-        var wire = document.getElementById("wire");
-        var targetEl = document.getElementById("target");
-        var logEl = document.getElementById("xlog");
-        var pages = CASES.map(function (c, i) {
-          var el = document.createElement("div");
-          el.className = "page k-" + c.kind;
-          el.innerHTML =
-            '<div class="pbar"><span class="dots"><i></i><i></i><i></i></span><span class="addr">' +
-            c.host +
-            '</span><span class="code">' +
-            c.code +
-            "</span></div>" +
-            '<div class="beam"></div>' +
-            '<div class="pbody">' +
-            c.body +
-            (c.snippet ? '<div class="snippet">' + c.snippet + "</div>" : "") +
-            "</div>" +
-            '<div class="stamp">' +
-            c.stamp +
-            "<small>" +
-            c.note +
-            "</small></div>";
-          deck.appendChild(el);
-          return el;
-        });
-        var order = [0, 1, 2];
-        function layout() {
-          order.forEach(function (idx, pos) {
-            pages[idx].setAttribute("data-pos", String(pos));
-          });
+        function hvSet(id, t) {
+          document.getElementById(id).textContent = t;
         }
-        layout();
-
-        function placeSnippet(page) {
-          var chip = page.querySelector(".chip");
-          var snip = page.querySelector(".snippet");
-          if (!chip || !snip) return;
-          var body = page.querySelector(".pbody");
-          snip.style.top = chip.offsetTop + chip.offsetHeight + 10 + "px";
-          void body;
-        }
-        function drawWire(page) {
-          var chip = page.querySelector(".chip");
-          if (!chip) return;
-          var base = xray.getBoundingClientRect();
-          var a = chip.getBoundingClientRect();
-          var b = targetEl.getBoundingClientRect();
-          var x1 = a.right - base.left,
-            y1 = a.top + a.height / 2 - base.top;
-          var x2 = b.left - base.left + 4,
-            y2 = b.top + b.height / 2 - base.top;
-          var mx = (x1 + x2) / 2;
-          wire
-            .querySelector("path")
-            .setAttribute(
-              "d",
-              "M" +
-                x1 +
-                " " +
-                y1 +
-                " C" +
-                mx +
-                " " +
-                y1 +
-                " " +
-                mx +
-                " " +
-                y2 +
-                " " +
-                x2 +
-                " " +
-                y2,
-            );
-          wire.classList.add("on");
-          targetEl.classList.add("lit");
-        }
-        function clearWire() {
-          wire.classList.remove("on");
-          targetEl.classList.remove("lit");
-        }
-        function log(c) {
-          var li = document.createElement("li");
-          li.innerHTML =
-            '<span class="tag ' +
-            c.kind +
-            '"><i></i>' +
-            LABEL[c.kind] +
-            "</span><span>" +
-            c.host +
-            "</span><em>" +
-            c.code.replace("HTTP ", "") +
-            "</em>";
-          logEl.insertBefore(li, logEl.firstChild);
-          while (logEl.children.length > 4) logEl.removeChild(logEl.lastChild);
-        }
-
-        var xtimers = [];
-        function at(ms, fn) {
-          xtimers.push(setTimeout(fn, ms));
-        }
-        function runCase() {
-          var idx = order[0];
-          var c = CASES[idx];
-          var page = pages[idx];
-          var beam = page.querySelector(".beam");
-          var h = page.clientHeight - 40;
-          placeSnippet(page);
-          page.classList.remove("hit", "done", "scanning");
-          beam.style.transition = "none";
-          beam.style.transform = "translateY(0)";
-          void beam.offsetWidth;
-          page.classList.add("scanning");
-          var dur = 1700 * c.stop + 300;
-          beam.style.transition = "transform " + dur + "ms cubic-bezier(0.45, 0, 0.55, 1)";
-          beam.style.transform = "translateY(" + Math.round(h * c.stop) + "px)";
-          if (c.kind === "ok") {
-            at(dur - 120, function () {
-              page.classList.add("hit");
-            });
-            at(dur + 260, function () {
-              drawWire(page);
-            });
+        function hvMove(path, ms, done) {
+          var len = path.getTotalLength();
+          var t0 = performance.now();
+          function step(now) {
+            var k = Math.min(1, (now - t0) / ms);
+            var e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+            var pt = path.getPointAtLength(len * e);
+            hvDot.style.opacity = 1;
+            hvDot.setAttribute("cx", pt.x);
+            hvDot.setAttribute("cy", pt.y);
+            if (k < 1) requestAnimationFrame(step);
+            else if (done) done();
           }
-          at(dur + 500, function () {
-            page.classList.remove("scanning");
-            page.classList.add("done");
-            log(c);
-          });
-          at(dur + 2600, function () {
-            clearWire();
-            page.setAttribute("data-pos", "out");
-            at(520, function () {
-              page.classList.remove("hit", "done");
-              order.push(order.shift());
-              layout();
-              at(650, runCase);
-            });
+          requestAnimationFrame(step);
+        }
+        function hvAnswer(c) {
+          hvSet("hv-v", c.v);
+          hvSet("hv-d1", c.d[0]);
+          hvSet("hv-d2", c.d[1]);
+          hvSet("hv-c", c.c);
+          hvCard.setAttribute("class", "hv-card v-" + c.k);
+          Array.prototype.forEach.call(hvCard.querySelectorAll("text"), function (t) {
+            t.classList.remove("fade");
           });
         }
-        function finalStatic() {
-          var page = pages[order[0]];
-          placeSnippet(page);
-          page.classList.add("hit", "done");
-          CASES.slice().reverse().forEach(log);
-          drawWire(page);
+        function hvShow(i, animate) {
+          var c = CHECKS[i];
+          Array.prototype.forEach.call(hv.querySelectorAll(".on"), function (e) {
+            e.classList.remove("on");
+          });
+          hv.querySelector('[data-agent="' + i + '"]').classList.add("on");
+          var wire = hv.querySelector('[data-wire="' + i + '"]');
+          var out = hv.querySelector('[data-wire="out"]');
+          wire.classList.add("on");
+          hvQ.classList.add("on");
+          if (!animate) {
+            hvAnswer(c);
+            out.classList.add("on");
+            return;
+          }
+          hvCard.setAttribute("class", "hv-card");
+          Array.prototype.forEach.call(hvCard.querySelectorAll("text"), function (t) {
+            t.classList.add("fade");
+          });
+          hvMove(wire, 900, function () {
+            out.classList.add("on");
+            hvMove(out, 300, function () {
+              hvAnswer(c);
+              hvDot.style.opacity = 0;
+            });
+          });
         }
         if (reduce) {
-          finalStatic();
-        } else if ("IntersectionObserver" in window) {
-          var xstarted = false;
-          new IntersectionObserver(function (entries, obs) {
-            if (entries[0].isIntersecting && !xstarted) {
-              xstarted = true;
-              obs.disconnect();
-              setTimeout(runCase, 400);
-            }
-          }).observe(xray);
+          hvShow(0, false);
         } else {
-          runCase();
+          var hvI = 0;
+          hvShow(0, true);
+          setInterval(function () {
+            hvI = (hvI + 1) % CHECKS.length;
+            hvShow(hvI, true);
+          }, 3400);
         }
-        window.addEventListener("resize", function () {
-          if (wire.classList.contains("on")) drawWire(pages[order[0]]);
-        });
 
         /* ---------- evidence anatomy (real 1.0.0 response) ---------- */
         var LINES = [
