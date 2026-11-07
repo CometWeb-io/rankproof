@@ -24,7 +24,7 @@ Set `RANKPROOF_API_TOKEN` to require `Authorization: Bearer <token>` on every en
 {
   "ok": true,
   "service": "rankproof",
-  "version": "8.1.0",
+  "version": "1.0.0",
   "revision": "deployment-revision",
   "schema_version": "1",
   "capabilities": ["backlinks.verify.v1"],
