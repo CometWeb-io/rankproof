@@ -90,6 +90,44 @@ test("parseAnchors identifies the document section and image alt text", () => {
   assert.equal(logo?.text, "Logo Cel");
 });
 
+test("parseAnchors never returns inline SVG markup as anchor text", () => {
+  // A real icon path is long enough to push the closing </a> past any short look-ahead.
+  const path = `M${"12.1 3.4 ".repeat(120)}z`;
+  const icon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="${path}"/></svg>`;
+  const html = [
+    `<a href="https://cel.pl/bare">${icon}</a>`,
+    `<a href="https://cel.pl/labelled" aria-label="Snapchat">${icon}</a>`,
+    `<a href="https://cel.pl/titled"><svg viewBox="0 0 24 24"><title>Snapchat</title><path d="${path}"/></svg></a>`,
+    `<a href="https://cel.pl/text">${icon} Follow us</a>`,
+  ].join("");
+  const byHref = new Map(parseAnchors(html, "https://blog.pl/wpis").map((a) => [a.href, a]));
+  for (const anchor of byHref.values()) assert.doesNotMatch(anchor.text, /<|path|viewBox/);
+  assert.equal(byHref.get("https://cel.pl/bare")?.text, "");
+  assert.equal(byHref.get("https://cel.pl/bare")?.isImage, true);
+  assert.equal(
+    classifyAnchor("", "cel.pl", [], byHref.get("https://cel.pl/bare")!.isImage),
+    "image",
+  );
+  assert.equal(byHref.get("https://cel.pl/labelled")?.text, "Snapchat");
+  assert.equal(byHref.get("https://cel.pl/titled")?.text, "Snapchat");
+  assert.equal(byHref.get("https://cel.pl/text")?.text, "Follow us");
+});
+
+test("parseAnchors drops a tag cut off by the anchor length bound", () => {
+  const html = `<a href="https://cel.pl/">Logo <svg><path d="${"1 ".repeat(20_000)}`;
+  const [anchor] = parseAnchors(html, "https://blog.pl/wpis", { withPlacement: false });
+  assert.equal(anchor?.text, "Logo");
+});
+
+test("parseAnchors treats <wbr> as contributing no text", () => {
+  const html = `<a href="https://cel.pl/a">back<wbr>links</a><a href="https://cel.pl/b">back<WBR/>link audit</a>`;
+  const anchors = parseAnchors(html, "https://blog.pl/wpis", { withPlacement: false });
+  assert.deepEqual(
+    anchors.map((a) => a.text),
+    ["backlinks", "backlink audit"],
+  );
+});
+
 test("placementAt picks the narrowest section", () => {
   const regions = buildRegions(PAGE);
   const at = PAGE.indexOf('href="https://cel.pl/oferta"');
