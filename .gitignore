@@ -16,3 +16,6 @@ test-results/
 playwright-report/
 blob-report/
 playwright/.cache/
+
+# GitHub Pages build output
+_site
