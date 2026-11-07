@@ -89,7 +89,7 @@ export const DEFAULT_CONFIG: RuntimeConfig = {
   market: "pl",
   device: "desktop",
   serpDepth: 10,
-  apiUserAgent: "RankProof/8.2 (+https://github.com/CometWeb-io/rankproof)",
+  apiUserAgent: "RankProof/1.0 (+https://github.com/CometWeb-io/rankproof)",
   persistHistory: true,
 };
 

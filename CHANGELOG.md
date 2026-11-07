@@ -4,7 +4,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semant
 
 ## [Unreleased]
 
-## [8.2.0] — 2026-11-07
+## [1.0.0] — 2026-11-07
+
+First release under restarted numbering. Earlier internal versions are listed under [History before 1.0](#history-before-10).
 
 ### Security
 
@@ -52,7 +54,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semant
 - New [backlink verification quickstart](docs/backlink-verification-quickstart.md); README leads with the known-backlink verification workflow and its limits.
 - `docs/metrics.md` no longer presents the clustering threshold or CTR curve as established standards; `docs/api.md` documents the `503` from `GET /doctor`.
 
-## [8.1.0] — 2026-08-30
+## History before 1.0
+
+Versions 7.0.0 to 8.1.0 were internal numbers carried over from the project's earlier names (SerpRadar, then OpenVis). They were never published to npm, and their Git tags and GitHub releases were retired when numbering restarted at 1.0.0. The entries stay here as a record of what changed.
+
+## 8.1.0 (internal) — 2026-08-30
 
 First stable public release after the RC hardening pass.
 
@@ -70,7 +76,7 @@ First stable public release after the RC hardening pass.
 - `scan-results.tsx` refactored from a single 1.5k-line module into focused subcomponents.
 - `scan-serp.tsx` split into `src/components/scan/` modules (barrel re-export; largest file ~250 lines).
 
-## Open-source readiness (pre-8.1.0, shipped in 8.1.0)
+## Open-source readiness (before internal 8.1.0)
 
 Pre-publication pass: a security fix, the last of the Polish surface, engine
 truthfulness, and the packaging a stranger's first clone runs into.
@@ -187,7 +193,7 @@ truthfulness, and the packaging a stranger's first clone runs into.
   here owns, with neither MX nor A records, so every report bounced. All
   contact moved to the CometWeb mailbox; see `SECURITY.md` for the current address.
 
-## [8.1.0-rc.0] — 2026-08-25
+## 8.1.0-rc.0 (internal) — 2026-08-25
 
 Truth & reliability hardening + rename to **RankProof** (avoid commercial SERPRadar clash).
 
@@ -229,7 +235,7 @@ Truth & reliability hardening + rename to **RankProof** (avoid commercial SERPRa
 - `.env.example`: `RANKPROOF_GOOGLE_PROVIDER_URL`, User-Agent 8.1.
 - `npm run smoke` — doctor + version + help canary.
 
-## [8.0.0] — 2026-08-25
+## 8.0.0 (internal) — 2026-08-25
 
 Security hardening, real data from the search engines, an audit of the site itself, and a switch to English as the project language.
 
@@ -257,7 +263,7 @@ Security hardening, real data from the search engines, an audit of the site itse
 - The **action plan** prefers measured opportunities: actions derived from Search Console data outrank modelled ones, because the upside behind them is real.
 - 66 tests (up from 53).
 
-## [7.0.0] — 2026-08-25
+## 7.0.0 (internal) — 2026-08-25
 
 The release that opened the project as open source. Renamed from LinkRadar to **RankProof** — SERP data is a peer of link data here, not an add-on.
 
