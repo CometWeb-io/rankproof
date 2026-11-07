@@ -131,3 +131,64 @@
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-in-out: cubic-bezier(0.45, 0, 0.55, 1);
 }
+
+/* Brand surfaces shared with cometweb.io and the RankProof landing page. */
+.rp-stars {
+  background-image:
+    radial-gradient(1px 1px at 12% 18%, rgba(255, 255, 255, 0.35), transparent 60%),
+    radial-gradient(1px 1px at 68% 9%, rgba(255, 255, 255, 0.28), transparent 60%),
+    radial-gradient(1px 1px at 84% 42%, rgba(255, 255, 255, 0.22), transparent 60%),
+    radial-gradient(1px 1px at 32% 64%, rgba(255, 255, 255, 0.2), transparent 60%),
+    radial-gradient(1px 1px at 52% 31%, rgba(5, 242, 155, 0.45), transparent 60%),
+    radial-gradient(1px 1px at 91% 77%, rgba(255, 255, 255, 0.24), transparent 60%),
+    radial-gradient(1px 1px at 6% 86%, rgba(255, 255, 255, 0.2), transparent 60%),
+    radial-gradient(1.5px 1.5px at 44% 92%, rgba(5, 242, 155, 0.35), transparent 60%);
+  background-size: 520px 520px;
+  opacity: 0.8;
+}
+.rp-btn-primary {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: linear-gradient(to right, #05f29b, #04c27c);
+  box-shadow:
+    0 2px 10px rgba(5, 242, 155, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transition:
+    background 300ms var(--ease-out),
+    box-shadow 300ms var(--ease-out),
+    transform 200ms var(--ease-out);
+}
+.rp-btn-primary:hover {
+  background: linear-gradient(to right, #04c27c, #05f29b);
+  box-shadow:
+    0 6px 18px rgba(5, 242, 155, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transform: translateY(-1px);
+  opacity: 1;
+}
+.rp-btn-primary::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 36%;
+  z-index: -1;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+  transform: translateX(-160%) skewX(-18deg);
+  pointer-events: none;
+}
+.rp-btn-primary:hover::after {
+  animation: rp-sheen 800ms var(--ease-out);
+}
+@keyframes rp-sheen {
+  to {
+    transform: translateX(420%) skewX(-18deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rp-btn-primary,
+  .rp-btn-primary::after {
+    transition: none;
+    animation: none !important;
+  }
+}
