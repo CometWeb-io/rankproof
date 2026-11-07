@@ -6,6 +6,7 @@
 
 [![CI](https://github.com/CometWeb-io/rankproof/actions/workflows/ci.yml/badge.svg)](https://github.com/CometWeb-io/rankproof/actions/workflows/ci.yml)
 [![MIT](https://img.shields.io/badge/license-MIT-034C32)](LICENSE)
+[![Website](https://img.shields.io/badge/website-cometweb--io.github.io%2Frankproof-05F29B)](https://cometweb-io.github.io/rankproof/)
 
 **Node.js 22+ · Web UI, CLI and HTTP API · Package version 1.0.0**
 

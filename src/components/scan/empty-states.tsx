@@ -1,12 +1,4 @@
-import {
-  BookOpenText,
-  Network,
-  Newspaper,
-  Radar,
-  ShieldCheck,
-  ShieldOff,
-  Sparkles,
-} from "lucide-react";
+import { BookOpenText, Network, Radar, ShieldCheck, ShieldOff, Sparkles } from "lucide-react";
 
 export function ScanSkeleton() {
   return (
@@ -35,53 +27,46 @@ export function EmptyGuide() {
   const items = [
     {
       icon: BookOpenText,
-      title: "The target's graph, not guesswork",
-      body: "We start from the live site, its sitemap, subdomains and Internet Archive copies. From the highest-value pages (services, portfolio, case studies, blog) we build a graph of partners — the richest source of genuine backlinks.",
+      title: "The target's own graph",
+      body: "Live site, sitemap, subdomains and archive copies point to the partners most likely to link back.",
     },
     {
       icon: Network,
       title: "Thirteen open sources",
-      body: "Wikipedia and Wikimedia, GitHub, Hacker News, Reddit, Stack Exchange, Bluesky, Bing, DuckDuckGo, Mojeek, Google News, GDELT, urlscan.io and Common Crawl. Each result is a candidate, not a finished link.",
+      body: "Wikipedia, GitHub, Hacker News, Reddit, Common Crawl and more. Each hit is a candidate, not a link.",
     },
     {
       icon: ShieldCheck,
-      title: "Verification in three waves",
-      body: "We open the candidate page and look for an a href pointing at the target. We check rel, meta robots, the document section (content, footer, menu), language and the status of the target URL. If a domain does link, we go deeper into its pages.",
+      title: "Verified in the HTML",
+      body: "Every candidate page is opened and checked for an exact href, with rel, placement and status.",
     },
     {
       icon: Sparkles,
-      title: "SERP and keywords, not just a link list",
-      body: "From titles, H1s and exact-match anchors we build a keyword list, check the top 10 in Bing and DuckDuckGo, compute visibility, and point out pages that already rank but do not link to you.",
+      title: "Positions and a plan",
+      body: "Keywords from titles and anchors, top-10 positions, visibility and an ordered list of next steps.",
     },
   ];
   return (
-    <section className="grid gap-3 md:grid-cols-2" aria-label="How RankProof works">
-      {items.map((item) => (
-        <div key={item.title} className="rounded-xl border border-border bg-surface p-5">
-          <item.icon className="size-5 text-fg-soft" aria-hidden />
-          <h3 className="mt-4 text-sm font-medium text-fg">{item.title}</h3>
-          <p className="mt-2 text-sm leading-relaxed text-muted">{item.body}</p>
-        </div>
-      ))}
-      <div className="rounded-xl border border-border bg-surface-2 p-5 md:col-span-2">
-        <div className="flex items-start gap-3">
-          <ShieldOff className="mt-0.5 size-4 shrink-0 text-muted" aria-hidden />
-          <p className="text-sm leading-relaxed text-muted">
-            This is not a full index of the web. RankProof goes deep into one site&rsquo;s graph and
-            verifies every link in the source HTML, instead of pretending to billions of URLs from a
-            paid database. For a small site the result may be short — and then it is honest.
-          </p>
-        </div>
+    <section aria-label="How RankProof works" className="flex flex-col gap-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {items.map((item) => (
+          <div
+            key={item.title}
+            className="rounded-[14px] border border-border bg-surface p-6 transition-colors hover:border-border-strong"
+          >
+            <span className="flex size-10 items-center justify-center rounded-[10px] border border-accent/22 bg-accent/9">
+              <item.icon className="size-5 text-accent" aria-hidden />
+            </span>
+            <h3 className="mt-5 text-base font-bold tracking-tight text-fg">{item.title}</h3>
+            <p className="mt-1.5 text-sm leading-relaxed text-muted">{item.body}</p>
+          </div>
+        ))}
       </div>
-      <div className="rounded-xl border border-border bg-surface p-5 md:col-span-2">
-        <div className="flex items-start gap-3">
-          <Newspaper className="mt-0.5 size-4 shrink-0 text-fg-soft" aria-hidden />
-          <p className="text-sm leading-relaxed text-muted">
-            Results export to CSV (links and domains separately) or to JSON with the full report —
-            domain scores, flags and profile analytics included.
-          </p>
-        </div>
-      </div>
+      <p className="flex items-start gap-2 text-xs leading-relaxed text-subtle">
+        <ShieldOff className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+        Not a full index of the web: a small site may get a short list, and then it is an honest
+        one. Export to CSV or JSON.
+      </p>
     </section>
   );
 }

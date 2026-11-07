@@ -1,0 +1,103 @@
+{
+  "ok": true,
+  "schema_version": "1",
+  "results": [
+    {
+      "source_url": "https://en.wikipedia.org/wiki/Hacker_News",
+      "target_url": "https://news.ycombinator.com/",
+      "evidence_kind": "html_anchor",
+      "observation_method": "fetched_html",
+      "absence_scope": null,
+      "extraction_version": "html-anchor-v4",
+      "identity_policy": "exact-http-url-v2",
+      "source_revision": null,
+      "response_hash": "dbe1d564341a2aa02321fe9515aa39f6270e4eb23df8f568559b7b8274c2a9b3",
+      "raw_href": "https://news.ycombinator.com",
+      "resolved_href": "https://news.ycombinator.com/",
+      "matching_anchors": [
+        {
+          "raw_href": "https://news.ycombinator.com",
+          "resolved_href": "https://news.ycombinator.com/",
+          "anchor": "news .ycombinator .com",
+          "rel": "mw:ExtLink nofollow"
+        },
+        {
+          "raw_href": "https://news.ycombinator.com/",
+          "resolved_href": "https://news.ycombinator.com/",
+          "anchor": "Official website",
+          "rel": "mw:ExtLink nofollow"
+        }
+      ],
+      "status": "confirmed",
+      "checked_at": "2026-11-07T21:59:33.868Z",
+      "final_url": "https://en.wikipedia.org/wiki/Hacker_News",
+      "http_status": 200,
+      "anchor": "news .ycombinator .com",
+      "rel": "mw:ExtLink nofollow",
+      "reason": null
+    },
+    {
+      "source_url": "https://en.wikipedia.org/wiki/Hacker_News",
+      "target_url": "https://example.com/",
+      "evidence_kind": null,
+      "observation_method": "fetched_html",
+      "absence_scope": "fetched_html",
+      "extraction_version": "html-anchor-v4",
+      "identity_policy": "exact-http-url-v2",
+      "source_revision": null,
+      "response_hash": "dbe1d564341a2aa02321fe9515aa39f6270e4eb23df8f568559b7b8274c2a9b3",
+      "raw_href": null,
+      "resolved_href": null,
+      "matching_anchors": [],
+      "status": "not_found",
+      "checked_at": "2026-11-07T21:59:33.867Z",
+      "final_url": "https://en.wikipedia.org/wiki/Hacker_News",
+      "http_status": 200,
+      "anchor": null,
+      "rel": null,
+      "reason": "Exact target URL absent from fetched HTML; rendered-page presence is unknown."
+    },
+    {
+      "source_url": "https://httpbin.org/status/403",
+      "target_url": "https://example.com/",
+      "evidence_kind": null,
+      "observation_method": "fetched_html",
+      "absence_scope": null,
+      "extraction_version": "html-anchor-v4",
+      "identity_policy": "exact-http-url-v2",
+      "source_revision": null,
+      "response_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "raw_href": null,
+      "resolved_href": null,
+      "matching_anchors": [],
+      "status": "error",
+      "checked_at": "2026-11-07T21:59:33.731Z",
+      "final_url": "https://httpbin.org/status/403",
+      "http_status": 403,
+      "anchor": null,
+      "rel": null,
+      "reason": "Source returned HTTP 403."
+    },
+    {
+      "source_url": "https://httpbin.org/status/404",
+      "target_url": "https://example.com/",
+      "evidence_kind": null,
+      "observation_method": "fetched_html",
+      "absence_scope": "http_resource",
+      "extraction_version": "html-anchor-v4",
+      "identity_policy": "exact-http-url-v2",
+      "source_revision": null,
+      "response_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "raw_href": null,
+      "resolved_href": null,
+      "matching_anchors": [],
+      "status": "not_found",
+      "checked_at": "2026-11-07T21:59:33.743Z",
+      "final_url": "https://httpbin.org/status/404",
+      "http_status": 404,
+      "anchor": null,
+      "rel": null,
+      "reason": "Source returned HTTP 404."
+    }
+  ]
+}
