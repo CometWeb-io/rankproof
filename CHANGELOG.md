@@ -4,11 +4,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semant
 
 ## [Unreleased]
 
+## [1.0.1] — 2026-11-08
+
 ### Fixed
 
 - Anchor text no longer contains raw markup when a link wraps a long inline SVG icon. Such links read as image links with no text unless they carry an `aria-label`, `title`, `<img alt>` or an SVG `<title>`. Anchor extraction is now `html-anchor-v5`.
 - `<wbr>` inside a link no longer inserts a space into the anchor text ("backlinks", not "back links").
-- The action plan tab showed four Polish labels in the English interface.
+- The action plan tab showed four Polish labels in the English interface, and the toxic links tab and one toxic-link reason showed Polish text ("Ryzyko CSV", "tylko stopka lub sidebar").
 
 ## [1.0.0] — 2026-11-07
 

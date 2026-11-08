@@ -13,7 +13,7 @@ body:
     id: version
     attributes:
       label: Version and Node
-      placeholder: "RankProof 1.0.0, Node 22.14"
+      placeholder: "RankProof 1.0.1, Node 22.14"
     validations:
       required: true
   - type: textarea
