@@ -8,7 +8,7 @@
 [![MIT](https://img.shields.io/badge/license-MIT-034C32)](LICENSE)
 [![Website](https://img.shields.io/badge/website-cometweb--io.github.io%2Frankproof-05F29B)](https://cometweb-io.github.io/rankproof/)
 
-**Node.js 22+ · Web UI, CLI and HTTP API · Package version 1.0.0**
+**Node.js 22+ · Web UI, CLI and HTTP API · Package version 1.0.1**
 
 `main` may contain changes recorded under **Unreleased** in [CHANGELOG](CHANGELOG.md); check API capabilities rather than assuming every checkout or package has the same endpoints.
 

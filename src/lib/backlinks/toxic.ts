@@ -75,7 +75,7 @@ export function domainToxicity(input: ToxicInput): { score: number; reasons: str
     links.every((link) => link.placement === "footer" || link.placement === "sidebar");
   if (footerOnly) {
     score += 10;
-    reasons.push("tylko stopka lub sidebar");
+    reasons.push("footer or sidebar only");
   }
 
   if (links.every((link) => !link.effectiveFollow) && links.length > 0) {

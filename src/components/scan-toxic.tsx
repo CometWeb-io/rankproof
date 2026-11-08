@@ -98,7 +98,7 @@ export function ToxicTab({ report }: { report: ScanReport }) {
           }
         >
           <Download />
-          Ryzyko CSV
+          Risk CSV
         </Button>
         <Button
           variant="outline"
