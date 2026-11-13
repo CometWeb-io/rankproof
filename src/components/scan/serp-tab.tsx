@@ -25,41 +25,39 @@ export function SerpTab({ report }: { report: ScanReport }) {
     <div className="flex flex-col gap-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <div className="rounded-lg border border-border bg-surface p-4">
-          <p className="text-xs font-medium tracking-wide text-muted uppercase">Visibility</p>
+          <p className="text-xs font-medium text-muted">Visibility</p>
           <p className="mt-2 font-mono text-3xl tabular-nums text-fg">{stats.serpVisibility}</p>
           <div className="mt-2">
             <Meter value={stats.serpVisibility} tone="good" />
           </div>
         </div>
         <div className="rounded-lg border border-border bg-surface p-4">
-          <p className="text-xs font-medium tracking-wide text-muted uppercase">Modelled traffic</p>
+          <p className="text-xs font-medium text-muted">Modelled traffic</p>
           <p className="mt-2 font-mono text-3xl tabular-nums text-fg">{serp.trafficScore}</p>
           <p className="mt-1 text-xs text-subtle">CTR sum from positions</p>
         </div>
         <div className="rounded-lg border border-border bg-surface p-4">
-          <p className="text-xs font-medium tracking-wide text-muted uppercase">Average position</p>
+          <p className="text-xs font-medium text-muted">Average position</p>
           <p className="mt-2 font-mono text-3xl tabular-nums text-fg">
             {serp.avgPosition > 0 ? serp.avgPosition : "—"}
           </p>
         </div>
         <div className="rounded-lg border border-border bg-surface p-4">
-          <p className="text-xs font-medium tracking-wide text-muted uppercase">TOP 3 / TOP 10</p>
+          <p className="text-xs font-medium text-muted">TOP 3 / TOP 10</p>
           <p className="mt-2 font-mono text-3xl tabular-nums text-fg">
             {serp.top3}
             <span className="text-muted"> / {serp.top10}</span>
           </p>
         </div>
         <div className="rounded-lg border border-border bg-surface p-4">
-          <p className="text-xs font-medium tracking-wide text-muted uppercase">
-            Keyword difficulty
-          </p>
+          <p className="text-xs font-medium text-muted">Keyword difficulty</p>
           <p className="mt-2 font-mono text-3xl tabular-nums text-fg">{avgDifficulty}</p>
           <div className="mt-2">
             <Meter value={avgDifficulty} tone={difficultyTone(avgDifficulty)} />
           </div>
         </div>
         <div className="rounded-lg border border-border bg-surface p-4">
-          <p className="text-xs font-medium tracking-wide text-muted uppercase">SERP competitors</p>
+          <p className="text-xs font-medium text-muted">SERP competitors</p>
           <p className="mt-2 font-mono text-3xl tabular-nums text-fg">{serp.competitors.length}</p>
           <p className="mt-1 text-xs text-subtle">{serp.engines.join(" · ") || "no measurement"}</p>
         </div>

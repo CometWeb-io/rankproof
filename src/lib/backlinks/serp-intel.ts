@@ -139,6 +139,10 @@ export function buildSerpCompetitors(
   options: { linkingDomains?: Set<string>; limit?: number } = {},
 ): SerpCompetitor[] {
   const acc = new Map<string, CompetitorAcc>();
+  const measured = queries.filter(
+    (query) => query.status === "ok" || query.status === "no-results",
+  );
+  queries = measured;
   const keywordCount = new Set(queries.map((q) => q.keyword)).size || 1;
   let totalVoice = 0;
 

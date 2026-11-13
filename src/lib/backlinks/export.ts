@@ -514,7 +514,10 @@ function esc(value: unknown): string {
 export function reportHtml(report: ScanReport): string {
   const { stats, analytics, target } = report;
   const cards: [string, string | number][] = [
-    ["Visibility index", `${report.scorecard.index}/100 (${report.scorecard.grade})`],
+    [
+      "Visibility index (heuristic)",
+      `${report.scorecard.index}/100 (${report.scorecard.grade}), ${report.scorecard.coverage ?? 100}% measured`,
+    ],
     ["Domain Rating", stats.domainRating],
     ["SERP visibility", `${stats.serpVisibility}/100`],
     ["On-page SEO", `${stats.onPageScore}/100`],
@@ -602,10 +605,11 @@ export function reportHtml(report: ScanReport): string {
     .map(([label, value]) => `<div class="card"><b>${esc(value)}</b>${esc(label)}</div>`)
     .join("")}</div>
 <h2>Visibility index</h2>
-<table><thead><tr><th>Component</th><th>Points</th><th>Comment</th></tr></thead><tbody>${report.scorecard.parts
+<p class="muted">A heuristic for comparing scans of the same domain, computed from ${report.scorecard.coverage ?? 100}% of the model. Unmeasured parts are excluded, not scored.</p>
+<table><thead><tr><th>Component</th><th>Basis</th><th>Points</th><th>Comment</th></tr></thead><tbody>${report.scorecard.parts
     .map(
       (part) =>
-        `<tr><td>${esc(part.label)}</td><td class="n">${part.score}/${part.max}</td><td class="s">${esc(part.hint)}</td></tr>`,
+        `<tr><td>${esc(part.label)}</td><td class="s">${esc(part.basis ?? "")}</td><td class="n">${part.basis === "unknown" ? "—" : `${part.score}/${part.max}`}</td><td class="s">${esc(part.hint)}</td></tr>`,
     )
     .join("")}</tbody></table>
 ${

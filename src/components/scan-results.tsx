@@ -9,7 +9,6 @@ import {
   Link2,
   Search,
   ShieldCheck,
-  ShieldOff,
   Server,
   FileText,
 } from "lucide-react";
@@ -30,7 +29,6 @@ import { cn } from "@/lib/utils";
 import {
   anchorsCsv,
   backlinksCsv,
-  disavowFile,
   domainsCsv,
   download,
   reportHtml,
@@ -159,7 +157,6 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
       <div className="rounded-xl border border-border bg-surface p-5 md:p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="min-w-0">
-            <p className="text-xs font-medium tracking-wide text-muted uppercase">Scan result</p>
             <h2 className="mt-1 font-display text-2xl font-medium tracking-tight text-fg md:text-3xl">
               {target.host}
             </h2>
@@ -173,7 +170,7 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
             <div className="mt-3 flex flex-wrap gap-2">
               {target.robotsNoindex ? <Badge variant="nofollow">noindex</Badge> : null}
               {target.parked ? <Badge variant="nofollow">parked</Badge> : null}
-              {target.usedArchive ? <Badge>kopia archiwalna</Badge> : null}
+              {target.usedArchive ? <Badge>archived copy</Badge> : null}
               {target.redirectHost ? (
                 <Badge variant="nofollow">→ {target.redirectHost}</Badge>
               ) : null}
@@ -250,17 +247,6 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
             <Button
               variant="outline"
               size="sm"
-              disabled={stats.spamDomains === 0}
-              onClick={() =>
-                download(`disavow-${target.host}.txt`, disavowFile(report), "text/plain")
-              }
-            >
-              <ShieldOff />
-              Disavow
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
               onClick={() =>
                 download(`rankproof-${target.host}.html`, reportHtml(report), "text/html")
               }
@@ -291,84 +277,82 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
         />
       ) : null}
 
-      {/* Statystyki */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
-        <div className="col-span-2 rounded-lg border border-border-strong bg-surface p-4 shadow-[var(--shadow-panel)] md:col-span-2">
-          <p className="text-xs font-medium tracking-wide text-muted uppercase">
-            Domain Rating (proxy)
-          </p>
-          <div className="mt-2 flex items-end gap-3">
-            <p className="font-mono text-4xl tabular-nums tracking-tight text-fg">
-              {stats.domainRating}
-            </p>
-            <p className="pb-1 text-xs text-subtle">
-              from the discovered graph · PageRank over {stats.referringDomains} domains
-            </p>
-          </div>
-          <div className="mt-3">
-            <Meter value={stats.domainRating} tone="good" />
-          </div>
+      <section aria-labelledby="observed-heading">
+        <h3 id="observed-heading" className="mb-2 text-sm font-semibold text-fg">
+          Seen in fetched HTML
+        </h3>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+          <StatCard
+            label="Verified backlinks"
+            value={stats.backlinks}
+            hint={`${stats.contentLinks} in content`}
+          />
+          <StatCard
+            label="Referring domains"
+            value={stats.referringDomains}
+            hint={`${stats.referringIps} IPs, ${stats.referringSubnets} /24 ranges`}
+          />
+          <StatCard
+            label="Followed"
+            value={`${percent(stats.dofollow, stats.backlinks)}%`}
+            hint={`${stats.dofollow} of ${stats.backlinks} links`}
+            tone="follow"
+          />
+          <StatCard
+            label="Broken target links"
+            value={stats.brokenLinks}
+            hint={`${stats.sitewideLinks} sitewide links`}
+            tone={stats.brokenLinks > 0 ? "nofollow" : "default"}
+          />
+          <StatCard
+            label="Lost since last scan"
+            value={stats.lostLinks}
+            hint={`${stats.reciprocalDomains} reciprocal domains`}
+            tone={stats.lostLinks > 0 ? "nofollow" : "default"}
+          />
+          <StatCard
+            label="Unlinked mentions"
+            value={stats.mentions}
+            hint={`${stats.prospects} link opportunities`}
+          />
         </div>
-        <StatCard
-          label="Verified backlinks"
-          value={stats.backlinks}
-          hint={`${stats.contentLinks} in content`}
-        />
-        <StatCard
-          label="Referring domains"
-          value={stats.referringDomains}
-          hint={`${stats.authorityDomains} strong`}
-        />
-        <StatCard
-          label="Dofollow"
-          value={`${percent(stats.dofollow, stats.backlinks)}%`}
-          hint={`${stats.dofollow} of ${stats.backlinks}`}
-          tone="follow"
-        />
-        <StatCard
-          label="Profile health"
-          value={`${health.total}`}
-          hint={`grade ${health.grade} · avg domain ${stats.avgDomainScore}/100`}
-        />
-        <StatCard
-          label="Broken links"
-          value={stats.brokenLinks}
-          hint={`${stats.sitewideLinks} sitewide links`}
-          tone={stats.brokenLinks > 0 ? "nofollow" : "default"}
-        />
-        <StatCard
-          label="Mentions"
-          value={stats.mentions}
-          hint={`${stats.spamDomains} risky domains`}
-        />
-        <StatCard
-          label="Topical match"
-          value={`${stats.avgRelevance}/100`}
-          hint={`${stats.redirectedLinks} links via redirect`}
-        />
-        <StatCard
-          label="SERP visibility"
-          value={stats.serpVisibility}
-          hint={`${stats.rankedKeywords} in the top 10`}
-          tone={stats.serpVisibility >= 40 ? "follow" : "default"}
-        />
-        <StatCard
-          label="On-page SEO"
-          value={stats.onPageScore}
-          hint={`${stats.prospects} link opportunities`}
-        />
-        <StatCard
-          label="IPs / subnets"
-          value={`${stats.referringIps}/${stats.referringSubnets}`}
-          hint="unique addresses and /24 ranges"
-        />
-        <StatCard
-          label="Lost links"
-          value={stats.lostLinks}
-          hint={`${stats.reciprocalDomains} reciprocal domains`}
-          tone={stats.lostLinks > 0 ? "nofollow" : "default"}
-        />
-      </div>
+      </section>
+
+      <section aria-labelledby="model-heading">
+        <h3 id="model-heading" className="mb-2 text-sm font-semibold text-fg">
+          Models and estimates
+          <span className="ml-2 font-normal text-subtle">
+            heuristics over the links found here, not third-party metrics
+          </span>
+        </h3>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+          <StatCard
+            label="Domain rating (proxy)"
+            value={stats.domainRating}
+            hint={`PageRank over ${stats.referringDomains} discovered domains`}
+          />
+          <StatCard
+            label="Profile health"
+            value={health.total}
+            hint={`grade ${health.grade}, avg domain ${stats.avgDomainScore}/100`}
+          />
+          <StatCard
+            label="Topical match"
+            value={`${stats.avgRelevance}/100`}
+            hint={`${stats.redirectedLinks} links via redirect`}
+          />
+          <StatCard
+            label="SERP visibility"
+            value={
+              report.scorecard.parts.find((p) => p.key === "visibility")?.basis === "unknown"
+                ? "—"
+                : stats.serpVisibility
+            }
+            hint={`${stats.rankedKeywords} keywords in the top 10`}
+          />
+          <StatCard label="On-page SEO" value={stats.onPageScore} hint="landing page checks" />
+        </div>
+      </section>
 
       <TabNav tabs={tabs} active={tab} onChange={setTab} />
 
@@ -435,7 +419,7 @@ export function ScanResults({ report, diff }: { report: ScanReport; diff?: ScanD
 
           {report.notes.length > 0 ? (
             <div className="rounded-xl border border-border bg-surface-2 p-5">
-              <p className="text-xs font-medium tracking-wide text-muted uppercase">Scan notes</p>
+              <p className="text-xs font-medium text-muted">Scan notes</p>
               <ul className="mt-2 flex flex-col gap-1 text-sm text-muted">
                 {report.notes.map((note) => (
                   <li key={note}>· {note}</li>

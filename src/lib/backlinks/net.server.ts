@@ -13,6 +13,11 @@ export const API_UA = config().apiUserAgent;
 export const BROWSER_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
 
+/** User agent for page fetches without an explicit one (RANKPROOF_CRAWLER_IDENTITY). */
+export function crawlerUserAgent(): string {
+  return config().crawlerIdentity === "rankproof" ? config().apiUserAgent : BROWSER_UA;
+}
+
 export type FetchResult = {
   status: number;
   text: string;
@@ -26,23 +31,70 @@ export type FetchResult = {
 const CACHE = new Map<string, FetchResult>();
 const CACHE_LIMIT = 400;
 
-/** A simple limiter: at most N parallel requests to a single host. */
+/**
+ * A simple limiter: at most N parallel requests to a single host.
+ *
+ * Waiting for a slot is bounded by the request's own deadline and abort signal:
+ * a waiter that gives up is removed from the queue, so a stalled host can no
+ * longer pin callers forever. robots.txt is fetched with `skipHostLimit`,
+ * because a page that holds the last slot may need that host's robots.txt
+ * (e.g. after a redirect) — queueing it behind itself was a deadlock.
+ */
 const HOST_SLOTS = new Map<string, number>();
-const HOST_QUEUE = new Map<string, (() => void)[]>();
+type HostWaiter = { grant: () => void };
+const HOST_QUEUE = new Map<string, HostWaiter[]>();
 const HOST_CONCURRENCY = config().hostConcurrency;
 
-async function acquireHost(host: string): Promise<() => void> {
+export class HostQueueTimeoutError extends Error {
+  constructor(host: string) {
+    super(`Timed out waiting for a free connection slot to ${host}.`);
+    this.name = "HostQueueTimeoutError";
+  }
+}
+
+export async function acquireHost(
+  host: string,
+  opts: { signal?: AbortSignal; timeoutMs?: number } = {},
+): Promise<() => void> {
   const used = HOST_SLOTS.get(host) ?? 0;
   if (used < HOST_CONCURRENCY) {
     HOST_SLOTS.set(host, used + 1);
-    return () => releaseHost(host);
+    return once(() => releaseHost(host));
   }
-  await new Promise<void>((resolve) => {
+  if (opts.signal?.aborted) throw new Error("Request aborted.");
+  await new Promise<void>((resolve, reject) => {
+    const waiter: HostWaiter = {
+      grant: () => {
+        cleanup();
+        resolve();
+      },
+    };
+    const leave = (error: Error) => {
+      const queue = HOST_QUEUE.get(host);
+      const index = queue?.indexOf(waiter) ?? -1;
+      if (queue && index >= 0) {
+        queue.splice(index, 1);
+        if (queue.length === 0) HOST_QUEUE.delete(host);
+      }
+      cleanup();
+      reject(error);
+    };
+    const onAbort = () => leave(new Error("Request aborted."));
+    const timer =
+      opts.timeoutMs !== undefined
+        ? setTimeout(() => leave(new HostQueueTimeoutError(host)), Math.max(0, opts.timeoutMs))
+        : null;
+    function cleanup() {
+      if (timer) clearTimeout(timer);
+      opts.signal?.removeEventListener("abort", onAbort);
+    }
+    opts.signal?.addEventListener("abort", onAbort, { once: true });
     const queue = HOST_QUEUE.get(host) ?? [];
-    queue.push(resolve);
+    queue.push(waiter);
     HOST_QUEUE.set(host, queue);
   });
-  return () => releaseHost(host);
+  // The slot was handed over by releaseHost without decrementing the count.
+  return once(() => releaseHost(host));
 }
 
 function releaseHost(host: string) {
@@ -50,12 +102,26 @@ function releaseHost(host: string) {
   if (queue && queue.length > 0) {
     const next = queue.shift();
     if (queue.length === 0) HOST_QUEUE.delete(host);
-    next?.();
+    next?.grant();
     return;
   }
   const used = HOST_SLOTS.get(host) ?? 1;
   if (used <= 1) HOST_SLOTS.delete(host);
   else HOST_SLOTS.set(host, used - 1);
+}
+
+function once(fn: () => void): () => void {
+  let done = false;
+  return () => {
+    if (done) return;
+    done = true;
+    fn();
+  };
+}
+
+/** Test hook: current slot usage and queue length for a host. */
+export function hostQueueStateForTests(host: string): { used: number; waiting: number } {
+  return { used: HOST_SLOTS.get(host) ?? 0, waiting: HOST_QUEUE.get(host)?.length ?? 0 };
 }
 
 /**
@@ -91,6 +157,8 @@ export type FetchOptions = {
   headers?: Record<string, string>;
   /** Budget used when robots.txt has to be fetched first. */
   budget?: Budget;
+  /** Bypasses the per-host limiter (robots.txt only — see acquireHost). */
+  skipHostLimit?: boolean;
 };
 
 /** Raised when a URL is refused before any connection is made. */
@@ -136,6 +204,12 @@ export function setHostResolverForTests(resolver: HostResolver | null): void {
  * check. The connection must pin to one of those addresses so a later DNS
  * answer cannot rebind into private space.
  */
+/** The same static + DNS policy as every crawler hop, for callers outside fetchText (the renderer). */
+export async function checkPublicUrl(url: string): Promise<{ allowed: boolean; reason?: string }> {
+  const verdict = await guardUrlWithDns(url, resolveHost);
+  return verdict.allowed ? { allowed: true } : { allowed: false, reason: verdict.reason };
+}
+
 async function assertFetchable(url: string): Promise<string[]> {
   const verdict = await guardUrlWithDns(url, resolveHost);
   if (!verdict.allowed) throw new BlockedUrlError(verdict.reason);
@@ -160,6 +234,7 @@ function pinnedRequest(
     headers: Record<string, string>;
     signal?: AbortSignal;
     maxBytes: number;
+    body?: Buffer | null;
   },
 ): Promise<Response> {
   const parsed = new URL(url);
@@ -224,8 +299,72 @@ function pinnedRequest(
       },
     );
     req.on("error", reject);
-    req.end();
+    req.end(init.body && init.body.length > 0 ? init.body : undefined);
   });
+}
+
+/** Request headers the network layer sets itself; never copied from the browser. */
+const HOP_HEADERS = new Set([
+  "host",
+  "connection",
+  "content-length",
+  "transfer-encoding",
+  "accept-encoding",
+  "keep-alive",
+  "proxy-connection",
+  "upgrade",
+]);
+
+/**
+ * One request, no redirects followed, connected to an address that passed the
+ * static + DNS policy (Host/SNI preserved). The renderer uses this to answer
+ * every browser request itself, so Chromium never resolves or connects on its
+ * own and a DNS answer cannot change between the check and the connection.
+ * Redirects are returned to the caller (the browser), whose next request comes
+ * back through here and is checked again.
+ */
+export async function pinnedFetch(
+  url: string,
+  init: {
+    method?: string;
+    headers?: Record<string, string>;
+    body?: Buffer | null;
+    timeoutMs?: number;
+    maxBytes?: number;
+  } = {},
+): Promise<{ status: number; headers: Record<string, string>; body: Buffer }> {
+  const addresses = await assertFetchable(url);
+  const headers: Record<string, string> = {};
+  for (const [key, value] of Object.entries(init.headers ?? {})) {
+    if (!HOP_HEADERS.has(key.toLowerCase()) && !key.startsWith(":")) headers[key] = value;
+  }
+  // Uncompressed bodies: the browser receives exactly the bytes we read.
+  headers["Accept-Encoding"] = "identity";
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), init.timeoutMs ?? 15_000);
+  try {
+    const response = await pinnedRequest(url, addresses, {
+      method: init.method ?? "GET",
+      headers,
+      body: init.body ?? null,
+      signal: controller.signal,
+      maxBytes: init.maxBytes ?? 5_000_000,
+    });
+    const out: Record<string, string> = {};
+    response.headers.forEach((value, key) => {
+      if (key === "content-encoding" || key === "content-length" || key === "transfer-encoding") {
+        return;
+      }
+      out[key] = value;
+    });
+    return {
+      status: response.status,
+      headers: out,
+      body: Buffer.from(await response.arrayBuffer()),
+    };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** Delays imposed by a host's Crawl-delay directive, tracked per origin. */
@@ -283,11 +422,18 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
   const cacheable = method === "GET" && opts.cache !== false && cache.enabled;
   const stored: CachedResponse | null = cacheable ? await cache.get(key) : null;
 
-  const release = await acquireHost(host);
+  const queuedAt = Date.now();
+  const release = opts.skipHostLimit
+    ? () => {}
+    : await acquireHost(host, { signal: opts.signal, timeoutMs: opts.timeoutMs });
   await respectCrawlDelay(origin, crawlDelay);
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), opts.timeoutMs);
+  // Time spent queueing for a slot counts against the request deadline.
+  const timer = setTimeout(
+    () => controller.abort(),
+    Math.max(1, opts.timeoutMs - (Date.now() - queuedAt)),
+  );
   const onOuterAbort = () => controller.abort();
   if (opts.signal?.aborted) controller.abort();
   opts.signal?.addEventListener("abort", onOuterAbort);
@@ -312,7 +458,7 @@ export async function fetchText(url: string, opts: FetchOptions): Promise<FetchR
         await respectCrawlDelay(redirected.origin, rules.crawlDelay);
       }
       const headers = {
-        "User-Agent": opts.ua ?? BROWSER_UA,
+        "User-Agent": opts.ua ?? crawlerUserAgent(),
         Accept: opts.accept ?? "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8",
         "Accept-Language": opts.acceptLanguage ?? "en,pl;q=0.8",
         ...cache.conditionalHeaders(stored),

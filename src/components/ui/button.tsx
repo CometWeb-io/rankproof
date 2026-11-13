@@ -9,13 +9,14 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-accent text-accent-fg hover:opacity-90",
-        secondary: "bg-surface-2 text-fg border border-border hover:bg-surface-3",
+        secondary:
+          "bg-panel-3 text-fg border border-line hover:border-border-strong hover:bg-surface-3",
         ghost: "text-muted hover:text-fg hover:bg-surface-2",
         outline: "border border-border bg-transparent text-fg hover:bg-surface-2",
       },
       size: {
         default: "h-11 px-4",
-        sm: "h-9 px-3 text-xs",
+        sm: "h-9 rounded-[10px] px-3 text-[13px]",
         lg: "h-12 px-5",
         icon: "size-11",
       },

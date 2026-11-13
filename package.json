@@ -1,8 +1,8 @@
 {
   "name": "rankproof",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "private": false,
-  "description": "RankProof — open search-visibility and backlink auditor. Bing/DDG/Mojeek/Brave SERP + optional Google via self-hosted provider; verified links; site structure. No paid SEO APIs.",
+  "description": "RankProof — verifiable web relationships. Check known backlinks against their contract (exact URL, anchor, rel, placement, visibility), keep reproducible evidence and track changes. Plus an open search-visibility and site audit. No paid SEO APIs.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -14,7 +14,12 @@
     "keyword-research",
     "link-building",
     "open-source-seo",
-    "disavow"
+    "disavow",
+    "backlink-monitoring",
+    "link-verification",
+    "evidence",
+    "warc",
+    "digital-pr"
   ],
   "homepage": "https://github.com/CometWeb-io/rankproof#readme",
   "repository": {
@@ -39,6 +44,8 @@
     "!src/lib/backlinks/**/*.test.ts",
     "!src/lib/backlinks/fixtures",
     "!src/lib/backlinks/scan.ts",
+    "!src/lib/backlinks/verify-fn.ts",
+    "!src/lib/backlinks/verify-example.server.ts",
     "!src/lib/backlinks/store.server.ts",
     "!src/lib/backlinks/history.ts",
     "!src/lib/backlinks/history-diff.ts",
@@ -46,7 +53,10 @@
     "README.md",
     "LICENSE",
     "SECURITY.md",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "contract",
+    "clients",
+    "!docs/media"
   ],
   "overrides": {
     "nf3": "0.3.17",
@@ -60,19 +70,21 @@
   },
   "scripts": {
     "dev": "node scripts/with-app-env.mjs vite dev --port 8080",
-    "build": "node scripts/with-app-env.mjs vite build && npm run db:migrate",
+    "build": "node scripts/with-app-env.mjs vite build && node scripts/copy-pglite-assets.mjs && npm run db:migrate",
     "db:migrate": "node scripts/migrate.mjs",
-    "build:dev": "node scripts/with-app-env.mjs vite build --mode development",
+    "build:dev": "node scripts/with-app-env.mjs vite build --mode development && node scripts/copy-pglite-assets.mjs",
     "preview": "node scripts/with-app-env.mjs vite preview",
     "preview:restart": "node scripts/preview.mjs restart",
     "preview:stop": "node scripts/preview.mjs stop",
     "typecheck": "tsc --noEmit",
     "check:auth": "node scripts/check-auth-invariant.mjs",
     "test": "node --experimental-strip-types --test 'src/**/*.test.ts'",
+    "test:fuzz": "RANKPROOF_FUZZ_RUNS=${RANKPROOF_FUZZ_RUNS:-5000} node --experimental-strip-types --test src/lib/backlinks/fuzz.test.ts",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "cli": "node bin/rankproof.mjs",
+    "benchmark": "node scripts/benchmark.mjs",
     "api": "node scripts/serve-api.mjs",
     "check": "npm run typecheck && npm run lint && npm test",
     "test:e2e": "playwright test",
@@ -81,9 +93,12 @@
     "test:scaffold": "node --test scripts/check-auth-invariant.test.mjs scripts/migration-plan.test.mjs scripts/sign-out-plan.test.mjs scripts/with-app-env.test.mjs scripts/node-version.test.mjs",
     "dev:lan": "node scripts/with-app-env.mjs vite dev --host 0.0.0.0 --port 8080",
     "build:cli": "tsc -p tsconfig.build.json",
-    "prepack": "npm run build:cli"
+    "prepack": "npm run build:cli",
+    "contract:update": "node scripts/contract-update.mjs",
+    "test:clients": "node --experimental-strip-types --no-warnings --test clients/typescript/*.test.ts && cd clients/python && python3 -m unittest -q"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
     "@electric-sql/pglite": "^0.5.4",
     "@eslint/js": "^9.20.0",
     "@hookform/resolvers": "^5.7.0",
@@ -160,6 +175,15 @@
     "tag": "latest"
   },
   "dependencies": {
-    "entities": "8.1.0"
+    "entities": "8.1.0",
+    "tldts": "^7.4.26"
+  },
+  "peerDependencies": {
+    "playwright": ">=1.50.0"
+  },
+  "peerDependenciesMeta": {
+    "playwright": {
+      "optional": true
+    }
   }
 }

@@ -142,6 +142,10 @@ function clamp(value: number, max: number): number {
  */
 export function buildScorecard(input: ScorecardInput): Scorecard {
   const parts: Scorecard["parts"] = [];
+  const noLinks = input.referringDomains === 0;
+  const serpMeasured = (input.serp.engineHealth ?? []).some(
+    (item) => item.status === "ok" || item.status === "no-results",
+  );
 
   // 1. Link profile strength (25).
   const authority = clamp(
@@ -154,6 +158,7 @@ export function buildScorecard(input: ScorecardInput): Scorecard {
     score: authority,
     max: 25,
     hint: `DR ${input.domainRating}, ${input.referringDomains} referring domains.`,
+    basis: noLinks ? "unknown" : "estimated",
   });
 
   // 2. Profile quality — topic, placement, dofollow (15).
@@ -167,6 +172,7 @@ export function buildScorecard(input: ScorecardInput): Scorecard {
     score: quality,
     max: 15,
     hint: `Profile health ${input.analytics.health.total}/100, anchors ${input.anchorAudit.score}/100.`,
+    basis: noLinks ? "unknown" : "estimated",
   });
 
   // 3. Visibility in the results (25).
@@ -179,15 +185,24 @@ export function buildScorecard(input: ScorecardInput): Scorecard {
     label: "SERP visibility",
     score: visibility,
     max: 25,
-    hint: `Visibility ${input.serp.visibility}/100, ${plural(input.serp.top10, "keyword")} in the top 10.`,
+    hint: serpMeasured
+      ? `Visibility ${input.serp.visibility}/100, ${plural(input.serp.top10, "keyword")} in the top 10.`
+      : "No search engine returned a usable result page — visibility was not measured.",
+    basis: !serpMeasured ? "unknown" : input.searchConsole ? "observed" : "estimated",
   });
 
   // 4. On-page readiness (10). With an internal audit the score is the
   //    average of landing-page quality and internal structure — a perfect
   //    page inside a broken site is not worth full marks.
-  const pageScore = input.onPage?.score ?? 50;
-  const structureScore = input.siteAudit?.score ?? null;
-  const combined = structureScore === null ? pageScore : (pageScore + structureScore) / 2;
+  const pageScore = input.onPage?.score ?? null;
+  // A failed or empty crawl is not a structure score of 0.
+  const audit = input.siteAudit;
+  const structureScore =
+    audit && audit.status !== "failed" && audit.crawled > 0 ? audit.score : null;
+  const combined =
+    pageScore !== null && structureScore !== null
+      ? (pageScore + structureScore) / 2
+      : (pageScore ?? structureScore ?? 0);
   const onPage = clamp((combined / 100) * 10, 10);
   parts.push({
     key: "onpage",
@@ -198,8 +213,9 @@ export function buildScorecard(input: ScorecardInput): Scorecard {
       structureScore === null
         ? input.onPage
           ? `Landing page audit: ${input.onPage.score}/100.`
-          : "Could not fetch the landing page — a neutral value was used."
-        : `Landing page ${pageScore}/100, internal structure ${structureScore}/100 (${input.siteAudit?.crawled ?? 0} pages crawled).`,
+          : "Could not fetch the landing page or crawl the site — not measured."
+        : `Landing page ${pageScore ?? "not fetched"}${pageScore === null ? "" : "/100"}, internal structure ${structureScore}/100 (${input.siteAudit?.crawled ?? 0} pages crawled).`,
+    basis: pageScore === null && structureScore === null ? "unknown" : "observed",
   });
 
   // 5. Safety: toxicity and footprint (15).
@@ -212,7 +228,10 @@ export function buildScorecard(input: ScorecardInput): Scorecard {
     label: "Safety",
     score: risk,
     max: 15,
-    hint: `Toxicity ${input.toxic.avgToxicity}/100, footprint ${input.footprint.score}/100 (${input.footprint.verdict}).`,
+    hint: noLinks
+      ? "No verified referring domains, so there is nothing to assess — not a clean bill of health."
+      : `Toxicity ${input.toxic.avgToxicity}/100, footprint ${input.footprint.score}/100 (${input.footprint.verdict}).`,
+    basis: noLinks ? "unknown" : "estimated",
   });
 
   // 6. Momentum and brand control (10).
@@ -228,13 +247,21 @@ export function buildScorecard(input: ScorecardInput): Scorecard {
     hint: input.brandSerp
       ? `Link velocity: ${input.velocity.verdict}, brand SERP control ${input.brandSerp.control}%.`
       : `Link velocity: ${input.velocity.verdict}.`,
+    basis: input.velocity.verdict === "unknown" && !input.brandSerp ? "unknown" : "estimated",
   });
 
-  const index = parts.reduce((sum, part) => sum + part.score, 0);
+  // Unknown components no longer receive neutral or free points: the index is
+  // computed over measured components only, and `coverage` says how much of
+  // the 100-point model that is. A 90 at 40% coverage is not a 90.
+  const known = parts.filter((part) => part.basis !== "unknown");
+  const knownMax = known.reduce((sum, part) => sum + part.max, 0);
+  const coverage = Math.round(knownMax);
+  const index =
+    knownMax > 0 ? (known.reduce((sum, part) => sum + part.score, 0) / knownMax) * 100 : 0;
   const grade: Scorecard["grade"] =
     index >= 80 ? "A" : index >= 65 ? "B" : index >= 48 ? "C" : index >= 32 ? "D" : "E";
 
-  const weakest = parts.slice().sort((a, b) => a.score / a.max - b.score / b.max)[0]?.label ?? "";
+  const weakest = known.slice().sort((a, b) => a.score / a.max - b.score / b.max)[0]?.label ?? "";
 
-  return { index: Math.round(index), grade, parts, weakest };
+  return { index: Math.round(index), grade, parts, weakest, coverage };
 }

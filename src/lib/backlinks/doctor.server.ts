@@ -223,6 +223,15 @@ export async function runDoctor(query = "open source seo tools"): Promise<Diagno
       ok: /https?:\/\//.test(runtime.apiUserAgent),
       hint: "Include a contact URL so administrators can reach you instead of banning you.",
     },
+    {
+      key: "crawler-identity",
+      value:
+        runtime.crawlerIdentity === "rankproof"
+          ? `rankproof (pages see "${runtime.apiUserAgent}")`
+          : "browser (pages see a desktop-browser user agent)",
+      ok: true,
+      hint: "RANKPROOF_CRAWLER_IDENTITY=rankproof identifies RankProof to publishers; some may block it.",
+    },
   ];
 
   // Optional engines that are simply not wired up do not count as failures.

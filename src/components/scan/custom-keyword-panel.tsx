@@ -121,7 +121,7 @@ export function CustomKeywordPanel({ host }: { host: string }) {
             type="button"
             disabled={loading}
             aria-pressed={market === id}
-            aria-label={`Market: ${MARKETS[id].label}`}
+            aria-label={`${id.toUpperCase()}, market: ${MARKETS[id].label}`}
             onClick={() => setMarket(id)}
             className={cn(
               "h-11 min-w-[44px] rounded-full border px-3 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-bg",

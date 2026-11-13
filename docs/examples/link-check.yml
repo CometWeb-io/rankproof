@@ -1,0 +1,38 @@
+# .github/workflows/link-check.yml — weekly check of agreed backlinks.
+name: Link check
+on:
+  schedule:
+    - cron: "30 6 * * 1"
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Restore last week's run so the report shows what changed.
+      - uses: actions/cache/restore@v4
+        with:
+          path: rankproof-run.json
+          key: rankproof-run-${{ github.run_id }}
+          restore-keys: rankproof-run-
+      - name: Keep the previous run
+        run: if [ -f rankproof-run.json ]; then mv rankproof-run.json previous-run.json; fi
+      - id: rankproof
+        uses: CometWeb-io/rankproof@main # pin a release tag or commit SHA in real use
+        with:
+          pairs: links.csv
+          previous: ${{ hashFiles('previous-run.json') != '' && 'previous-run.json' || '' }}
+          strict: "false"
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: rankproof-run.json
+          key: rankproof-run-${{ github.run_id }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rankproof-report
+          path: rankproof-report.html
+      - name: Fail on lost or changed links
+        if: steps.rankproof.outputs.missing != '0' || steps.rankproof.outputs.deviates != '0'
+        run: exit 1

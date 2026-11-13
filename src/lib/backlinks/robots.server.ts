@@ -52,7 +52,12 @@ export function parseRobots(text: string, agent = "rankproof"): RobotsRules {
   let sawNamedGroup = false;
   const lower = agent.toLowerCase();
 
-  for (const rawLine of text.split(/\r?\n/).slice(0, 3000)) {
+  // A UTF-8 BOM may start the file (RFC 9309); left in place it hides the first
+  // "User-agent" line. Ported from upstream PR #2.
+  for (const rawLine of text
+    .replace(/^\uFEFF/, "")
+    .split(/\r?\n/)
+    .slice(0, 3000)) {
     const line = rawLine.replace(/#.*$/, "").trim();
     if (!line) continue;
     const separator = line.indexOf(":");
@@ -170,6 +175,7 @@ export async function robotsFor(
       // robots.txt itself is always fetchable; skipping the guard here would
       // be circular.
       skipRobots: true,
+      skipHostLimit: true,
     });
     // 4xx means "no rules"; 5xx means the host is unhappy — back off politely.
     if (status >= 200 && status < 300 && text.trim()) rules = parseRobots(text, agent);

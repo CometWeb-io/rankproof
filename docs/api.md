@@ -24,10 +24,10 @@ Set `RANKPROOF_API_TOKEN` to require `Authorization: Bearer <token>` on every en
 {
   "ok": true,
   "service": "rankproof",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "revision": "deployment-revision",
   "schema_version": "1",
-  "capabilities": ["backlinks.verify.v1"],
+  "capabilities": ["backlinks.verify.v1", "backlinks.verify.contract.v1"],
   "uptime": 42
 }
 ```
@@ -80,6 +80,84 @@ Accepts 1–50 pairs. Both URLs must be absolute public HTTP(S) URLs, at most 20
 Schema `1` keeps the original status and evidence fields and adds `evidence_kind` (`html_anchor` only on confirmation), `observation_method` (`fetched_html`), `absence_scope` (`fetched_html`, `http_resource` for 404/410, otherwise null), `extraction_version`, `identity_policy`, `source_revision` (nullable), `response_hash` (SHA-256 of the inspected response text, nullable before fetch), `raw_href`, `resolved_href`, and up to 50 `matching_anchors` containing bounded raw/resolved href, anchor text and actual rel tokens. Raw href retains the original HTML attribute spelling, including entity escapes. Multiple occurrences can have different rel values. `resolved_href` on the first match retains its fragment while identity comparison ignores it. These describe the fetched representation, not browser visibility or Google treatment.
 
 The source bypasses in-memory/disk response caches and requests HTTP revalidation. The existing robots policy and URL/DNS/redirect guards apply at every hop. Set `RANKPROOF_PIN_DNS=1` in service deployments to pin connections to the validated public address and close the DNS-rebinding window. A forward-only tokenizer reads actual tags outside quoted attribute values, comments, raw-text elements and nested templates; incomplete markup or more than 100,000 visible tokens returns an error rather than a partial absence claim. Verification reads at most 2 MB of source HTML, uses up to eight workers, and includes DNS/robots/queue time in each 10-second item deadline (75-second batch ceiling). A timed-out item is an error; it is not evidence of absence.
+
+#### Link contracts (`backlinks.verify.contract.v1`)
+
+Each item may also carry what the publisher agreed to place. Both fields are optional:
+
+```json
+{
+  "items": [
+    {
+      "source_url": "https://publisher.example/article",
+      "target_url": "https://target.example/offer",
+      "expected_anchor": "Target Offer",
+      "expected_rel": "sponsored",
+      "expected_placement": "content"
+    }
+  ]
+}
+```
+
+`expected_anchor` is compared case- and whitespace-insensitively (NFKC) against every confirmed anchor. `expected_placement` is one of `content`, `navigation`, `footer`, `sidebar`, `comment` (aliases such as `in-content`, `nav`, `aside` are accepted) and is judged on the anchors that satisfy the anchor and rel clauses. `expected_rel` is one of `follow`, `nofollow`, `sponsored`, `ugc` (`dofollow` is accepted as `follow`); `follow` means none of `nofollow`/`sponsored`/`ugc` is present. The rel clause is judged on the anchors that satisfy the anchor clause. Malformed expectations reject the whole batch before any I/O.
+
+Every result then carries two additive fields:
+
+```json
+{
+  "near_matches": [
+    {
+      "resolved_href": "http://target.example/offer",
+      "anchor": "Offer",
+      "rel": "",
+      "difference": "protocol http instead of https"
+    }
+  ],
+  "contract": {
+    "policy": "link-contract-v2",
+    "verdict": "deviates",
+    "target": "exact",
+    "anchor": "match",
+    "rel": "mismatch",
+    "placement": "match",
+    "mentioned": false,
+    "notes": ["Expected rel \"sponsored\", observed rel \"\". …"]
+  }
+}
+```
+
+- `near_matches`: up to 10 links to the target site that are **not** the exact target URL (other protocol, `www`, trailing slash, path or query). They never turn `not_found` into `confirmed`.
+- `contract.verdict`: `meets` (confirmed and no clause deviates), `deviates` (confirmed, but anchor or rel differ), `missing` (`not_found`; `target` is `near` when near matches exist) or `unverified` (`error` — never a missing link).
+- `contract.anchor` / `contract.rel` / `contract.placement`: `match`, `mismatch`, `unspecified` (no expectation sent) or `unobserved` (no link to judge, or — for placement — a page without landmarks or class names to tell regions apart; that is never a deviation).
+- `contract.mentioned`: on `not_found`, the target host or expected anchor appears on the page as plain text outside any link.
+
+Each result also describes **where** the link sits and what surrounds it:
+
+- `placement` (first matching anchor) and `matching_anchors[].placement`: `content`, `navigation`, `footer`, `sidebar`, `comment` or `unknown`. A heuristic from HTML landmarks (`article`, `main`, `nav`, `footer`, `aside`) and common class names, not a rendering of the page layout.
+- `context` and `matching_anchors[].context`: up to 400 characters of visible text around the anchor, without markup.
+- `mentions`: up to 3 `{ term, snippet }` plain-text occurrences when no link was found.
+
+A machine-readable description of every field is in [`openapi.yaml`](openapi.yaml).
+
+#### Rendered verification (`backlinks.verify.render.v1`)
+
+Fetched HTML cannot see links inserted by JavaScript, and cannot tell that a link in the HTML is hidden with CSS. A server started with `RANKPROOF_RENDER=1` (and the optional `playwright` package plus a Chromium) accepts a top-level `render` field:
+
+```json
+{ "render": "fallback", "items": [ … ] }
+```
+
+- `fallback` (or `true`): open the page in headless Chromium only when the fetched HTML had no matching anchor or was an application shell.
+- `always`: render every page that was read successfully, which also detects links hidden from visitors.
+- Without `RANKPROOF_RENDER=1` any `render` value returns `400` before I/O. 404/410, challenges, robots refusals and policy refusals are never rendered.
+
+Each result then carries `rendered`: `null`, or `{ status, method: "rendered_dom", render_version, engine, rendered_at, final_url, http_status, dom_hash, reason, visible, matching_anchors[{ resolved_href, anchor, rel, visible, placement }], blocked_requests, blocked_script_requests }`.
+
+The fetched-HTML fields (`status`, `anchor`, …) are **never rewritten**. The contract decides on the effective observation: fetched HTML whenever it confirmed the link, the rendered DOM only where the HTML could not. `contract.basis` says which (`fetched_html` or `rendered_dom`), and `contract.visibility` is `mismatch` when every matching anchor is hidden (display, visibility, opacity, zero size, off-screen), which makes the verdict `deviates`. A failed render never overrides the HTML verdict. A rendered page with no readable text is an error, not an absence, and refused script requests are counted in the notes because the content they would add is unknown.
+
+Every request the page makes goes through the same public-URL policy as the crawler (scheme, private and metadata ranges, DNS). Images, media, fonts, WebSockets and service workers are blocked; bot challenges are not solved. Chromium never follows a redirect itself: each hop, main frame or subresource, is checked before it is requested. With `RANKPROOF_PIN_DNS=1` the browser makes no connections at all — every allowed request is performed by the pinned network layer (validated IP, Host/SNI preserved) and handed to the page, so rendering gets the same DNS-rebinding protection as fetched HTML. An isolated network is still the recommended defence in depth for untrusted callers.
+
+A deviation is a difference from the stated contract, not an SEO verdict. Without expectations every confirmed link `meets` its (empty) contract. The CLI command `rankproof verify` wraps this endpoint for CSV files, batches above 50 pairs, change reports against an earlier run and optional HTML capture for offline `rankproof replay` — see [CLI](cli.md).
 
 ### `GET /doctor`
 

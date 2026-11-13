@@ -8,6 +8,9 @@ export const EXTRACTION_VERSION = "html-anchor-v5";
 export const SCORE_VERSION = "local-graph-heuristic-v1";
 export const sourceRevision = () => process.env.RANKPROOF_SERVICE_REVISION?.trim() || null;
 export const responseHash = (text: string) => createHash("sha256").update(text).digest("hex");
+/** A recorded response_hash is used as a file name: only a lowercase SHA-256 hex digest is. */
+export const isResponseHash = (value: unknown): value is string =>
+  typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
 
 export function linkEvidence(
   kind: "provider_report" | "html_anchor" | "archive_anchor",

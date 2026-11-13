@@ -67,8 +67,10 @@ export function buildBrandSerp(
   const owned = results.filter((row) => row.owned).length;
   const risky = results.filter((row) => row.risky).length;
   // Higher positions weigh more — the first result shapes the first impression.
-  const weighted = results.reduce((sum, row) => sum + (row.owned ? 11 - row.position : 0), 0);
-  const maxWeighted = results.reduce((sum, row) => sum + (11 - row.position), 0) || 1;
+  // Positions past #10 keep a small positive weight instead of a negative one.
+  const weight = (position: number) => (position <= 10 ? 11 - position : 0.5);
+  const weighted = results.reduce((sum, row) => sum + (row.owned ? weight(row.position) : 0), 0);
+  const maxWeighted = results.reduce((sum, row) => sum + weight(row.position), 0) || 1;
   const control = Math.round((weighted / maxWeighted) * 100);
 
   let hint: string;

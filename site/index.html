@@ -8,7 +8,7 @@
       name="description"
       content="Open-source backlink verification. Check known source/target pairs and get confirmed, not_found or error, with the evidence the crawler actually saw."
     />
-    <link rel="canonical" href="https://cometweb-io.github.io/rankproof/" />
+    <link rel="canonical" href="https://rankproof.cometweb.io/" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="RankProof — verify the backlinks you track" />
@@ -16,8 +16,8 @@
       property="og:description"
       content="Confirmed, not found, or could not be checked. Open-source backlink verification with inspectable evidence."
     />
-    <meta property="og:url" content="https://cometweb-io.github.io/rankproof/" />
-    <meta property="og:image" content="https://cometweb-io.github.io/rankproof/og.jpg" />
+    <meta property="og:url" content="https://rankproof.cometweb.io/" />
+    <meta property="og:image" content="https://rankproof.cometweb.io/og.jpg" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="theme-color" content="#000000" />
     <link
@@ -59,7 +59,7 @@
         --fg: #fff;
         --soft: #b4b4b4;
         --muted: #9ca3af;
-        --dim: #4a4a4a;
+        --dim: #858c99;
         --line: #222224;
         --line-2: #2d2d2d;
         --panel: #151517;
@@ -271,15 +271,11 @@
         background: linear-gradient(to right, #05f29b, #04c27c);
         color: #18181b;
         border-color: #05f29b;
-        box-shadow:
-          0 2px 10px rgba(5, 242, 155, 0.2),
-          inset 0 1px 0 rgba(255, 255, 255, 0.35);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
       }
       .btn-accent:hover {
         background: linear-gradient(to right, #04c27c, #05f29b);
-        box-shadow:
-          0 6px 18px rgba(5, 242, 155, 0.32),
-          inset 0 1px 0 rgba(255, 255, 255, 0.35);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
         transform: translateY(-1px);
       }
       .btn-accent::after {
@@ -553,12 +549,15 @@
       }
       .hv-note a {
         color: var(--soft);
+        text-decoration: underline;
+        text-underline-offset: 2px;
+        text-decoration-color: color-mix(in srgb, var(--soft) 50%, transparent);
       }
       .fact .d {
         margin: -10px 0 0;
         font-size: 13.5px;
         line-height: 1.5;
-        color: var(--dim);
+        color: var(--muted);
       }
       @media (prefers-reduced-motion: reduce) {
         .hv-agent rect,
@@ -720,7 +719,7 @@
       }
       .vrow .naive {
         font-size: 16px;
-        color: #6b6b6b;
+        color: #8c8c8c;
         text-decoration: line-through;
         text-decoration-color: color-mix(in srgb, var(--dim) 60%, transparent);
       }
@@ -1034,10 +1033,10 @@
           radial-gradient(1px 1px at 68% 9%, rgba(255, 255, 255, 0.28), transparent 60%),
           radial-gradient(1px 1px at 84% 42%, rgba(255, 255, 255, 0.22), transparent 60%),
           radial-gradient(1px 1px at 32% 64%, rgba(255, 255, 255, 0.2), transparent 60%),
-          radial-gradient(1px 1px at 52% 31%, rgba(5, 242, 155, 0.45), transparent 60%),
+          radial-gradient(1px 1px at 52% 31%, rgba(255, 255, 255, 0.22), transparent 60%),
           radial-gradient(1px 1px at 91% 77%, rgba(255, 255, 255, 0.24), transparent 60%),
           radial-gradient(1px 1px at 6% 86%, rgba(255, 255, 255, 0.2), transparent 60%),
-          radial-gradient(1.5px 1.5px at 44% 92%, rgba(5, 242, 155, 0.35), transparent 60%);
+          radial-gradient(1.5px 1.5px at 44% 92%, rgba(255, 255, 255, 0.2), transparent 60%);
         background-size: 520px 520px;
         opacity: 0.8;
       }
@@ -1048,11 +1047,7 @@
         height: 520px;
         z-index: 0;
         pointer-events: none;
-        background: radial-gradient(
-          ellipse 55% 60% at 50% 0%,
-          rgba(5, 242, 155, 0.13),
-          transparent 70%
-        );
+        background: none;
       }
       .eyebrow {
         display: inline-flex;
@@ -1065,7 +1060,6 @@
         height: 6px;
         border-radius: 50%;
         background: var(--accent);
-        box-shadow: 0 0 10px rgba(5, 242, 155, 0.8);
       }
       .hero-eyebrow {
         margin-bottom: 22px;
@@ -1088,9 +1082,7 @@
         border: 1px solid var(--line-2);
         background: #141416;
         overflow: hidden;
-        box-shadow:
-          0 40px 120px -40px rgba(5, 242, 155, 0.18),
-          0 30px 80px -30px rgba(0, 0, 0, 0.8);
+        box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.8);
       }
       .frame-bar {
         position: relative;
@@ -1429,7 +1421,6 @@
         width: 0;
         border-radius: 2px;
         background: linear-gradient(90deg, #04c27c, #05f29b);
-        box-shadow: 0 0 10px rgba(5, 242, 155, 0.55);
         transition: width 0.9s cubic-bezier(0.65, 0, 0.35, 1);
       }
       .pnode {
@@ -1458,9 +1449,7 @@
       .pnode.active .pdot {
         background: var(--accent);
         border-color: #b9ffe2;
-        box-shadow:
-          0 0 0 5px rgba(5, 242, 155, 0.16),
-          0 0 16px rgba(5, 242, 155, 0.7);
+        box-shadow: none;
       }
       .pnode.active {
         background: linear-gradient(180deg, rgba(5, 242, 155, 0.06), transparent 70%);
@@ -2282,7 +2271,7 @@
 
     <div class="announce">
       <span class="label">Release</span>
-      <span>RankProof 1.0.1: cleaner anchor text and an English-only report</span>
+      <span>RankProof 1.1.0: link contracts, saved lists and receipts for every check</span>
       <a class="more" href="https://github.com/CometWeb-io/rankproof/blob/main/CHANGELOG.md"
         >Changelog ↗</a
       >
@@ -2305,7 +2294,7 @@
           <a
             class="gh"
             href="https://github.com/CometWeb-io/rankproof"
-            aria-label="RankProof on GitHub"
+            title="RankProof on GitHub (MIT licence)"
           >
             <span
               ><svg aria-hidden="true"><use href="#i-gh" /></svg>GitHub</span
@@ -2320,7 +2309,7 @@
       <div class="hero" id="top">
         <div class="wrap">
           <div class="hero-copy">
-            <div class="eyebrow hero-eyebrow">Open source · MIT · v1.0.1</div>
+            <div class="eyebrow hero-eyebrow">Open source · MIT · v1.1.0</div>
             <h1>Backlinks you can prove</h1>
             <p class="sub">
               <b>Paste the links you paid for or earned.</b> RankProof opens each page and tells you
@@ -2459,98 +2448,35 @@
         <div class="wrap">
           <div class="sec-head center reveal">
             <div>
-              <div class="eyebrow">A real scan, not a mockup</div>
-              <h2>Watch it check nasa.gov</h2>
+              <div class="eyebrow">The app, recorded</div>
+              <h2>Paste your links, get a receipt for each one</h2>
             </div>
             <p>
-              Domain in, verified backlinks out. Every link on the list was confirmed in the source
-              page's HTML during the scan.
+              Put in the links you paid for or earned, with the anchor and rel you agreed on.
+              RankProof opens every page and tells you which links still match the deal.
             </p>
           </div>
           <div class="frame demo-frame reveal">
             <div class="frame-bar">
               <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
-              <span class="url">localhost · RankProof 1.0.0</span>
+              <span class="url">localhost · RankProof</span>
             </div>
             <video
               id="demo-video"
-              src="media/scan-demo.mp4"
-              poster="media/scan-demo-poster.jpg"
+              src="media/verify-demo.mp4"
+              poster="media/verify-demo-poster.jpg"
               width="1280"
               height="800"
               muted
               loop
               playsinline
               preload="metadata"
-              aria-label="Screen recording: RankProof scans nasa.gov for the US market and shows verified backlinks"
+              aria-label="Screen recording: the built-in example of six links is checked, results are summarised and one receipt is opened"
             ></video>
           </div>
           <p class="caption reveal">
-            <b>Recorded on 7 Nov 2026</b> from a local RankProof 1.0.0, US market. The scanning
-            phase is sped up 15×; the scan itself took just under a minute.
-          </p>
-
-          <div
-            class="cells grid-3 runviz reveal"
-            style="grid-template-columns: repeat(3, minmax(0, 1fr))"
-            id="runviz"
-          >
-            <div class="cell">
-              <div class="viz-head"><span>Visibility index</span><span>nasa.gov · US</span></div>
-              <div class="ring-wrap">
-                <div class="ring" data-value="42">
-                  <svg viewBox="-86 -86 172 172" aria-hidden="true" id="ring-svg"></svg>
-                  <div class="val">42<small>of 100</small></div>
-                </div>
-                <div>
-                  <p style="margin: 0 0 10px">
-                    Six scored parts you can open one by one. The weakest here is
-                    <b style="color: var(--fg)">SERP visibility</b>.
-                  </p>
-                  <div class="ring-legend">
-                    <span><i style="background: #ef4444"></i>&lt;50</span
-                    ><span><i style="background: #f59e0b"></i>50+</span
-                    ><span><i style="background: #10b981"></i>70+</span
-                    ><span><i style="background: #05f29b"></i>90+</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="cell">
-              <div class="viz-head"><span>Verified backlinks</span><span>rel</span></div>
-              <div class="bigstat">8<small>confirmed in HTML</small></div>
-              <div class="stack" aria-label="2 of 8 verified backlinks are dofollow">
-                <span class="a" data-w="25"></span><span class="b" data-w="75"></span>
-              </div>
-              <div class="legend-row">
-                <span><i style="background: var(--accent)"></i><b>2</b> dofollow</span>
-                <span><i style="background: #55555c"></i><b>6</b> other rel</span>
-              </div>
-            </div>
-            <div class="cell">
-              <div class="viz-head"><span>Where they come from</span><span>count</span></div>
-              <div class="funnel">
-                <div>
-                  <span>Verified links</span><span class="bar"><span data-w="100"></span></span
-                  ><b>8</b>
-                </div>
-                <div>
-                  <span>In content</span><span class="bar"><span data-w="87.5"></span></span
-                  ><b>7</b>
-                </div>
-                <div>
-                  <span>Referring domains</span><span class="bar"><span data-w="37.5"></span></span
-                  ><b>3</b>
-                </div>
-                <div>
-                  <span>Strong domains</span><span class="bar"><span data-w="12.5"></span></span
-                  ><b>1</b>
-                </div>
-              </div>
-            </div>
-          </div>
-          <p class="runviz-note reveal">
-            Numbers from the recorded run above. A live domain changes, so a new scan will differ.
+            <b>Recorded in real time</b> with the app's built-in example: six links on bundled
+            pages, read by the real extractor with no network requests.
           </p>
 
           <div class="duo">
@@ -2560,16 +2486,16 @@
                   <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                 </div>
                 <img
-                  src="media/scan-overview.jpg"
-                  alt="RankProof results for nasa.gov: 8 verified backlinks from 3 referring domains, visibility index and score breakdown"
-                  width="1600"
-                  height="900"
+                  src="media/verify-results.jpg"
+                  alt="Six links checked: two meet their contract, one deviates, two are not in the HTML and one could not be checked, with a row per link"
+                  width="1920"
+                  height="1200"
                   loading="lazy"
                 />
               </div>
               <figcaption>
-                <b>One screen, the whole profile</b>Verified backlinks, referring domains, dofollow
-                share and a visibility index whose parts you can open and read.
+                <b>One look at the whole list</b>How many links still match the deal, which ones
+                changed since the last run, and a row per link with what was found.
               </figcaption>
             </figure>
             <figure class="reveal">
@@ -2578,16 +2504,16 @@
                   <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
                 </div>
                 <img
-                  src="media/scan-backlinks.jpg"
-                  alt="Verified backlinks from Wikipedia with link target, anchor text, nofollow and HTTP 200"
-                  width="1600"
-                  height="431"
+                  src="media/verify-receipt.jpg"
+                  alt="An open receipt: the rel changed from sponsored, the text around the link, the anchor found and the HTTP status, final URL and SHA-256 of the page"
+                  width="1920"
+                  height="711"
                   loading="lazy"
                 />
               </div>
               <figcaption>
-                <b>Each link shows where it came from</b>Source page, exact target path, anchor
-                text, rel, placement and the HTTP status of the fetch.
+                <b>Every answer comes with a receipt</b>What changed, the text around the link, and
+                the status, final URL and fingerprint of the exact page that was read.
               </figcaption>
             </figure>
           </div>
@@ -2602,61 +2528,9 @@
               <h2>A blocked page is not a lost link</h2>
             </div>
             <p>
-              A yes/no checker has to call every failed fetch "lost". RankProof keeps
-              <b>couldn't check</b> apart from <b>not there</b>, and records how far each negative
-              reaches.
+              A simple checker calls every failed visit "lost". RankProof keeps
+              <b>couldn't check</b> apart from <b>not there</b>, and tells you why.
             </p>
-          </div>
-          <div class="pipe reveal" aria-label="How one source/target pair is checked">
-            <div class="rail" aria-hidden="true"><span></span></div>
-            <div class="pnode">
-              <div class="step"><span class="pdot"></span>01 · INPUT</div>
-              <div class="ico">
-                <svg aria-hidden="true"><use href="#i-globe" /></svg>
-              </div>
-              <h4>Your pair</h4>
-              <p>A source page and the exact target URL it should link to.</p>
-              <code>source_url → target_url</code>
-            </div>
-            <div class="pnode">
-              <div class="step"><span class="pdot"></span>02 · FETCH</div>
-              <div class="ico">
-                <svg aria-hidden="true"><use href="#i-send" /></svg>
-              </div>
-              <h4>Fetch safely</h4>
-              <p>SSRF-guarded request, robots respected, redirects re-checked hop by hop.</p>
-              <code>http_status · final_url</code>
-            </div>
-            <div class="pnode">
-              <div class="step"><span class="pdot"></span>03 · READ</div>
-              <div class="ico">
-                <svg aria-hidden="true"><use href="#i-code" /></svg>
-              </div>
-              <h4>Read the HTML</h4>
-              <p>Every anchor extracted with its raw href, text, rel and placement.</p>
-              <code>html-anchor-v4</code>
-            </div>
-            <div class="pnode">
-              <div class="step"><span class="pdot"></span>04 · MATCH</div>
-              <div class="ico">
-                <svg aria-hidden="true"><use href="#i-link-check" /></svg>
-              </div>
-              <h4>Match exactly</h4>
-              <p>Scheme, host, path and query must match. Fragments are ignored.</p>
-              <code>exact-http-url-v2</code>
-            </div>
-            <div class="pnode last">
-              <div class="step"><span class="pdot"></span>05 · VERDICT</div>
-              <div class="ico">
-                <svg aria-hidden="true"><use href="#i-list-ordered" /></svg>
-              </div>
-              <h4>One of three</h4>
-              <div class="outcomes" id="outcomes">
-                <span class="tag ok"><i></i>confirmed</span>
-                <span class="tag miss"><i></i>not_found</span>
-                <span class="tag err"><i></i>error</span>
-              </div>
-            </div>
           </div>
           <div class="vtable reveal" role="table" aria-label="How each situation is reported">
             <div class="vrow head" role="row">
@@ -2672,8 +2546,8 @@
               </div>
               <div class="naive same" role="cell">present</div>
               <div class="verdict" role="cell">
-                <span class="tag ok"><i></i>confirmed</span
-                ><small>with anchor text, rel and the exact href it matched</small>
+                <span class="tag ok"><i></i>Confirmed</span
+                ><small>with the anchor, rel and exact link it matched</small>
               </div>
             </div>
             <div class="vrow" role="row">
@@ -2684,8 +2558,8 @@
               </div>
               <div class="naive same" role="cell">lost</div>
               <div class="verdict" role="cell">
-                <span class="tag miss"><i></i>not_found</span
-                ><small>absence_scope: fetched_html</small>
+                <span class="tag miss"><i></i>Not found</span
+                ><small>the page loads, the link is not in it</small>
               </div>
             </div>
             <div class="vrow" role="row">
@@ -2696,8 +2570,7 @@
               </div>
               <div class="naive same" role="cell">lost</div>
               <div class="verdict" role="cell">
-                <span class="tag miss"><i></i>not_found</span
-                ><small>absence_scope: http_resource</small>
+                <span class="tag miss"><i></i>Not found</span><small>the page itself is gone</small>
               </div>
             </div>
             <div class="vrow" role="row">
@@ -2708,8 +2581,8 @@
               </div>
               <div class="naive" role="cell">lost</div>
               <div class="verdict" role="cell">
-                <span class="tag err"><i></i>error</span
-                ><small>re-check later; not evidence of loss</small>
+                <span class="tag err"><i></i>Couldn’t check</span
+                ><small>check again later; never counted as lost</small>
               </div>
             </div>
             <div class="vrow" role="row">
@@ -2720,8 +2593,8 @@
               </div>
               <div class="naive" role="cell">lost</div>
               <div class="verdict" role="cell">
-                <span class="tag err"><i></i>error</span
-                ><small>the reason is kept with the observation</small>
+                <span class="tag err"><i></i>Couldn’t check</span
+                ><small>the reason is saved with the result</small>
               </div>
             </div>
             <div class="vrow" role="row">
@@ -2732,8 +2605,8 @@
               </div>
               <div class="naive" role="cell">lost</div>
               <div class="verdict" role="cell">
-                <span class="tag err"><i></i>error</span
-                ><small>the page is not fetched against the site's rules</small>
+                <span class="tag err"><i></i>Couldn’t check</span
+                ><small>the site asked crawlers not to read it</small>
               </div>
             </div>
             <div class="vrow" role="row">
@@ -2744,8 +2617,8 @@
               </div>
               <div class="naive same" role="cell">lost</div>
               <div class="verdict" role="cell">
-                <span class="tag miss"><i></i>not_found</span
-                ><small>rendered-page presence is reported as unknown</small>
+                <span class="tag miss"><i></i>Not found</span
+                ><small>turn on the browser check to see it</small>
               </div>
             </div>
           </div>
@@ -2839,7 +2712,7 @@
               <div class="shot">
                 <img
                   src="media/app.png"
-                  alt="The RankProof web app before a scan"
+                  alt="The RankProof web app after verifying a list of links: a ledger of results with one observation receipt open"
                   width="1600"
                   height="1125"
                   loading="lazy"
@@ -2851,17 +2724,20 @@
                 </div>
                 Web app
               </h3>
-              <p>Scan a domain, review verified links and site structure, export an HTML report.</p>
+              <p>
+                Paste or upload links, read a receipt per link, keep saved lists and re-check them
+                on the server. Export CSV, JSON or an HTML report.
+              </p>
             </article>
             <article class="cell surf">
               <div class="shot">
                 <pre><b>$</b> <em>rankproof help</em>
-scan &lt;domain&gt;     links, SERP, risk audit
-serp &lt;domain&gt;     positions for keywords
-gap  &lt;domain&gt;     linking to rivals, not you
-doctor            engines and parsers OK?
+verify links.csv  exact link, anchor, rel
+history monitor/  each link over time
+seal run.json     signature + RFC 3161 time
+mcp               tools for AI agents
 
--f, --format      text | json | csv | html</pre>
+-f, --format      text | json | csv | html | markdown</pre>
               </div>
               <h3 class="ih">
                 <div class="ico sm">
@@ -2869,16 +2745,19 @@ doctor            engines and parsers OK?
                 </div>
                 CLI
               </h3>
-              <p>Scripted scans with text, JSON, CSV or HTML output, ready for cron jobs and CI.</p>
+              <p>
+                Bulk checks with change reports, captured HTML, WARC export and sealed evidence,
+                ready for cron, CI and AI agents.
+              </p>
             </article>
             <article class="cell surf">
               <div class="shot">
                 <pre><b>GET</b>  <em>/health</em>
-capabilities: ["backlinks.verify.v1"]
+capabilities: ["backlinks.verify.v1", …]
 
 <b>POST</b> <em>/v1/backlinks/verify</em>
-1–50 source/target pairs
-ordered observations
+1–50 pairs + agreed anchor, rel
+observations + contract verdicts
 optional Bearer token</pre>
               </div>
               <h3 class="ih">
@@ -2913,7 +2792,7 @@ optional Bearer token</pre>
               <div class="num">STEP 1</div>
               <h3>Install</h3>
               <p>Clone the repository and install its dependencies.</p>
-              <div class="code">
+              <div class="code" tabindex="0">
                 <b>$</b> git clone https://github.com/CometWeb-io/rankproof.git <b>$</b> cd
                 rankproof &amp;&amp; npm ci
               </div>
@@ -2925,7 +2804,9 @@ optional Bearer token</pre>
               <div class="num">STEP 2</div>
               <h3>Start the API</h3>
               <p>It binds to loopback. Set a token before you expose it anywhere.</p>
-              <div class="code"><b>$</b> npm run api -- \ --host 127.0.0.1 --port 8787</div>
+              <div class="code" tabindex="0">
+                <b>$</b> npm run api -- \ --host 127.0.0.1 --port 8787
+              </div>
             </div>
             <div class="cell step">
               <div class="ico">
@@ -2934,7 +2815,7 @@ optional Bearer token</pre>
               <div class="num">STEP 3</div>
               <h3>Verify your links</h3>
               <p>Up to 50 pairs per request, answered in the order you sent them.</p>
-              <div class="code">
+              <div class="code" tabindex="0">
                 <b>$</b> curl -sX POST \ 127.0.0.1:8787/v1/backlinks/verify \ -H 'content-type:
                 application/json' \ -d @links.json
               </div>
@@ -3103,10 +2984,10 @@ optional Bearer token</pre>
           </div>
           <div class="timeline reveal" aria-label="Release history">
             <div><b>28 Aug 2026</b>Source published on GitHub</div>
-            <div><b>17 Sep 2026</b>Moved to CometWeb-io</div>
             <div><b>25 Oct 2026</b>Exact-pair verification on main</div>
             <div><b>1.0.0</b>First release, 7 Nov 2026</div>
-            <div class="now"><b>1.0.1</b>Cleaner anchor text, 8 Nov 2026</div>
+            <div><b>1.0.1</b>Cleaner anchor text, 8 Nov 2026</div>
+            <div class="now"><b>1.1.0</b>Link contracts and saved lists, 14 Nov 2026</div>
           </div>
           <div class="badges reveal">
             <img
@@ -3149,10 +3030,10 @@ optional Bearer token</pre>
                 </div>
                 <span>01</span>
               </div>
-              <h3>No JavaScript rendering</h3>
+              <h3>Fetched HTML by default</h3>
               <p>
-                Links injected by scripts after load are not seen. not_found covers fetched HTML
-                only.
+                not_found covers the fetched HTML. A headless-browser check for scripted or hidden
+                links is opt-in, and bot challenges are never solved.
               </p>
             </div>
             <div class="cell">
@@ -3214,13 +3095,13 @@ optional Bearer token</pre>
       <div class="wrap">
         <h2 id="family-h">More open source from CometWeb</h2>
         <div class="family-links">
-          <a href="https://cometweb-io.github.io/whykit/"
+          <a href="https://whykit.cometweb.io/"
             ><b>WhyKit</b><span>Decision memory for agents</span></a
           >
-          <a href="https://cometweb-io.github.io/Carbon-Badge/"
+          <a href="https://carbon-badge.cometweb.io/"
             ><b>Carbon Badge</b><span>CO₂e of every page</span></a
           >
-          <a href="https://cometweb-io.github.io/agent-skills/"
+          <a href="https://agent-skills.cometweb.io/"
             ><b>Agent Skills</b><span>Skills for coding agents</span></a
           >
           <a href="https://cometweb.io/open-source"

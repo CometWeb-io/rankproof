@@ -69,9 +69,21 @@ test("confirms exact URL including query, ignores fragment, and returns bounded 
     raw_href,
     resolved_href,
     matching_anchors,
+    near_matches,
+    contract,
+    placement,
+    context,
+    mentions,
+    rendered,
     ...legacy
   } = observation;
   void [
+    near_matches,
+    contract,
+    placement,
+    context,
+    mentions,
+    rendered,
     evidence_kind,
     observation_method,
     absence_scope,
@@ -352,4 +364,156 @@ test("internal semantic refusal does not poison valid items in the same batch", 
   assert.match(result.results[1]!.reason!, /Source belongs to target site/);
   assert.ok(calls.includes(source_url));
   assert.ok(!calls.some((url) => url.includes("blog.target.example")));
+});
+
+/* ------------------------- link contract & evidence ------------------------ */
+
+test("evaluates the expected anchor and rel against the confirmed anchors", async () => {
+  page(
+    `<html><body><p>Read <a rel="sponsored" href="${target_url.replace("&", "&amp;")}">our   OFFER</a></p></body></html>`,
+  );
+  const [ok] = (
+    await verifyBacklinks({
+      items: [{ source_url, target_url, expected_anchor: "Our offer", expected_rel: "sponsored" }],
+    })
+  ).results;
+  assert.equal(ok!.contract.verdict, "meets");
+  assert.equal(ok!.contract.anchor, "match", "case and whitespace are folded");
+  assert.equal(ok!.expected_rel, "sponsored");
+
+  const [bad] = (
+    await verifyBacklinks({ items: [{ source_url, target_url, expected_rel: "follow" }] })
+  ).results;
+  assert.equal(bad!.contract.verdict, "deviates");
+  assert.equal(bad!.contract.rel, "mismatch");
+  assert.equal(bad!.contract.anchor, "unspecified");
+});
+
+test("rejects malformed expectations before any I/O", async () => {
+  const calls = page("<html></html>");
+  await assert.rejects(() =>
+    verifyBacklinks({ items: [{ source_url, target_url, expected_rel: "dofollowish" }] }),
+  );
+  await assert.rejects(() =>
+    verifyBacklinks({ items: [{ source_url, target_url, expected_anchor: "x".repeat(501) }] }),
+  );
+  assert.deepEqual(calls, []);
+});
+
+test("reports same-site links to a different URL as near matches, not confirmations", async () => {
+  page(
+    `<html><body><a href="http://target.example/offer?utm_source=x&amp;a=1">offer</a><a href="https://target.example/">home</a></body></html>`,
+  );
+  const [result] = (await verifyBacklinks(body())).results;
+  assert.equal(result!.status, "not_found");
+  assert.equal(result!.near_matches.length, 2);
+  assert.match(result!.near_matches[0]!.difference, /protocol http/);
+  assert.equal(result!.contract.target, "near");
+  assert.equal(result!.contract.verdict, "missing");
+});
+
+test("an error stays unverified and never becomes a missing link", async () => {
+  page("busy", 503);
+  const [result] = (await verifyBacklinks(body())).results;
+  assert.equal(result!.status, "error");
+  assert.equal(result!.contract.verdict, "unverified");
+  assert.equal(result!.near_matches.length, 0);
+});
+
+test("captured HTML replays offline to the same observation", async () => {
+  const { observeRepresentation } = await import("./verify-api.server.ts");
+  page(`<html><body><a href="${target_url.replace("&", "&amp;")}">Our offer</a></body></html>`);
+  const captured: {
+    body: string;
+    final_url: string;
+    http_status: number;
+    content_type: string;
+    response_hash: string;
+  }[] = [];
+  const [live] = (await verifyBacklinks(body(), { capture: (item) => captured.push(item) }))
+    .results;
+  assert.equal(captured.length, 1);
+  assert.equal(captured[0]!.response_hash, live!.response_hash);
+  const replayed = observeRepresentation(
+    { source_url, target_url },
+    {
+      text: captured[0]!.body,
+      finalUrl: captured[0]!.final_url,
+      status: captured[0]!.http_status,
+      contentType: captured[0]!.content_type,
+      checkedAt: live!.checked_at,
+    },
+  );
+  assert.equal(replayed.status, live!.status);
+  assert.equal(replayed.anchor, live!.anchor);
+  assert.equal(replayed.response_hash, live!.response_hash);
+});
+
+test("records placement and surrounding text; checks expected placement", async () => {
+  const href = target_url.replace("&", "&amp;");
+  page(
+    `<html><body><nav><a href="/">Home</a></nav><article><p>We tested five stoves. The one from <a href="${href}">Our offer</a> boiled water fastest in wind.</p></article><footer><a href="${href}">partner</a></footer></body></html>`,
+  );
+  const [content] = (
+    await verifyBacklinks({
+      items: [
+        { source_url, target_url, expected_anchor: "Our offer", expected_placement: "content" },
+      ],
+    })
+  ).results;
+  assert.equal(content!.placement, "content");
+  assert.match(content!.context!, /The one from Our offer boiled water fastest/);
+  assert.ok(!content!.context!.includes("<"), "context never contains markup");
+  assert.equal(content!.contract.placement, "match");
+  assert.deepEqual(
+    content!.matching_anchors.map((a) => a.placement),
+    ["content", "footer"],
+  );
+
+  // The agreed anchor sits only in the footer: placement deviates.
+  const [footer] = (
+    await verifyBacklinks({
+      items: [
+        { source_url, target_url, expected_anchor: "partner", expected_placement: "content" },
+      ],
+    })
+  ).results;
+  assert.equal(footer!.contract.verdict, "deviates");
+  assert.equal(footer!.contract.placement, "mismatch");
+  await assert.rejects(() =>
+    verifyBacklinks({ items: [{ source_url, target_url, expected_placement: "header-ish" }] }),
+  );
+});
+
+test("a missing link that is mentioned as plain text is flagged", async () => {
+  page(`<html><body><p>We liked the stoves at target.example a lot.</p></body></html>`);
+  const [result] = (await verifyBacklinks(body())).results;
+  assert.equal(result!.status, "not_found");
+  assert.equal(result!.mentions[0]!.term, "target.example");
+  assert.match(result!.mentions[0]!.snippet, /stoves at target\.example/);
+  assert.equal(result!.contract.mentioned, true);
+});
+
+test("text inside another link is not a plain mention", async () => {
+  page(
+    `<html><body><p>Visit <a href="https://target.example/">target.example</a></p></body></html>`,
+  );
+  const [result] = (await verifyBacklinks(body())).results;
+  assert.equal(result!.status, "not_found");
+  assert.deepEqual(result!.mentions, []);
+  assert.equal(result!.contract.mentioned, false);
+  assert.equal(result!.contract.target, "near");
+});
+
+test("hostile markup cannot make mention extraction quadratic", async () => {
+  // Many unclosed <a> openers and a long run of bare `<` without `>`: the old
+  // regex pipeline backtracked over the whole tail for every opener.
+  const html = `<html><body><p>We liked target.example.</p>${"<a x>".repeat(60_000)}${"<".repeat(1_500_000)}</body></html>`;
+  page(html);
+  const started = performance.now();
+  const [result] = (await verifyBacklinks(body())).results;
+  const elapsed = performance.now() - started;
+  assert.equal(result!.status, "not_found");
+  assert.equal(result!.mentions[0]!.term, "target.example");
+  assert.ok(elapsed < 1000, `mention extraction took ${Math.round(elapsed)} ms`);
 });

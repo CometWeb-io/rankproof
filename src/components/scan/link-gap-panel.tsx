@@ -91,7 +91,7 @@ export function LinkGapPanel({ host }: { host: string }) {
               </div>
             ))}
             <div className="rounded-lg border border-border bg-surface-2 p-4">
-              <p className="text-xs text-muted uppercase">Shared domains</p>
+              <p className="text-xs text-muted">Shared domains</p>
               <p className="mt-2 font-mono text-2xl tabular-nums text-fg">{gap.shared.length}</p>
               <p className="mt-1 text-xs text-subtle">
                 {gap.unique.length} domains link only to you

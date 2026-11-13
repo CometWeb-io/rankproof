@@ -77,23 +77,23 @@ export function PlanTab({ report }: { report: ScanReport }) {
     <div className="flex flex-col gap-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-lg border border-border bg-surface p-4">
-          <p className="text-xs font-medium tracking-wide text-muted uppercase">Tasks</p>
+          <p className="text-xs font-medium text-muted">Tasks</p>
           <p className="mt-2 font-mono text-3xl tabular-nums text-fg">{plan.items.length}</p>
         </div>
         <div className="rounded-lg border border-border bg-surface p-4">
-          <p className="text-xs font-medium tracking-wide text-muted uppercase">Quick wins</p>
+          <p className="text-xs font-medium text-muted">Quick wins</p>
           <p className="mt-2 font-mono text-3xl tabular-nums text-fg">{plan.quickWins}</p>
           <p className="mt-1 text-xs text-subtle">low effort, high impact</p>
         </div>
         <div className="rounded-lg border border-border bg-surface p-4">
-          <p className="text-xs font-medium tracking-wide text-muted uppercase">Completion</p>
+          <p className="text-xs font-medium text-muted">Completion</p>
           <p className="mt-2 font-mono text-3xl tabular-nums text-fg">{plan.coverage}</p>
           <div className="mt-2">
             <Meter value={plan.coverage} tone={plan.coverage >= 70 ? "good" : "default"} />
           </div>
         </div>
         <div className="rounded-lg border border-border bg-surface p-4">
-          <p className="text-xs font-medium tracking-wide text-muted uppercase">Link velocity</p>
+          <p className="text-xs font-medium text-muted">Link velocity</p>
           <p className="mt-2 font-mono text-3xl tabular-nums text-fg">
             {velocity.verdict === "unknown" ? "unknown" : velocity.perMonth}
           </p>

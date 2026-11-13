@@ -1,0 +1,302 @@
+openapi: 3.1.0
+info:
+  title: RankProof HTTP API
+  version: "1"
+  summary: Verify known backlinks against fetched HTML, with link contracts and evidence fields.
+  description: |
+    Run with `npm run api -- --host 127.0.0.1 --port 8787`. Keep it on loopback unless the
+    controls in docs/production-ops.md are in place. Check `GET /health` → `capabilities`
+    before relying on optional features. This file describes schema "1"; new fields are
+    additive. The narrative reference with all guarantees is docs/api.md.
+  license:
+    name: MIT
+    identifier: MIT
+servers:
+  - url: http://127.0.0.1:8787
+security:
+  - {}
+  - bearer: []
+paths:
+  /health:
+    get:
+      summary: Liveness, version and capabilities
+      security: []
+      responses:
+        "200":
+          description: Service is up. Performs no crawler or provider calls.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, service, version, schema_version, capabilities]
+                properties:
+                  ok: { type: boolean, const: true }
+                  service: { type: string, const: rankproof }
+                  version: { type: string }
+                  revision: { type: [string, "null"] }
+                  schema_version: { type: string, const: "1" }
+                  capabilities:
+                    type: array
+                    items:
+                      type: string
+                      enum:
+                        [
+                          backlinks.verify.v1,
+                          backlinks.verify.contract.v1,
+                          backlinks.verify.render.v1,
+                        ]
+                  uptime: { type: integer }
+  /v1/backlinks/verify:
+    post:
+      summary: Verify explicit source → target pairs
+      description: |
+        Fetches fresh HTML for each source and reports whether an anchor points at the exact
+        target URL. The whole batch is validated before any I/O. Item failures are returned
+        inside a 200 response with `status: error` — never as a missing link.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                render:
+                  description: |
+                    Requires capability backlinks.verify.render.v1 (server started with
+                    RANKPROOF_RENDER=1); otherwise 400. `true` = "fallback".
+                  oneOf:
+                    - type: boolean
+                    - type: string
+                      enum: ["off", fallback, always]
+                items:
+                  type: array
+                  minItems: 1
+                  maxItems: 50
+                  items: { $ref: "#/components/schemas/VerifyItem" }
+      responses:
+        "200":
+          description: One observation per item, in input order.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, schema_version, results]
+                properties:
+                  ok: { type: boolean, const: true }
+                  schema_version: { type: string, const: "1" }
+                  results:
+                    type: array
+                    items: { $ref: "#/components/schemas/Observation" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      description: Required when the server runs with RANKPROOF_API_TOKEN.
+  responses:
+    Error:
+      description: Rejected request (validation, auth, size or rate limit).
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              ok: { type: boolean, const: false }
+              error: { type: string }
+  schemas:
+    Url:
+      type: string
+      format: uri
+      maxLength: 2048
+      description: Absolute public http(s) URL without credentials or whitespace.
+    Placement:
+      type: string
+      enum: [content, navigation, footer, sidebar, comment, unknown]
+    VerifyItem:
+      type: object
+      required: [source_url, target_url]
+      properties:
+        source_url: { $ref: "#/components/schemas/Url" }
+        target_url: { $ref: "#/components/schemas/Url" }
+        expected_anchor:
+          type: [string, "null"]
+          maxLength: 500
+          description: Compared case- and whitespace-insensitively (NFKC).
+        expected_rel:
+          type: [string, "null"]
+          enum: [follow, dofollow, nofollow, sponsored, ugc, null]
+          description: "`follow` = none of nofollow/sponsored/ugc."
+        expected_placement:
+          type: [string, "null"]
+          enum: [content, navigation, footer, sidebar, comment, null]
+    MatchingAnchor:
+      type: object
+      required: [raw_href, resolved_href, anchor, rel, placement, context]
+      properties:
+        raw_href: { type: string }
+        resolved_href: { type: string }
+        anchor: { type: string }
+        rel: { type: string, description: Actual rel tokens; empty string when absent. }
+        placement: { $ref: "#/components/schemas/Placement" }
+        context: { type: string, maxLength: 400, description: Visible text around the anchor. }
+    NearMatch:
+      type: object
+      required: [resolved_href, anchor, rel, difference]
+      properties:
+        resolved_href: { type: string }
+        anchor: { type: string }
+        rel: { type: string }
+        difference:
+          { type: string, examples: ["protocol http instead of https", "trailing slash differs"] }
+    Contract:
+      type: object
+      required:
+        [policy, verdict, target, anchor, rel, placement, mentioned, visibility, basis, notes]
+      properties:
+        policy: { type: string, const: link-contract-v2 }
+        verdict:
+          type: string
+          enum: [meets, deviates, missing, unverified]
+          description: "`unverified` comes from errors and is never a missing link."
+        target: { type: string, enum: [exact, near, none, unresolved] }
+        anchor: { $ref: "#/components/schemas/Mark" }
+        rel: { $ref: "#/components/schemas/Mark" }
+        placement: { $ref: "#/components/schemas/Mark" }
+        mentioned:
+          type: boolean
+          description: The target host or expected anchor appears as plain text without a link.
+        visibility:
+          $ref: "#/components/schemas/Mark"
+          description: Only with rendering; `mismatch` when every matching anchor is hidden.
+        basis: { type: string, enum: [fetched_html, rendered_dom] }
+        notes: { type: array, items: { type: string } }
+    Mark:
+      type: string
+      enum: [match, mismatch, unspecified, unobserved]
+    Observation:
+      type: object
+      required:
+        - source_url
+        - target_url
+        - status
+        - checked_at
+        - final_url
+        - http_status
+        - anchor
+        - rel
+        - reason
+        - evidence_kind
+        - observation_method
+        - absence_scope
+        - extraction_version
+        - identity_policy
+        - source_revision
+        - response_hash
+        - raw_href
+        - resolved_href
+        - matching_anchors
+        - near_matches
+        - placement
+        - context
+        - mentions
+        - contract
+        - rendered
+      properties:
+        source_url: { type: string }
+        target_url: { type: string }
+        expected_anchor: { type: [string, "null"] }
+        expected_rel: { type: [string, "null"] }
+        expected_placement: { type: [string, "null"] }
+        status: { type: string, enum: [confirmed, not_found, error] }
+        checked_at: { type: string, format: date-time }
+        final_url: { type: [string, "null"] }
+        http_status: { type: [integer, "null"] }
+        anchor: { type: [string, "null"] }
+        rel: { type: [string, "null"] }
+        reason: { type: [string, "null"] }
+        evidence_kind: { type: [string, "null"], enum: [html_anchor, null] }
+        observation_method: { type: string, const: fetched_html }
+        absence_scope: { type: [string, "null"], enum: [fetched_html, http_resource, null] }
+        extraction_version: { type: string }
+        identity_policy: { type: string }
+        source_revision: { type: [string, "null"] }
+        response_hash:
+          type: [string, "null"]
+          pattern: "^[a-f0-9]{64}$"
+          description: SHA-256 of the inspected response text.
+        raw_href: { type: [string, "null"] }
+        resolved_href: { type: [string, "null"] }
+        matching_anchors:
+          type: array
+          maxItems: 50
+          items: { $ref: "#/components/schemas/MatchingAnchor" }
+        near_matches:
+          type: array
+          maxItems: 10
+          items: { $ref: "#/components/schemas/NearMatch" }
+        placement:
+          oneOf:
+            - $ref: "#/components/schemas/Placement"
+            - type: "null"
+        context: { type: [string, "null"] }
+        mentions:
+          type: array
+          maxItems: 3
+          items:
+            type: object
+            required: [term, snippet]
+            properties:
+              term: { type: string }
+              snippet: { type: string }
+        contract: { $ref: "#/components/schemas/Contract" }
+        rendered:
+          oneOf:
+            - $ref: "#/components/schemas/Rendered"
+            - type: "null"
+    Rendered:
+      type: object
+      description: Second observation in headless Chromium. Never rewrites the fetched-HTML fields.
+      required:
+        [
+          status,
+          method,
+          render_version,
+          engine,
+          rendered_at,
+          final_url,
+          http_status,
+          dom_hash,
+          reason,
+          visible,
+          matching_anchors,
+          blocked_requests,
+          blocked_script_requests,
+        ]
+      properties:
+        status: { type: string, enum: [confirmed, not_found, error] }
+        method: { type: string, const: rendered_dom }
+        render_version: { type: string }
+        engine: { type: [string, "null"] }
+        rendered_at: { type: string, format: date-time }
+        final_url: { type: [string, "null"] }
+        http_status: { type: [integer, "null"] }
+        dom_hash: { type: [string, "null"], pattern: "^[a-f0-9]{64}$" }
+        reason: { type: [string, "null"] }
+        visible: { type: [boolean, "null"] }
+        matching_anchors:
+          type: array
+          items:
+            type: object
+            required: [resolved_href, anchor, rel, visible, placement]
+            properties:
+              resolved_href: { type: string }
+              anchor: { type: string }
+              rel: { type: string }
+              visible: { type: boolean }
+              placement: { $ref: "#/components/schemas/Placement" }
+        blocked_requests: { type: integer }
+        blocked_script_requests: { type: integer }

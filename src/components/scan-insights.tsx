@@ -129,7 +129,7 @@ export function SearchConsolePanel({
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {totals.map((item) => (
           <div key={item.source} className="rounded-lg border border-border bg-surface p-4">
-            <p className="text-xs font-medium tracking-wide text-muted uppercase">
+            <p className="text-xs font-medium text-muted">
               {item.source === "google" ? "Google" : "Bing"} · {item.days} days
             </p>
             <p className="mt-2 font-mono text-3xl tabular-nums text-fg">{item.clicks}</p>
@@ -139,7 +139,7 @@ export function SearchConsolePanel({
           </div>
         ))}
         <div className="rounded-lg border border-border bg-surface p-4">
-          <p className="text-xs font-medium tracking-wide text-muted uppercase">CTR model check</p>
+          <p className="text-xs font-medium text-muted">CTR model check</p>
           <p className="mt-2 font-mono text-3xl tabular-nums text-fg">
             {insights.accuracy.verdict === "unknown"
               ? "—"
@@ -259,7 +259,7 @@ export function SiteAuditPanel({ audit, host }: { audit: SiteAudit; host: string
     <div className="flex flex-col gap-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <div className="rounded-lg border border-border bg-surface p-4">
-          <p className="text-xs font-medium tracking-wide text-muted uppercase">Structure score</p>
+          <p className="text-xs font-medium text-muted">Structure score</p>
           <p className="mt-2 font-mono text-3xl tabular-nums text-fg">{audit.score}</p>
           <div className="mt-2">
             <Meter
@@ -269,23 +269,32 @@ export function SiteAuditPanel({ audit, host }: { audit: SiteAudit; host: string
           </div>
         </div>
         <div className="rounded-lg border border-border bg-surface p-4">
-          <p className="text-xs font-medium tracking-wide text-muted uppercase">Pages crawled</p>
+          <p className="text-xs font-medium text-muted">Pages crawled</p>
           <p className="mt-2 font-mono text-3xl tabular-nums text-fg">{audit.crawled}</p>
         </div>
         <div className="rounded-lg border border-border bg-surface p-4">
-          <p className="text-xs font-medium tracking-wide text-muted uppercase">Orphans</p>
-          <p className="mt-2 font-mono text-3xl tabular-nums text-fg">{audit.orphans}</p>
-          <p className="mt-1 text-xs text-subtle">no internal links</p>
+          <p className="text-xs font-medium text-muted">Orphans</p>
+          {audit.crawlComplete === false ? (
+            <>
+              <p className="mt-2 font-mono text-3xl tabular-nums text-subtle">—</p>
+              <p className="mt-1 text-xs text-subtle">
+                partial crawl · {audit.unreachedInPartialCrawl ?? 0} not reached
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="mt-2 font-mono text-3xl tabular-nums text-fg">{audit.orphans}</p>
+              <p className="mt-1 text-xs text-subtle">no internal links</p>
+            </>
+          )}
         </div>
         <div className="rounded-lg border border-border bg-surface p-4">
-          <p className="text-xs font-medium tracking-wide text-muted uppercase">Avg. depth</p>
+          <p className="text-xs font-medium text-muted">Avg. depth</p>
           <p className="mt-2 font-mono text-3xl tabular-nums text-fg">{audit.avgDepth}</p>
           <p className="mt-1 text-xs text-subtle">max {audit.maxDepth} clicks</p>
         </div>
         <div className="rounded-lg border border-border bg-surface p-4">
-          <p className="text-xs font-medium tracking-wide text-muted uppercase">
-            Broken / redirects
-          </p>
+          <p className="text-xs font-medium text-muted">Broken / redirects</p>
           <p className="mt-2 font-mono text-3xl tabular-nums text-fg">
             {audit.brokenInternal}
             <span className="text-muted"> / {audit.redirectedInternal}</span>
