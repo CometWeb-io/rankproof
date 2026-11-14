@@ -52,7 +52,7 @@ With Search Console connected, the report also states how far this curve sits fr
 
 `keywords.ts` → `visibilityScore()`
 
-For each keyword we take the best position across all engines, score it inversely to the position, and average over the number of keywords checked.
+For each keyword we take the best position across all engines, score it inversely to the position, and average over the number of keywords that were actually measured. Points: #1 = 100 down to #10 = 10 in steps of 10, then a small tail for #11–#20 (5 down to 1). A keyword that ranks anywhere in the measured depth never scores below one that does not rank (before 1.1, `11 − position` made a #20 hit worth −90 points). Keywords where every engine was blocked are excluded rather than counted as zero.
 
 **What it does not measure:** it depends on the successful keyword/engine cohort, market, device and depth. Adding an engine, changing page metadata or recovering a failed query can move visibility with no ranking change for previously measured queries. `measurement.visibility` records requested and successful cohorts and failed-query coverage. A score with `measured: false` is unknown, even if the compatibility numeric value is zero. Visibility does not establish backlink causation.
 
@@ -98,7 +98,7 @@ Velocity is currently **unknown**. Domain archive age is not a link-acquisition 
 
 `site-audit.server.ts` → `runSiteAudit()`
 
-Starts at 100 and subtracts for structural problems found while crawling the site itself: orphan pages with no internal links, pages four or more clicks deep, broken internal links, `noindex` pages that hold backlinks, pages with backlinks but almost no internal links, and internal links routed through redirects.
+Starts at 100 and subtracts for structural problems found while crawling the site itself: orphan pages with no internal links (only after a **complete** crawl — when the page limit, time budget, robots rules or fetch errors stop the crawl early, unreached sitemap URLs are reported as a measurement gap and cost no points), pages four or more clicks deep, broken internal links, `noindex` pages that hold backlinks, pages with backlinks but almost no internal links, and internal links routed through redirects.
 
 **What it does not measure:** the crawl is capped (about 120 pages) and starts from the home page, so on large sites it describes the main structure rather than every page.
 
@@ -128,6 +128,8 @@ Unlike everything above, these are **not estimates** — they come from the sear
 | Momentum and brand    | 10     | link velocity + brand SERP control      |
 
 Grades: A ≥80, B ≥65, C ≥48, D ≥32, E below.
+
+Every component carries a `basis`: `observed` (fetched pages or owner data), `estimated` (a model or heuristic) or `unknown` (not measured in this scan). Unknown components are **excluded**, not given neutral or free points: the index is the sum of the measured components rescaled to 100, and `coverage` reports how many of the 100 model points were measured. Concretely, an unreadable landing page no longer contributes a neutral 50, a failed crawl is not a structure score of 0, and an empty link profile no longer earns full "Safety" marks. The UI greys out an index below 60% coverage.
 
 **What it does not measure:** this is an uncalibrated internal heuristic, not a progress measure. Changing discovery coverage, enrichment or keyword measurement changes its inputs. The same domain and keyword set alone do not establish comparability.
 

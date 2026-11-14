@@ -98,5 +98,7 @@ export function scanOptionsFromBody(body: Record<string, unknown>): ScanOptions 
     seedUrls: Array.isArray(body.seedUrls)
       ? body.seedUrls.filter((u): u is string => typeof u === "string").slice(0, MAX_SEED_URLS)
       : undefined,
+    // Never taken from the request body: HTTP callers are not the operator.
+    ownerData: "allowlist",
   };
 }

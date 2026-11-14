@@ -14,7 +14,7 @@ export function StatCard({
 }) {
   return (
     <div className="rounded-lg border border-border bg-surface p-4 shadow-[var(--shadow-panel)]">
-      <p className="text-xs font-medium tracking-wide text-muted uppercase">{label}</p>
+      <p className="text-sm text-muted">{label}</p>
       <p
         className={cn(
           "mt-2 font-mono text-3xl tabular-nums tracking-tight",
@@ -74,7 +74,7 @@ export function DistributionList({
 }) {
   return (
     <div className="rounded-lg border border-border bg-surface p-4">
-      <p className="text-xs font-medium tracking-wide text-muted uppercase">{title}</p>
+      <p className="text-xs font-medium text-muted">{title}</p>
       {stats.length === 0 ? (
         <p className="mt-3 text-sm text-subtle">{empty ?? "No data"}</p>
       ) : (

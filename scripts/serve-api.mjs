@@ -121,7 +121,11 @@ async function start() {
         version,
         revision,
         schema_version: "1",
-        capabilities: ["backlinks.verify.v1"],
+        capabilities: [
+          "backlinks.verify.v1",
+          "backlinks.verify.contract.v1",
+          ...(process.env.RANKPROOF_RENDER === "1" ? ["backlinks.verify.render.v1"] : []),
+        ],
         uptime: Math.round(process.uptime()),
       });
       return;
@@ -191,7 +195,8 @@ async function route(pathname, body) {
   switch (pathname) {
     case "/v1/backlinks/verify": {
       const { verifyBacklinks } = await import(engine("verify-api.server"));
-      return verifyBacklinks(body);
+      // Rendering launches a browser: only when the operator enabled it.
+      return verifyBacklinks(body, { allowRender: process.env.RANKPROOF_RENDER === "1" });
     }
     case "/scan": {
       const { runScan } = await import(engine("engine.server"));

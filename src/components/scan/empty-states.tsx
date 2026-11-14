@@ -1,4 +1,4 @@
-import { BookOpenText, Network, Radar, ShieldCheck, ShieldOff, Sparkles } from "lucide-react";
+import { ArrowRight, Radar, ShieldOff } from "lucide-react";
 
 export function ScanSkeleton() {
   return (
@@ -24,48 +24,58 @@ export function ScanSkeleton() {
 }
 
 export function EmptyGuide() {
-  const items = [
+  const steps = [
     {
-      icon: BookOpenText,
-      title: "The target's own graph",
-      body: "Live site, sitemap, subdomains and archive copies point to the partners most likely to link back.",
+      title: "Read the site",
+      body: "The live page, sitemap, subdomains and archive copies name the partners most likely to link back.",
+      out: "partner domains",
     },
     {
-      icon: Network,
-      title: "Thirteen open sources",
-      body: "Wikipedia, GitHub, Hacker News, Reddit, Common Crawl and more. Each hit is a candidate, not a link.",
+      title: "Ask open sources",
+      body: "Wikipedia, GitHub, Hacker News, Reddit, Common Crawl and eight more. Each hit is only a candidate.",
+      out: "candidate pages",
     },
     {
-      icon: ShieldCheck,
-      title: "Verified in the HTML",
-      body: "Every candidate page is opened and checked for an exact href, with rel, placement and status.",
+      title: "Open every candidate",
+      body: "Each page is fetched and checked for an exact href, with rel, placement and target status.",
+      out: "confirmed backlinks",
     },
     {
-      icon: Sparkles,
-      title: "Positions and a plan",
-      body: "Keywords from titles and anchors, top-10 positions, visibility and an ordered list of next steps.",
+      title: "Report",
+      body: "Keywords from titles and anchors, top-10 positions, site structure and an ordered plan.",
+      out: "CSV, JSON and a plan",
     },
   ];
   return (
-    <section aria-label="How RankProof works" className="flex flex-col gap-3">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {items.map((item) => (
-          <div
-            key={item.title}
-            className="rounded-[14px] border border-border bg-surface p-6 transition-colors hover:border-border-strong"
-          >
-            <span className="flex size-10 items-center justify-center rounded-[10px] border border-accent/22 bg-accent/9">
-              <item.icon className="size-5 text-accent" aria-hidden />
+    <section aria-labelledby="audit-steps-heading" className="rp-shell p-4 md:p-5">
+      <h2 id="audit-steps-heading" className="text-base font-bold text-fg">
+        What a scan does
+      </h2>
+      <p className="mt-1 text-[13px] text-muted">
+        Four steps, in this order. Each step feeds the next.
+      </p>
+      <ol className="mt-4 grid gap-2 md:grid-cols-4">
+        {steps.map((step, index) => (
+          <li key={step.title} className="rp-card relative flex flex-col p-4">
+            <span className="flex items-center gap-2.5">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-line bg-panel-3 font-mono text-[13px] font-semibold text-fg tabular-nums">
+                {index + 1}
+              </span>
+              <span className="text-[15px] font-bold text-fg">{step.title}</span>
             </span>
-            <h3 className="mt-5 text-base font-bold tracking-tight text-fg">{item.title}</h3>
-            <p className="mt-1.5 text-sm leading-relaxed text-muted">{item.body}</p>
-          </div>
+            <p className="mt-2 flex-1 text-[13px] leading-relaxed text-fg-soft">{step.body}</p>
+            <p className="mt-3 flex items-center gap-1.5 text-[13px] text-muted">
+              <ArrowRight aria-hidden className="size-3.5 shrink-0 text-accent" />
+              <span className="sr-only">Produces </span>
+              {step.out}
+            </p>
+          </li>
         ))}
-      </div>
-      <p className="flex items-start gap-2 text-xs leading-relaxed text-subtle">
-        <ShieldOff className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+      </ol>
+      <p className="mt-4 flex items-start gap-2 text-[13px] leading-relaxed text-muted">
+        <ShieldOff className="mt-0.5 size-4 shrink-0" aria-hidden />
         Not a full index of the web: a small site may get a short list, and then it is an honest
-        one. Export to CSV or JSON.
+        one.
       </p>
     </section>
   );

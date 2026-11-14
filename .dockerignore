@@ -1,0 +1,17 @@
+node_modules
+dist
+.git
+.github
+.output
+.vercel
+.tanstack
+test-results
+playwright-report
+site
+docs/media
+public
+e2e
+coverage
+*.log
+.env
+.env.*

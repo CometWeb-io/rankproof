@@ -4,7 +4,7 @@ export function GrowthChart({ stats }: { stats: CountStat[] }) {
   const max = Math.max(...stats.map((s) => s.count), 1);
   return (
     <div className="rounded-lg border border-border bg-surface p-4">
-      <p className="text-xs font-medium tracking-wide text-muted uppercase">
+      <p className="text-xs font-medium text-muted">
         Source-domain archive age (not link acquisition)
       </p>
       {stats.length === 0 ? (
@@ -42,9 +42,7 @@ export function TrendChart({ points }: { points: TrendPoint[] }) {
   return (
     <div className="rounded-lg border border-border bg-surface p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p className="text-xs font-medium tracking-wide text-muted uppercase">
-          Discovery samples ({points.length} scans)
-        </p>
+        <p className="text-xs font-medium text-muted">Discovery samples ({points.length} scans)</p>
         <p className="font-mono text-xs text-muted">
           domains {first.referringDomains} → {last.referringDomains} · DR {first.domainRating} →{" "}
           {last.domainRating}
@@ -59,7 +57,7 @@ export function TrendChart({ points }: { points: TrendPoint[] }) {
           <div
             key={point.at}
             className="group relative flex flex-1 flex-col justify-end gap-0.5"
-            title={`${new Date(point.at).toLocaleDateString()} · ${point.referringDomains} referring domains · DR ${point.domainRating}`}
+            title={`${new Date(point.at).toLocaleDateString("en-GB")} · ${point.referringDomains} referring domains · DR ${point.domainRating}`}
           >
             <span
               className="w-full rounded-t bg-fg-soft/70"

@@ -66,6 +66,21 @@ async function crawl(
   budget: Budget,
   limit: number,
 ): Promise<CrawlPage[]> {
+  return (await crawlWithCoverage(startUrl, host, budget, limit)).pages;
+}
+
+/**
+ * `complete` is true only when the frontier was exhausted: no page limit, no
+ * budget cut-off, no skipped or failed fetch, no capped link discovery. An
+ * inventory URL missing from an incomplete crawl is not evidence of an orphan.
+ */
+async function crawlWithCoverage(
+  startUrl: string,
+  host: string,
+  budget: Budget,
+  limit: number,
+): Promise<{ pages: CrawlPage[]; complete: boolean }> {
+  let lossy = false;
   const seen = new Set<string>();
   const pages: CrawlPage[] = [];
   let frontier: { url: string; depth: number }[] = [{ url: normalizeUrl(startUrl), depth: 0 }];
@@ -79,8 +94,14 @@ async function crawl(
     frontier = frontier.slice(12);
 
     const results = await mapLimit(wave, 3, async (item) => {
-      if (budget.left() < 3000) return null;
-      if (!isAllowed(rules, pathOf(item.url))) return null;
+      if (budget.left() < 3000) {
+        lossy = true;
+        return null;
+      }
+      if (!isAllowed(rules, pathOf(item.url))) {
+        lossy = true;
+        return null;
+      }
       try {
         const res = await fetchUsefulHtml(item.url, budget.timeout(7000), budget.signal, budget);
         if (res.status >= 400 || res.text.length < 200) {
@@ -130,6 +151,7 @@ async function crawl(
           bytes: res.text.length,
         } satisfies CrawlPage;
       } catch {
+        lossy = true;
         return null;
       }
     });
@@ -138,14 +160,18 @@ async function crawl(
       if (!page) continue;
       pages.push(page);
       for (const link of page.internalLinks) {
-        if (seen.has(link) || seen.size >= limit * 3) continue;
+        if (seen.has(link)) continue;
+        if (seen.size >= limit * 3) {
+          lossy = true;
+          continue;
+        }
         seen.add(link);
         frontier.push({ url: link, depth: page.depth + 1 });
       }
     }
   }
 
-  return pages;
+  return { pages, complete: frontier.length === 0 && !lossy };
 }
 
 async function loadSitemapInventory(
@@ -249,7 +275,7 @@ export async function runSiteAudit(
   options: SiteAuditOptions = {},
 ): Promise<SiteAudit> {
   try {
-    const pages = await crawl(startUrl, host, budget, limit);
+    const { pages, complete } = await crawlWithCoverage(startUrl, host, budget, limit);
     if (pages.length === 0) {
       return failedAudit("Crawl returned no pages (blocked, empty, or budget exhausted).");
     }
@@ -330,13 +356,23 @@ export async function runSiteAudit(
     const issues: SiteIssue[] = [];
     const orphans = orphanUrls;
 
-    if (orphans.length > 0) {
+    if (orphans.length > 0 && complete) {
       issues.push(
         issue(
           "orphan-pages",
           "high",
           `${orphans.length} inventory URLs are unreachable from the homepage link graph`,
-          "These URLs appear in the sitemap (or supplied inventory) but were not reached by crawling internal links from the home page. They are orphan candidates — confirm they should be linked, redirected, or removed from the sitemap. Crawl-only discovery cannot prove orphans on its own.",
+          "These URLs appear in the sitemap (or supplied inventory) but were not reached by a complete crawl of internal links from the home page. They are orphan candidates — confirm they should be linked, redirected, or removed from the sitemap.",
+          orphans.map((url) => pathOf(url)),
+        ),
+      );
+    } else if (orphans.length > 0) {
+      issues.push(
+        issue(
+          "orphan-pages",
+          "low",
+          `${orphans.length} inventory URLs were not reached by a partial crawl`,
+          `The crawl stopped before the internal link graph was exhausted (${pages.length} pages, page limit, time budget, robots or fetch errors). An unreached URL here is a measurement gap, not an orphan. Re-run with a larger budget, or supply a complete inventory, before acting on it.`,
           orphans.map((url) => pathOf(url)),
         ),
       );
@@ -448,7 +484,8 @@ export async function runSiteAudit(
 
     // Score: start from full marks, subtract for each structural problem.
     let score = 100;
-    score -= Math.min(30, orphans.length * 4);
+    // Only a complete crawl may penalise unreached inventory URLs.
+    if (complete) score -= Math.min(30, orphans.length * 4);
     score -= Math.min(15, deep.length * 2);
     score -= Math.min(20, broken.length * 5);
     score -= Math.min(15, wasted.length * 7);
@@ -461,7 +498,9 @@ export async function runSiteAudit(
       avgDepth,
       avgInboundLinks: avgInbound,
       maxDepth: Math.max(0, ...pages.map((page) => page.depth)),
-      orphans: orphans.length,
+      orphans: complete ? orphans.length : 0,
+      unreachedInPartialCrawl: complete ? 0 : orphans.length,
+      crawlComplete: complete,
       brokenInternal: broken.length,
       redirectedInternal: redirected.length,
       noindexPages: internalPages.filter((page) => page.noindex).length,

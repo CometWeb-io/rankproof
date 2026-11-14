@@ -1,0 +1,91 @@
+name: RankProof link check
+description: Verify that pages link to yours exactly as agreed (URL, anchor, rel, placement) and fail the job on deviations.
+author: CometWeb
+branding:
+  icon: link
+  color: green
+inputs:
+  pairs:
+    description: CSV/TSV file of source_url,target_url[,expected_anchor,expected_rel,expected_placement]
+    required: true
+  strict:
+    description: Fail the job unless every link meets its contract ("true" or "false")
+    required: false
+    default: "true"
+  render:
+    description: Empty, "fallback" or "always" to also check pages in headless Chromium (slower)
+    required: false
+    default: ""
+  previous:
+    description: Optional JSON run from an earlier job to report changes against
+    required: false
+    default: ""
+  report:
+    description: Where to write the standalone HTML report
+    required: false
+    default: rankproof-report.html
+  json:
+    description: Where to write the JSON run (use it as `previous` next time)
+    required: false
+    default: rankproof-run.json
+outputs:
+  meets:
+    description: Links that meet their contract
+    value: ${{ steps.summary.outputs.meets }}
+  deviates:
+    description: Linked, but anchor, rel, placement or visibility differ
+    value: ${{ steps.summary.outputs.deviates }}
+  missing:
+    description: Not found in the fetched HTML (or rendered page)
+    value: ${{ steps.summary.outputs.missing }}
+  unverified:
+    description: Could not be checked; never counted as missing
+    value: ${{ steps.summary.outputs.unverified }}
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22
+    - name: Install RankProof runtime
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: npm ci --omit=dev --omit=peer --ignore-scripts --no-audit --no-fund
+    - name: Install Chromium for rendering
+      if: ${{ inputs.render != '' }}
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: |
+        npm install --no-save --no-audit --no-fund playwright
+        npx playwright install --with-deps chromium
+    - name: Verify links (one fetch per page)
+      shell: bash
+      env:
+        RP: ${{ github.action_path }}/bin/rankproof.mjs
+        PAIRS: ${{ inputs.pairs }}
+        PREVIOUS: ${{ inputs.previous }}
+        RENDER: ${{ inputs.render }}
+        JSON_OUT: ${{ inputs.json }}
+      run: |
+        args=(verify "$PAIRS" --format json --out "$JSON_OUT")
+        if [ -n "$PREVIOUS" ]; then args+=(--previous "$PREVIOUS"); fi
+        if [ -n "$RENDER" ]; then args+=("--render=$RENDER"); fi
+        node "$RP" "${args[@]}"
+    - name: Report and summary (offline, from the stored run)
+      id: summary
+      shell: bash
+      env:
+        RP: ${{ github.action_path }}/bin/rankproof.mjs
+        JSON_OUT: ${{ inputs.json }}
+        REPORT: ${{ inputs.report }}
+        STRICT: ${{ inputs.strict }}
+      run: |
+        node "$RP" report "$JSON_OUT" --format html --out "$REPORT" --quiet
+        node "$RP" report "$JSON_OUT" --format markdown --quiet >> "$GITHUB_STEP_SUMMARY"
+        node -e '
+          const s = JSON.parse(require("fs").readFileSync(process.env.JSON_OUT, "utf8")).summary;
+          for (const k of ["meets", "deviates", "missing", "unverified"]) console.log(`${k}=${s[k]}`);
+        ' >> "$GITHUB_OUTPUT"
+        if [ "$STRICT" = "true" ]; then
+          node "$RP" report "$JSON_OUT" --strict --quiet > /dev/null
+        fi

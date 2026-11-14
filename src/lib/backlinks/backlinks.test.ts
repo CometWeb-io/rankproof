@@ -153,6 +153,11 @@ test("classifyAnchor distinguishes brand, URL and keyword anchors", () => {
   assert.equal(classifyAnchor("Studio Cel", "cel.pl", ["Studio Cel"], false), "brand");
   assert.equal(classifyAnchor("kliknij tutaj", "cel.pl", [], false), "generic");
   assert.equal(classifyAnchor("fotografia produktowa", "cel.pl", [], false), "exact-match");
+  // Navigation wording names the destination, not a keyword.
+  for (const anchor of ["Visit website", "Visit the official website", "Blog", "Odwiedź stronę"]) {
+    assert.equal(classifyAnchor(anchor, "cel.pl", [], false), "generic", anchor);
+  }
+  assert.equal(classifyAnchor("product photography blog", "cel.pl", [], false), "exact-match");
   assert.equal(classifyAnchor("", "cel.pl", [], true), "image");
   assert.equal(
     classifyAnchor("najlepsze studio fotografii produktowej w Krakowie", "cel.pl", [], false),
@@ -1188,7 +1193,12 @@ test("the visibility index sums to 100 and names the weakest component", async (
   const footprint = buildFootprint([], [], []);
   const card = buildScorecard({
     analytics: { health: { total: 70, grade: "B", parts: [] } } as never,
-    serp: { visibility: 40, trafficScore: 12, top10: 3 } as never,
+    serp: {
+      visibility: 40,
+      trafficScore: 12,
+      top10: 3,
+      engineHealth: [{ engine: "bing", status: "ok", queries: 4, hits: 3 }],
+    } as never,
     onPage: { score: 30 } as never,
     toxic: { domains: [], disavowCount: 0, watchCount: 0, toxicLinks: 0, avgToxicity: 10 },
     anchorAudit: { risks: [], overOptimized: [], diversity: 60, score: 80 },
@@ -1216,6 +1226,33 @@ test("the visibility index sums to 100 and names the weakest component", async (
   // On-page 30/100 is the weakest part of this profile.
   assert.equal(card.weakest, "On-page and structure");
   assert.ok(["A", "B", "C", "D", "E"].includes(card.grade));
+  assert.equal(card.coverage, 100);
+});
+
+test("unmeasured scorecard components are excluded, not given free points", async () => {
+  const { buildScorecard, buildFootprint } = await import("./scorecard.ts");
+  const card = buildScorecard({
+    analytics: { health: { total: 0, grade: "E", parts: [] } } as never,
+    serp: {
+      visibility: 0,
+      trafficScore: 0,
+      top10: 0,
+      engineHealth: [{ engine: "bing", status: "blocked", queries: 4, hits: 0 }],
+    } as never,
+    onPage: null,
+    toxic: { domains: [], disavowCount: 0, watchCount: 0, toxicLinks: 0, avgToxicity: 0 },
+    anchorAudit: { risks: [], overOptimized: [], diversity: 0, score: 0 },
+    footprint: buildFootprint([], [], []),
+    velocity: { last12m: 0, perMonth: 0, trend: 0, lostRatio: 0, verdict: "unknown", hint: "" },
+    brandSerp: null,
+    domainRating: 0,
+    referringDomains: 0,
+  });
+  // Previously: neutral 50 on-page + full "Safety" for an empty profile.
+  assert.ok(card.parts.every((part) => part.basis === "unknown"));
+  assert.equal(card.coverage, 0);
+  assert.equal(card.index, 0);
+  assert.equal(card.weakest, "");
 });
 
 /* ---------------------------- konfiguracja i CLI -------------------------- */
@@ -1250,6 +1287,16 @@ test("configuration reads ENV but defends against nonsense values", async () => 
       "junk falls back to the default",
     );
     assert.equal(runtime.persistHistory, false);
+    assert.equal(runtime.crawlerIdentity, "browser", "browser identity unless asked");
+    const { crawlerUserAgent, BROWSER_UA } = await import("./net.server.ts");
+    assert.equal(crawlerUserAgent(), BROWSER_UA);
+    resetConfig();
+    process.env.RANKPROOF_CRAWLER_IDENTITY = "RankProof";
+    assert.equal(config().crawlerIdentity, "rankproof");
+    assert.match(crawlerUserAgent(), /^RankProof\/.+\(\+https?:\/\//);
+    resetConfig();
+    process.env.RANKPROOF_CRAWLER_IDENTITY = "stealth";
+    assert.equal(config().crawlerIdentity, "browser", "unknown values keep the default");
   } finally {
     process.env = previous;
     resetConfig();
@@ -2065,4 +2112,259 @@ test("Google provider URL is refused for loopback and metadata before fetch", as
     /blocked|not publicly routable|local/i,
   );
   assert.equal(fetched, false);
+});
+
+test("visibility never penalises a #11–#20 hit below an unranked keyword", async () => {
+  const { visibilityScore, positionPoints } = await import("./keywords.ts");
+  const row = (keyword: string, targetPosition: number | null) => ({
+    keyword,
+    engine: "bing" as const,
+    targetPosition,
+    results: [],
+    features: [],
+    related: [],
+    questions: [],
+    depth: 20 as const,
+    difficulty: 0,
+    market: "us" as const,
+    device: "desktop" as const,
+    status: "ok" as const,
+    ms: 1,
+  });
+  // Regression: (11 - 20) * 10 used to subtract 90 points.
+  const withTwenty = visibilityScore([row("a", 1), row("b", 20)]).visibility;
+  const withMiss = visibilityScore([row("a", 1), row("b", null)]).visibility;
+  assert.ok(withTwenty >= withMiss, `${withTwenty} should be >= ${withMiss}`);
+  assert.equal(withMiss, 50);
+  let last = Infinity;
+  for (let p = 1; p <= 20; p++) {
+    const points = positionPoints(p);
+    assert.ok(points > 0 && points <= last, `position ${p} → ${points}`);
+    last = points;
+  }
+  assert.equal(positionPoints(10), 10);
+  assert.equal(positionPoints(21), 0);
+});
+
+test("loopback Google provider needs an explicit operator opt-in; metadata never passes", async () => {
+  const { assertProviderUrlAllowed, isOperatorLoopbackProvider } =
+    await import("./serp-providers.ts");
+  const before = process.env.RANKPROOF_GOOGLE_PROVIDER_ALLOW_LOOPBACK;
+  try {
+    delete process.env.RANKPROOF_GOOGLE_PROVIDER_ALLOW_LOOPBACK;
+    await assert.rejects(() => assertProviderUrlAllowed("http://127.0.0.1:7000/google/search"));
+    process.env.RANKPROOF_GOOGLE_PROVIDER_ALLOW_LOOPBACK = "1";
+    await assertProviderUrlAllowed("http://127.0.0.1:7000/google/search?q=x");
+    await assertProviderUrlAllowed("http://localhost:7000/google/search");
+    await assertProviderUrlAllowed("http://[::1]:7000/google/search");
+    assert.equal(isOperatorLoopbackProvider("http://user:pw@127.0.0.1:7000/"), false);
+    await assert.rejects(() => assertProviderUrlAllowed("http://169.254.169.254/latest"));
+    await assert.rejects(() => assertProviderUrlAllowed("http://10.0.0.5:7000/"));
+    await assert.rejects(() => assertProviderUrlAllowed("http://192.168.1.2:7000/"));
+  } finally {
+    if (before === undefined) delete process.env.RANKPROOF_GOOGLE_PROVIDER_ALLOW_LOOPBACK;
+    else process.env.RANKPROOF_GOOGLE_PROVIDER_ALLOW_LOOPBACK = before;
+  }
+});
+
+test("owner Search Console data is attached only for allowlisted hosts or the CLI operator", async () => {
+  const { mayAttachOwnerData } = await import("./engine.server.ts");
+  const { scanOptionsFromBody } = await import("./service-api.ts");
+  const before = process.env.RANKPROOF_OWNER_SITES;
+  try {
+    delete process.env.RANKPROOF_OWNER_SITES;
+    assert.equal(mayAttachOwnerData("example.com"), false);
+    assert.equal(mayAttachOwnerData("example.com", "operator"), true);
+    process.env.RANKPROOF_OWNER_SITES = "https://www.example.com/, other.org";
+    assert.equal(mayAttachOwnerData("example.com"), true);
+    assert.equal(mayAttachOwnerData("blog.example.com"), true);
+    assert.equal(mayAttachOwnerData("notexample.com"), false);
+    assert.equal(mayAttachOwnerData("other.org", "off"), false);
+    // A request body cannot escalate itself to operator mode.
+    assert.equal(scanOptionsFromBody({ ownerData: "operator" }).ownerData, "allowlist");
+  } finally {
+    if (before === undefined) delete process.env.RANKPROOF_OWNER_SITES;
+    else process.env.RANKPROOF_OWNER_SITES = before;
+  }
+});
+
+test("registrable domains follow the full Public Suffix List, private section included", async () => {
+  const { registrableDomain, isTargetHost, tldOf } = await import("./parse.ts");
+  assert.equal(registrableDomain("blog.sklep.com.pl"), "sklep.com.pl");
+  assert.equal(registrableDomain("a.b.example.co.uk"), "example.co.uk");
+  assert.equal(registrableDomain("shop.example.com.br"), "example.com.br");
+  // Independent sites on shared hosting are separate referring domains…
+  assert.equal(registrableDomain("alice.blogspot.com"), "alice.blogspot.com");
+  assert.equal(registrableDomain("alice.github.io"), "alice.github.io");
+  // …so a link between them is not "internal" and must still be verified.
+  assert.equal(isTargetHost("alice.github.io", "bob.github.io"), false);
+  assert.equal(isTargetHost("docs.example.com", "example.com"), true);
+  assert.equal(tldOf("firma.com.pl"), "com.pl");
+  assert.equal(tldOf("example.org"), "org");
+});
+
+test("CLI: verify and replay arguments", async () => {
+  const { parseArgs } = await import("./cli.ts");
+  const verify = parseArgs([
+    "verify",
+    "links.csv",
+    "--previous",
+    "run.json",
+    "--capture-dir=evidence",
+    "--strict",
+    "-f",
+    "html",
+  ]);
+  assert.equal(verify.error, undefined);
+  assert.equal(verify.command, "verify");
+  assert.equal(verify.target, "links.csv");
+  assert.equal(verify.previous, "run.json");
+  assert.equal(verify.captureDir, "evidence");
+  assert.equal(verify.strict, true);
+  assert.equal(parseArgs(["verify", "-"]).target, "-", "a lone dash is stdin");
+  assert.ok(parseArgs(["verify"]).error);
+  assert.ok(parseArgs(["verify", "x.csv", "-f", "disavow"]).error);
+  assert.ok(parseArgs(["replay", "run.json"]).error, "replay needs --capture-dir");
+  assert.equal(parseArgs(["replay", "run.json", "--capture-dir", "ev"]).error, undefined);
+  assert.ok(parseArgs(["scan", "example.com", "--strict"]).error, "verify-only flags are rejected");
+});
+
+test("CLI: history command and monitoring flags", async () => {
+  const { parseArgs } = await import("./cli.ts");
+  const run = parseArgs([
+    "verify",
+    "links.csv",
+    "--history",
+    "monitor",
+    "--webhook",
+    "https://hooks.example/x",
+    "--keep",
+    "30",
+  ]);
+  assert.equal(run.error, undefined);
+  assert.equal(run.history, "monitor");
+  assert.equal(run.webhook, "https://hooks.example/x");
+  assert.equal(run.keep, 30);
+  assert.ok(parseArgs(["verify", "x.csv", "--webhook", "ftp://x"]).error);
+  assert.ok(parseArgs(["verify", "x.csv", "--keep", "0"]).error);
+  assert.equal(parseArgs(["history", "monitor", "-f", "csv"]).error, undefined);
+  assert.ok(parseArgs(["history"]).error);
+  assert.ok(parseArgs(["history", "monitor", "-f", "html"]).error);
+  assert.ok(parseArgs(["scan", "example.com", "--history", "x"]).error);
+});
+
+test("failed SERP pages never feed competitors (upstream PR #2)", async () => {
+  const { buildSerpCompetitors } = await import("./serp-intel.ts");
+  const hit = (domain: string, position: number) => ({
+    position,
+    url: `https://${domain}/`,
+    title: domain,
+    snippet: "",
+    domain,
+    isTarget: false,
+  });
+  const base = {
+    keyword: "kw",
+    engine: "bing" as const,
+    targetPosition: null,
+    features: [],
+    related: [],
+    questions: [],
+    depth: 10 as const,
+    difficulty: 0,
+    market: "us" as const,
+    device: "desktop" as const,
+    ms: 1,
+  };
+  const competitors = buildSerpCompetitors([
+    { ...base, status: "ok" as const, results: [hit("real.example", 1)] },
+    // A challenge page parsed into junk "results" must not create competitors.
+    {
+      ...base,
+      engine: "brave" as const,
+      status: "blocked" as const,
+      results: [hit("captcha.example", 1)],
+    },
+  ] as never);
+  assert.deepEqual(
+    competitors.map((c) => c.domain),
+    ["real.example"],
+  );
+});
+
+test("provider envelopes fail closed instead of reading as 'does not rank' (upstream PR #2)", async () => {
+  const { extractProviderRows } = await import("./serp-providers.ts");
+  assert.equal(extractProviderRows({ organic: [{ link: "https://a.example/" }] }).length, 1);
+  assert.throws(() => extractProviderRows({ meta: { engines_failed: ["google"] }, organic: [] }));
+  assert.throws(() => extractProviderRows({ meta: { engine_errors: { google: "429" } } }));
+  assert.throws(() => extractProviderRows({ unexpected: true }), /no supported results field/);
+  assert.throws(() => extractProviderRows("nope"));
+});
+
+test("CLI: report, corpus and export-warc arguments; markdown only where it exists", async () => {
+  const { parseArgs } = await import("./cli.ts");
+  assert.equal(parseArgs(["report", "run.json", "-f", "markdown", "--strict"]).error, undefined);
+  assert.ok(parseArgs(["report"]).error);
+  assert.ok(parseArgs(["report", "run.json", "-f", "disavow"]).error);
+  assert.equal(parseArgs(["verify", "x.csv", "-f", "markdown"]).error, undefined);
+  assert.ok(parseArgs(["scan", "example.com", "-f", "markdown"]).error);
+  assert.ok(parseArgs(["corpus", "run.json"]).error, "corpus needs --capture-dir");
+  assert.equal(parseArgs(["corpus", "run.json", "--capture-dir", "ev"]).error, undefined);
+  assert.ok(parseArgs(["export-warc", "run.json", "--capture-dir", "ev"]).error, "needs --out");
+  assert.equal(
+    parseArgs([
+      "seal",
+      "run.json",
+      "--key",
+      "k.pem",
+      "--tsa",
+      "https://tsa.example/tsr",
+      "--wayback",
+    ]).error,
+    undefined,
+  );
+  assert.ok(parseArgs(["seal", "run.json", "--tsa", "ftp://x"]).error, "TSA must be http(s)");
+  assert.ok(parseArgs(["seal"]).error, "seal needs a file");
+  assert.ok(
+    parseArgs(["seal", "run.json", "--public-key", "p.pem"]).error,
+    "public key belongs to check-seal",
+  );
+  assert.ok(parseArgs(["check-seal", "run.json", "--key", "k.pem"]).error, "key belongs to seal");
+  assert.equal(parseArgs(["check-seal", "run.json", "--public-key", "p.pem"]).error, undefined);
+  assert.equal(parseArgs(["keygen", "--out", "k", "--force"]).force, true);
+  assert.match(parseArgs(["seal", "run.json", "--force"]).error ?? "", /applies to `keygen` only/);
+  assert.ok(parseArgs(["keygen"]).error, "keygen needs --out");
+  assert.ok(parseArgs(["verify", "x.csv", "--wayback"]).error, "seal options elsewhere");
+  assert.equal(
+    parseArgs(["export-warc", "run.json", "--capture-dir", "ev", "--out", "e.warc.gz"]).error,
+    undefined,
+  );
+});
+
+test("robots.txt with a UTF-8 BOM still matches its first group (RFC 9309, upstream PR #2)", async () => {
+  const { parseRobots, isAllowed } = await import("./robots.server.ts");
+  const rules = parseRobots("﻿User-agent: *\nDisallow: /private\n");
+  assert.equal(isAllowed(rules, "/private/page"), false);
+  assert.equal(isAllowed(rules, "/public"), true);
+});
+
+test("a public Google provider must use HTTPS; loopback opt-in keeps http", async () => {
+  const { assertProviderUrlAllowed } = await import("./serp-providers.ts");
+  await assert.rejects(
+    () => assertProviderUrlAllowed("http://93.184.216.34/google/search"),
+    /HTTPS/,
+  );
+  await assertProviderUrlAllowed("https://93.184.216.34/google/search");
+});
+
+test("stripTags is linear on unterminated tags and keeps its output", async () => {
+  const { stripTags } = await import("./html.ts");
+  assert.equal(
+    stripTags(`<p>a &amp; b</p><script>x()</script><STYLE>.c{}</STYLE><<i>c</i> <> d<b`),
+    "a & b c <> d<b",
+  );
+  assert.equal(stripTags("<noscript>x</noscript>y<script>z"), "y z");
+  const started = performance.now();
+  stripTags(`${"<script".repeat(100_000)}${"<".repeat(1_000_000)}`);
+  assert.ok(performance.now() - started < 1000);
 });

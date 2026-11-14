@@ -1,3 +1,4 @@
+import { getDomain, getPublicSuffix } from "tldts";
 const HOST_RE = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}$/i;
 
 /**
@@ -106,10 +107,21 @@ export function stripWww(host: string): string {
   return host.replace(/^www\./i, "").toLowerCase();
 }
 
-/** eTLD+1, np. `blog.sklep.com.pl` -> `sklep.com.pl`. */
+/**
+ * eTLD+1 from the full Public Suffix List, including its private section, e.g.
+ * `blog.sklep.com.pl` -> `sklep.com.pl`, but `alice.blogspot.com` stays
+ * `alice.blogspot.com` — two blogspot sites are independent referring domains.
+ * The short built-in list is only a fallback for hosts the PSL cannot parse.
+ */
 export function registrableDomain(host: string): string {
   const h = stripWww(host).replace(/\.$/, "");
   if (!h || !h.includes(".")) return h;
+  const psl = getDomain(h, { allowPrivateDomains: true });
+  if (psl) return psl;
+  return fallbackRegistrableDomain(h);
+}
+
+function fallbackRegistrableDomain(h: string): string {
   const labels = h.split(".");
   if (labels.length <= 2) return h;
   const lastTwo = labels.slice(-2).join(".");
@@ -120,6 +132,8 @@ export function registrableDomain(host: string): string {
 }
 
 export function tldOf(host: string): string {
+  const suffix = getPublicSuffix(stripWww(host), { allowPrivateDomains: false });
+  if (suffix && suffix.includes(".")) return suffix;
   const parts = stripWww(host).split(".");
   const lastTwo = parts.slice(-2).join(".");
   if (MULTI_SUFFIXES.has(lastTwo)) return lastTwo;

@@ -1,0 +1,46 @@
+{
+  "items": [
+    {
+      "source_url": "https://harbour-review.example/2026/coastal-kits",
+      "target_url": "https://northline.example/field-guide",
+      "expected_anchor": "Northline field guide",
+      "expected_rel": "follow",
+      "expected_placement": "content"
+    },
+    {
+      "source_url": "https://outdoor-weekly.example/partners",
+      "target_url": "https://northline.example/field-guide",
+      "expected_anchor": "Northline",
+      "expected_rel": "sponsored",
+      "expected_placement": "sidebar"
+    },
+    {
+      "source_url": "https://trailnotes.example/best-of-autumn",
+      "target_url": "https://northline.example/field-guide",
+      "expected_anchor": null,
+      "expected_rel": null,
+      "expected_placement": null
+    },
+    {
+      "source_url": "https://kayak-forum.example/t/route-planning",
+      "target_url": "https://northline.example/field-guide",
+      "expected_anchor": null,
+      "expected_rel": "ugc",
+      "expected_placement": null
+    },
+    {
+      "source_url": "https://camp-directory.example/listing/northline",
+      "target_url": "https://northline.example/field-guide",
+      "expected_anchor": "Northline",
+      "expected_rel": "follow",
+      "expected_placement": null
+    },
+    {
+      "source_url": "https://slow-host.example/roundup",
+      "target_url": "https://northline.example/field-guide",
+      "expected_anchor": null,
+      "expected_rel": null,
+      "expected_placement": null
+    }
+  ]
+}

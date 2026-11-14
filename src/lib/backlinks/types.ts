@@ -585,8 +585,12 @@ export type SiteAudit = {
   avgDepth: number;
   avgInboundLinks: number;
   maxDepth: number;
-  /** Inventory URLs (sitemap / known) not reached from the homepage link graph. */
+  /** Inventory URLs (sitemap / known) not reached by a *complete* crawl. */
   orphans: number;
+  /** Inventory URLs not reached because the crawl stopped early — a gap, not orphans. */
+  unreachedInPartialCrawl?: number;
+  /** True only when the internal link frontier was exhausted. */
+  crawlComplete?: boolean;
   brokenInternal: number;
   redirectedInternal: number;
   noindexPages: number;
@@ -732,9 +736,22 @@ export type FootprintRisk = {
 export type Scorecard = {
   index: number;
   grade: "A" | "B" | "C" | "D" | "E";
-  parts: { key: string; label: string; score: number; max: number; hint: string }[];
-  /** The largest point loss — the first thing to fix. */
+  parts: {
+    key: string;
+    label: string;
+    score: number;
+    max: number;
+    hint: string;
+    /**
+     * observed = measured from fetched pages or owner data; estimated = a model
+     * or heuristic; unknown = not measured, excluded from the index.
+     */
+    basis?: "observed" | "estimated" | "unknown";
+  }[];
+  /** The largest point loss among measured components — the first thing to fix. */
   weakest: string;
+  /** Share (0–100) of the index model backed by measured components. */
+  coverage?: number;
 };
 
 /* ------------------------------------------------------------------ */

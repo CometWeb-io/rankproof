@@ -4,6 +4,24 @@ The exact-pair verification endpoint ships in **RankProof 1.0.0** (tag `v1.0.0`)
 
 The endpoint answers a narrow question: _does the HTML fetched from a supplied source URL contain an anchor pointing to the exact supplied target URL?_ It does not crawl the browser-rendered DOM, establish Google ranking value, or discover every backlink on the web.
 
+## Fastest path: a CSV and one command
+
+No server needed. Put your known links in a file — one pair per line, the anchor and rel you agreed with the publisher are optional:
+
+```csv
+source_url,target_url,expected_anchor,expected_rel
+https://publisher.example/post,https://you.example/guide,Your Brand,sponsored
+https://blog.example/review,https://you.example/,,
+```
+
+```bash
+npm run cli -- verify links.csv --format json --out run.json --capture-dir evidence/
+# a month later:
+npm run cli -- verify links.csv --previous run.json --format html --out report.html
+```
+
+The web app (`npm run dev`) has the same workflow under **Verify links**: paste or upload the table, run, compare with your last run in that browser and export CSV, JSON or an HTML report. See the [CLI reference](cli.md#verify-pairscsv---) for every option. The rest of this page covers the HTTP API, for integrating verification into another tool.
+
 ## 1. Run locally
 
 ```bash
@@ -65,6 +83,6 @@ The response may contain `checked_at`, `http_status`, `anchor`, `rel`, `raw_href
 
 ## 5. Next workflow step
 
-For a team with an existing spreadsheet of backlinks, first test whether conversion to the documented JSON contract is acceptable. A native CSV importer and continuous monitoring are proposed roadmap items, **not features demonstrated by this guide**.
+For a team with an existing spreadsheet of backlinks, first test whether conversion to the documented JSON contract is acceptable. The CLI also reads CSV directly (`rankproof verify pairs.csv`, see [cli.md](cli.md)), and saved lists in the web app re-check links on a schedule; this guide covers the JSON API only.
 
 References: [HTTP API](api.md) · [Methodology](metrics.md) · [Changelog](../CHANGELOG.md).

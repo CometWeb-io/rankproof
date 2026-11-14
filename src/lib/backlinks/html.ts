@@ -43,6 +43,123 @@ const GENERIC_ANCHORS = new Set([
   "home page",
 ]);
 
+/**
+ * Words that carry no keyword on their own. An anchor built only from them
+ * ("Visit the official website", "Blog", "Odwiedź stronę") says where the link
+ * goes, not what it is about, so it must not count as an exact-match anchor —
+ * that label feeds the over-optimisation and spam heuristics.
+ */
+const GENERIC_WORDS = new Set([
+  // English
+  "a",
+  "an",
+  "the",
+  "our",
+  "my",
+  "your",
+  "their",
+  "its",
+  "this",
+  "that",
+  "to",
+  "of",
+  "for",
+  "on",
+  "at",
+  "in",
+  "and",
+  "or",
+  "by",
+  "via",
+  "from",
+  "it",
+  "us",
+  "visit",
+  "visiting",
+  "go",
+  "open",
+  "see",
+  "view",
+  "check",
+  "click",
+  "tap",
+  "read",
+  "learn",
+  "find",
+  "get",
+  "more",
+  "out",
+  "here",
+  "there",
+  "now",
+  "details",
+  "info",
+  "information",
+  "website",
+  "web",
+  "site",
+  "page",
+  "homepage",
+  "home",
+  "link",
+  "url",
+  "source",
+  "official",
+  "blog",
+  "profile",
+  "main",
+  "external",
+  "landing",
+  "full",
+  "original",
+  "article",
+  "post",
+  // Polish
+  "odwiedź",
+  "odwiedz",
+  "zobacz",
+  "sprawdź",
+  "sprawdz",
+  "kliknij",
+  "przejdź",
+  "przejdz",
+  "czytaj",
+  "więcej",
+  "wiecej",
+  "tutaj",
+  "tu",
+  "na",
+  "do",
+  "w",
+  "i",
+  "oraz",
+  "z",
+  "ze",
+  "strona",
+  "stronę",
+  "strone",
+  "stronie",
+  "witryna",
+  "witrynę",
+  "witryne",
+  "oficjalna",
+  "oficjalną",
+  "główna",
+  "glowna",
+  "główną",
+  "źródło",
+  "zrodlo",
+  "profil",
+]);
+
+function isGenericPhrase(value: string): boolean {
+  const words = value
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+  return words.length > 0 && words.every((word) => GENERIC_WORDS.has(word));
+}
+
 export function usefulHtml(html: string, maxOut = 240_000): string {
   let i = 0;
   let out = "";
@@ -147,11 +264,58 @@ export function decodeText(value: string): string {
 }
 
 export function stripTags(html: string): string {
-  return decodeText(
-    html.replace(/<(script|style|noscript)[\s\S]*?<\/\1>/gi, " ").replace(/<[^>]+>/g, " "),
-  )
+  return decodeText(replaceTags(removeRawBlocks(html)))
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/**
+ * Same result as `.replace(/<(script|style|noscript)[\s\S]*?<\/\1>/gi, " ")`, in
+ * linear time: once a block has no closing tag, no later block of that name can.
+ */
+function removeRawBlocks(html: string): string {
+  // ASCII-only lowering keeps UTF-16 offsets aligned with the original.
+  const lower = html.replace(/[A-Z]/g, (char) => char.toLowerCase());
+  const open = /<(script|style|noscript)/g;
+  const unclosed = new Set<string>();
+  let out = "";
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+  while ((match = open.exec(lower))) {
+    const name = match[1]!;
+    if (unclosed.has(name)) continue;
+    const close = lower.indexOf(`</${name}>`, match.index + match[0].length);
+    if (close === -1) {
+      unclosed.add(name);
+      continue;
+    }
+    out += `${html.slice(cursor, match.index)} `;
+    cursor = close + name.length + 3;
+    open.lastIndex = cursor;
+  }
+  return out + html.slice(cursor);
+}
+
+/** Same result as `.replace(/<[^>]+>/g, " ")`, without backtracking over `<` runs. */
+function replaceTags(html: string): string {
+  let out = "";
+  let cursor = 0;
+  let from = 0;
+  for (;;) {
+    const start = html.indexOf("<", from);
+    if (start === -1) break;
+    const end = html.indexOf(">", start + 1);
+    // No `>` after this `<` means none after any later `<` either.
+    if (end === -1) break;
+    if (end === start + 1) {
+      from = start + 1;
+      continue;
+    }
+    out += `${html.slice(cursor, start)} `;
+    cursor = end + 1;
+    from = cursor;
+  }
+  return out + html.slice(cursor);
 }
 
 /* ------------------------------------------------------------------ */
@@ -577,7 +741,7 @@ export function classifyAnchor(
   if (brandTokens.some((token) => token.length >= 4 && value.includes(token.toLowerCase()))) {
     return "brand";
   }
-  if (GENERIC_ANCHORS.has(value)) return "generic";
+  if (GENERIC_ANCHORS.has(value) || isGenericPhrase(value)) return "generic";
   const words = value.split(/\s+/).filter(Boolean).length;
   if (words >= 5) return "long-tail";
   return "exact-match";

@@ -78,13 +78,38 @@ export function isEngineConfigured(engine: SerpEngine): boolean {
 }
 
 /**
+ * The documented setup runs OpenSERP next to RankProof on loopback. That URL is
+ * set by the operator (env), never by a scan request, so it may be exempted —
+ * but only explicitly (`RANKPROOF_GOOGLE_PROVIDER_ALLOW_LOOPBACK=1`), only for
+ * literal loopback hosts, and never for link-local / metadata / LAN ranges.
+ */
+export function isOperatorLoopbackProvider(raw: string): boolean {
+  if (process.env.RANKPROOF_GOOGLE_PROVIDER_ALLOW_LOOPBACK !== "1") return false;
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+  if (url.username || url.password) return false;
+  const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  return host === "localhost" || host === "::1" || /^127(?:\.\d{1,3}){3}$/.test(host);
+}
+
+/**
  * Reject provider URLs that point at localhost, metadata, or other non-public
  * targets — same policy as crawl (`guardUrl` / `guardUrlWithDns`).
  */
 export async function assertProviderUrlAllowed(raw: string, resolve?: Resolver): Promise<void> {
+  if (isOperatorLoopbackProvider(raw)) return;
   const staticVerdict = guardUrl(raw);
   if (!staticVerdict.allowed) {
     throw new Error(`Google provider URL blocked: ${staticVerdict.reason}`);
+  }
+  // Queries cross the public internet: no plaintext. (Upstream PR #2.)
+  if (new URL(raw).protocol !== "https:") {
+    throw new Error("A public Google provider must use HTTPS.");
   }
 
   // Prefer DNS validation when a resolver is available (tests inject one;
@@ -148,6 +173,8 @@ export async function fetchGoogleOrganicViaProvider(
     res = await fetchImpl(url.href, {
       headers: { Accept: "application/json", "User-Agent": "RankProof/google-provider" },
       signal: options.signal ?? abort.signal,
+      // A redirect would bypass the URL check above (e.g. into metadata).
+      redirect: "error",
     });
   } finally {
     clearTimeout(timer);
@@ -175,14 +202,29 @@ export async function fetchGoogleOrganicViaProvider(
   return { hits, html: text };
 }
 
-function extractProviderRows(data: unknown): Record<string, unknown>[] {
+/**
+ * Fail closed: a changed API contract or a 200 error envelope must never read
+ * as "the target does not rank". (Ported from upstream PR #2.)
+ */
+export function extractProviderRows(data: unknown): Record<string, unknown>[] {
   if (Array.isArray(data)) return data.filter(isRecord);
-  if (!isRecord(data)) return [];
+  if (!isRecord(data)) throw new Error("Google provider returned an invalid JSON envelope.");
+  const meta = data.meta;
+  if (isRecord(meta)) {
+    const failures = meta.engines_failed;
+    if (Array.isArray(failures) && failures.includes("google")) {
+      throw new Error("Google provider reported that the Google engine failed.");
+    }
+    const errors = meta.engine_errors;
+    if (isRecord(errors) && errors.google) {
+      throw new Error("Google provider returned a Google engine error.");
+    }
+  }
   for (const key of ["organic", "results", "organic_results", "items"]) {
     const value = data[key];
     if (Array.isArray(value)) return value.filter(isRecord);
   }
-  return [];
+  throw new Error("Google provider returned no supported results field.");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

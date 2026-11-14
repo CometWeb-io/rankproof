@@ -10,33 +10,63 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuditRouteImport } from './routes/audit'
+import { Route as MonitorsRouteImport } from './routes/monitors'
+import { Route as ApiCronMonitorsRouteImport } from './routes/api/cron/monitors'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuditRoute = AuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MonitorsRoute = MonitorsRouteImport.update({
+  id: '/monitors',
+  path: '/monitors',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCronMonitorsRoute = ApiCronMonitorsRouteImport.update({
+  id: '/api/cron/monitors',
+  path: '/api/cron/monitors',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/audit': typeof AuditRoute
+  '/monitors': typeof MonitorsRoute
+  '/api/cron/monitors': typeof ApiCronMonitorsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/audit': typeof AuditRoute
+  '/monitors': typeof MonitorsRoute
+  '/api/cron/monitors': typeof ApiCronMonitorsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/audit': typeof AuditRoute
+  '/monitors': typeof MonitorsRoute
+  '/api/cron/monitors': typeof ApiCronMonitorsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/audit' | '/monitors' | '/api/cron/monitors'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/audit' | '/monitors' | '/api/cron/monitors'
+  id: '__root__' | '/' | '/audit' | '/monitors' | '/api/cron/monitors'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuditRoute: typeof AuditRoute
+  MonitorsRoute: typeof MonitorsRoute
+  ApiCronMonitorsRoute: typeof ApiCronMonitorsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +78,35 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/audit': {
+      id: '/audit'
+      path: '/audit'
+      fullPath: '/audit'
+      preLoaderRoute: typeof AuditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/monitors': {
+      id: '/monitors'
+      path: '/monitors'
+      fullPath: '/monitors'
+      preLoaderRoute: typeof MonitorsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/cron/monitors': {
+      id: '/api/cron/monitors'
+      path: '/api/cron/monitors'
+      fullPath: '/api/cron/monitors'
+      preLoaderRoute: typeof ApiCronMonitorsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuditRoute: AuditRoute,
+  MonitorsRoute: MonitorsRoute,
+  ApiCronMonitorsRoute: ApiCronMonitorsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

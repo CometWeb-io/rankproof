@@ -24,6 +24,15 @@
   "exclude": [
     "src/lib/backlinks/**/*.test.ts",
     "src/lib/backlinks/scan.ts",
+    "src/lib/backlinks/benchmark.ts",
+    "src/lib/backlinks/corpus.server.ts",
+    "src/lib/backlinks/contract-fixtures.ts",
+    "src/lib/backlinks/fixtures/**",
+    "src/lib/backlinks/verify-fn.ts",
+    "src/lib/backlinks/monitor-fn.ts",
+    "src/lib/backlinks/monitor.server.ts",
+    "src/lib/backlinks/monitor-cron.server.ts",
+    "src/lib/backlinks/verify-example.server.ts",
     "src/lib/backlinks/store.server.ts",
     "src/lib/backlinks/history.ts",
     "src/lib/backlinks/history-diff.ts"

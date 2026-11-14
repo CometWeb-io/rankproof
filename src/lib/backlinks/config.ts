@@ -28,6 +28,13 @@ export type RuntimeConfig = {
   apiUserAgent: string;
   /** Disables writing history to the database (e.g. in CLI mode). */
   persistHistory: boolean;
+  /**
+   * How pages are requested when verifying and auditing. `browser` (default)
+   * sends a desktop-browser user agent, which publishers rarely block;
+   * `rankproof` sends `apiUserAgent`, so publishers can see who is reading
+   * and contact you. robots.txt groups for `rankproof` apply either way.
+   */
+  crawlerIdentity: "browser" | "rankproof";
 };
 
 const ALL_ENGINES: SerpEngine[] = ["bing", "duckduckgo", "mojeek", "brave", "google"];
@@ -91,6 +98,7 @@ export const DEFAULT_CONFIG: RuntimeConfig = {
   serpDepth: 10,
   apiUserAgent: "RankProof/1.0 (+https://github.com/CometWeb-io/rankproof)",
   persistHistory: true,
+  crawlerIdentity: "browser",
 };
 
 let cached: RuntimeConfig | null = null;
@@ -110,6 +118,10 @@ export function config(): RuntimeConfig {
     serpDepth: num("RANKPROOF_SERP_DEPTH", DEFAULT_CONFIG.serpDepth, 10, 20) > 15 ? 20 : 10,
     apiUserAgent: env("RANKPROOF_USER_AGENT") ?? DEFAULT_CONFIG.apiUserAgent,
     persistHistory: bool("RANKPROOF_PERSIST_HISTORY", DEFAULT_CONFIG.persistHistory),
+    crawlerIdentity:
+      env("RANKPROOF_CRAWLER_IDENTITY")?.trim().toLowerCase() === "rankproof"
+        ? "rankproof"
+        : DEFAULT_CONFIG.crawlerIdentity,
   };
   return cached;
 }

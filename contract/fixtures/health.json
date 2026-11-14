@@ -1,0 +1,9 @@
+{
+  "ok": true,
+  "service": "rankproof",
+  "version": "x.y.z",
+  "revision": null,
+  "schema_version": "1",
+  "capabilities": ["backlinks.verify.v1", "backlinks.verify.contract.v1"],
+  "uptime": 1
+}

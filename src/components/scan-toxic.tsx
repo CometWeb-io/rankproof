@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ArrowUpRight, Download, ShieldAlert, Tags } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -58,16 +59,16 @@ export function ToxicTab({ report }: { report: ScanReport }) {
     <div className="flex flex-col gap-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-lg border border-border bg-surface p-4">
-          <p className="text-xs font-medium tracking-wide text-muted uppercase">For review</p>
+          <p className="text-xs font-medium text-muted">For review</p>
           <p className="mt-2 font-mono text-3xl tabular-nums text-fg">{toxic.disavowCount}</p>
           <p className="mt-1 text-xs text-subtle">high-risk domains</p>
         </div>
         <div className="rounded-lg border border-border bg-surface p-4">
-          <p className="text-xs font-medium tracking-wide text-muted uppercase">Watch</p>
+          <p className="text-xs font-medium text-muted">Watch</p>
           <p className="mt-2 font-mono text-3xl tabular-nums text-fg">{toxic.watchCount}</p>
         </div>
         <div className="rounded-lg border border-border bg-surface p-4">
-          <p className="text-xs font-medium tracking-wide text-muted uppercase">Average toxicity</p>
+          <p className="text-xs font-medium text-muted">Average toxicity</p>
           <p className="mt-2 font-mono text-3xl tabular-nums text-fg">{toxic.avgToxicity}</p>
           <div className="mt-2">
             <Meter
@@ -77,7 +78,7 @@ export function ToxicTab({ report }: { report: ScanReport }) {
           </div>
         </div>
         <div className="rounded-lg border border-border bg-surface p-4">
-          <p className="text-xs font-medium tracking-wide text-muted uppercase">Anchor quality</p>
+          <p className="text-xs font-medium text-muted">Anchor quality</p>
           <p className="mt-2 font-mono text-3xl tabular-nums text-fg">{anchorAudit.score}</p>
           <div className="mt-2">
             <Meter
@@ -100,33 +101,9 @@ export function ToxicTab({ report }: { report: ScanReport }) {
           <Download />
           Risk CSV
         </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={toxic.disavowCount === 0}
-          onClick={() =>
-            download(`disavow-${report.target.host}.txt`, disavowFile(report), "text/plain")
-          }
-        >
-          <Download />
-          Disavow draft (review first)
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={toxic.disavowCount + toxic.watchCount === 0}
-          onClick={() =>
-            download(
-              `disavow-${report.target.host}-wide.txt`,
-              disavowFile(report, true),
-              "text/plain",
-            )
-          }
-        >
-          <Download />
-          Disavow + watchlist
-        </Button>
       </div>
+
+      <DisavowPanel report={report} />
 
       <div className="rounded-xl border border-border bg-surface p-5">
         <div className="flex items-center gap-2">
@@ -227,5 +204,74 @@ export function ToxicTab({ report }: { report: ScanReport }) {
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * Disavow files are an expert tool: Google says most sites never need one and
+ * misuse can hurt visibility. The scores behind this list are heuristics, so the
+ * download sits behind an explicit review step instead of a header button.
+ */
+function DisavowPanel({ report }: { report: ScanReport }) {
+  const [reviewed, setReviewed] = useState(false);
+  const toxic = report.toxic;
+  if (toxic.disavowCount + toxic.watchCount === 0) return null;
+  return (
+    <details className="rounded-xl border border-border bg-surface p-5">
+      <summary className="cursor-pointer text-sm font-medium text-fg">
+        Disavow file (advanced)
+      </summary>
+      <div className="mt-3 space-y-3 text-sm text-muted">
+        <p>
+          Most sites never need to disavow links, and a wrong file can remove links that help you.
+          Google recommends it only for a large number of spammy, artificial or low-quality links
+          that caused, or are likely to cause, a manual action.{" "}
+          <a
+            className="text-fg-soft underline decoration-fg-soft/50 underline-offset-2 hover:decoration-fg-soft"
+            href="https://support.google.com/webmasters/answer/2648487"
+          >
+            Google&rsquo;s guidance
+          </a>
+          . The risk scores here are heuristics, not a verdict.
+        </p>
+        <label className="flex items-start gap-2 text-fg-soft">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={reviewed}
+            onChange={(event) => setReviewed(event.target.checked)}
+          />
+          I reviewed every domain on the list and understand the file is a draft.
+        </label>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!reviewed || toxic.disavowCount === 0}
+            onClick={() =>
+              download(`disavow-${report.target.host}.txt`, disavowFile(report), "text/plain")
+            }
+          >
+            <Download />
+            Download draft ({toxic.disavowCount})
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!reviewed}
+            onClick={() =>
+              download(
+                `disavow-${report.target.host}-wide.txt`,
+                disavowFile(report, true),
+                "text/plain",
+              )
+            }
+          >
+            <Download />
+            Draft + watchlist ({toxic.disavowCount + toxic.watchCount})
+          </Button>
+        </div>
+      </div>
+    </details>
   );
 }

@@ -116,6 +116,19 @@ export function pickSerpKeywords(seeds: KeywordSeed[], limit = 5): string[] {
   return out;
 }
 
+/**
+ * Points for a keyword's best measured position (0..100). Must be monotonic and
+ * never negative: a page found at #20 is still better than a page that is not in
+ * the measured results at all (0). Top-10 values are unchanged from v1 so older
+ * history stays comparable; #11–#20 earn a small tail (5..1).
+ */
+export function positionPoints(position: number): number {
+  if (!Number.isFinite(position) || position < 1) return 0;
+  if (position <= 10) return Math.round((11 - position) * 10);
+  if (position <= 20) return Math.max(1, Math.round((21 - position) / 2));
+  return 0;
+}
+
 export function visibilityScore(queries: SerpQuery[]): {
   visibility: number;
   ranked: number;
@@ -166,7 +179,7 @@ export function visibilityScore(queries: SerpQuery[]): {
     ranked += 1;
     if (agg.best <= 3) top3 += 1;
     if (agg.best <= 10) top10 += 1;
-    points += Math.round((11 - agg.best) * (100 / 10));
+    points += positionPoints(agg.best);
   }
   const denominator = Math.max(1, measured);
   return {

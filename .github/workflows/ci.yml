@@ -37,6 +37,17 @@ jobs:
       - name: Tests
         run: npm test
 
+      - name: Property tests, deeper (new seed per run; the seed is printed on failure)
+        run: npm run test:fuzz
+        env:
+          RANKPROOF_FUZZ_SEED: ${{ github.run_id }}
+
+      - name: API contract (TypeScript and Python reference clients)
+        run: npm run test:clients
+
+      - name: Verification benchmark
+        run: npm run benchmark
+
       - name: Build
         run: npm run build
 
@@ -55,6 +66,12 @@ jobs:
       - name: Install Playwright browser
         run: npx playwright install chromium --with-deps
 
+      - name: Verification benchmark, rendered mode
+        run: npm run benchmark -- --render
+
+      - name: Rendered verification tests
+        run: node --experimental-strip-types --test src/lib/backlinks/render.test.ts
+
       - name: E2E smoke (UI)
         run: npm run test:e2e
 
@@ -71,3 +88,8 @@ jobs:
           npm install ./rankproof-*.tgz
           ./node_modules/.bin/rankproof version
           ./node_modules/.bin/rankproof help > /dev/null
+          # Integrators get the contract fixtures and reference clients with the package.
+          test -f node_modules/rankproof/contract/fixtures/verify-response.json
+          (cd node_modules/rankproof/clients/python && python3 -m unittest -q)
+          # Compiled engine loads every verify-side module.
+          node -e 'for (const m of ["verify-run.server","verify-history.server","warc.server","render.server","observe"]) import("rankproof/dist/" + m + ".js").catch((e) => { console.error(m, e.message); process.exit(1); })'

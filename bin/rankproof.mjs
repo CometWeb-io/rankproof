@@ -6,7 +6,7 @@
  * by re-executing the process when it is missing).
  */
 import { existsSync } from "node:fs";
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
@@ -75,6 +75,14 @@ async function main() {
     if (!options.quiet) console.error(message);
   };
 
+  if (options.command === "mcp") {
+    // stdout belongs to the protocol: nothing else may be printed there.
+    const { runMcpStdio } = await import(engine("mcp.server"));
+    const pkg = await import("../package.json", { with: { type: "json" } });
+    await runMcpStdio({ name: "rankproof", version: pkg.default.version ?? "0.0.0" });
+    return;
+  }
+
   try {
     const output = await run(options, log);
     if (options.out) {
@@ -99,11 +107,191 @@ async function run(options, log) {
       return runIdeasCommand(options, log);
     case "gap":
       return runGapCommand(options, log);
+    case "verify":
+      return runVerifyCommand(options, log);
+    case "replay":
+      return runReplayCommand(options, log);
+    case "keygen": {
+      const { generateSigningKey } = await import(engine("seal.server"));
+      const paths = [`${options.out}.pem`, `${options.out}.pub.pem`];
+      if (!options.force) {
+        // Overwriting a signing key silently orphans every seal made with it.
+        const existing = paths.filter((path) => existsSync(path));
+        if (existing.length > 0) {
+          throw new Error(
+            `${existing.join(" and ")} already exist${existing.length === 1 ? "s" : ""}; refusing to overwrite a signing key (use --force to replace it).`,
+          );
+        }
+      }
+      const { privatePem, publicPem } = generateSigningKey();
+      const flag = options.force ? "w" : "wx";
+      await writeFile(paths[0], privatePem, { mode: 0o600, flag });
+      await writeFile(paths[1], publicPem, { flag });
+      const out = options.out;
+      options.out = null;
+      return `Wrote ${out}.pem (private, keep it secret) and ${out}.pub.pem (share it).`;
+    }
+    case "seal": {
+      const { sealFile } = await import(engine("seal.server"));
+      const { seal, tokenPath } = await sealFile(options.target, {
+        keyPem: options.key ? await readFile(options.key, "utf8") : null,
+        tsaUrl: options.tsa,
+        wayback: options.wayback,
+        log,
+      });
+      const sealPath = options.out ?? `${options.target}.seal.json`;
+      await writeFile(sealPath, `${JSON.stringify(seal, null, 2)}\n`);
+      options.out = null;
+      return `Sealed ${options.target} → ${sealPath}${tokenPath ? ` (+ ${tokenPath})` : ""}.`;
+    }
+    case "check-seal": {
+      const { checkSeal, sealCheckText } = await import(engine("seal.server"));
+      const sealPath = options.seal ?? `${options.target}.seal.json`;
+      const result = await checkSeal(options.target, JSON.parse(await readFile(sealPath, "utf8")), {
+        publicKeyPem: options.publicKey ? await readFile(options.publicKey, "utf8") : null,
+      });
+      // Exit 3 only for a failed check; an unverified claim is reported, not failed.
+      if (result.status === "failed") process.exitCode = 3;
+      return options.format === "json" ? JSON.stringify(result, null, 2) : sealCheckText(result);
+    }
+    case "report": {
+      const verify = await import(engine("verify-run.server"));
+      const run = JSON.parse(await readFile(options.target, "utf8"));
+      if (run?.kind !== "rankproof.verify-run") {
+        throw new Error("report expects a JSON run from `rankproof verify --format json`.");
+      }
+      if (options.strict) process.exitCode = verify.strictExitCode(run);
+      return verify.formatVerifyRun(run, options.format);
+    }
+    case "corpus": {
+      const { buildCorpus } = await import(engine("corpus.server"));
+      const corpus = await buildCorpus(
+        JSON.parse(await readFile(options.target, "utf8")),
+        options.captureDir,
+      );
+      log(
+        `${corpus.cases.length} case(s) to review. Set "reviewed": true after checking each one.`,
+      );
+      return JSON.stringify(corpus, null, 2);
+    }
+    case "export-warc": {
+      const { exportWarc } = await import(engine("warc.server"));
+      const pkg = await import("../package.json", { with: { type: "json" } });
+      const result = await exportWarc(
+        JSON.parse(await readFile(options.target, "utf8")),
+        options.captureDir,
+        {
+          software: `RankProof ${pkg.default.version ?? ""}`.trim(),
+          filename: options.out.split(/[\\/]/).pop(),
+        },
+      );
+      const warcPath = options.out;
+      await writeFile(warcPath, result.bytes);
+      for (const item of result.skipped) log(`Skipped ${item.source_url}: ${item.reason}`);
+      // Written directly (binary); the summary goes to stdout instead of the file.
+      options.out = null;
+      return `Wrote ${result.records} WARC records (${result.included} observation(s)) to ${warcPath}.`;
+    }
+    case "history": {
+      const history = await import(engine("verify-history.server"));
+      const report = await history.buildHistory(options.target);
+      if (options.format === "json") return JSON.stringify(report, null, 2);
+      if (options.format === "csv") return history.historyCsv(report);
+      return history.historyText(report);
+    }
     case "doctor":
       return runDoctorCommand(options, log);
     default:
       throw new Error(`Unsupported command: ${options.command}`);
   }
+}
+
+async function readInput(path) {
+  if (path === "-") {
+    const chunks = [];
+    for await (const chunk of process.stdin) chunks.push(chunk);
+    return Buffer.concat(chunks).toString("utf8");
+  }
+  return readFile(path, "utf8");
+}
+
+async function runVerifyCommand(options, log) {
+  const verify = await import(engine("verify-run.server"));
+  const history = options.history ? await import(engine("verify-history.server")) : null;
+  let previous = options.previous
+    ? verify.previousObservations(JSON.parse(await readFile(options.previous, "utf8")))
+    : undefined;
+  if (!previous && history) {
+    const latest = await history.loadLatestRun(options.history);
+    if (latest) {
+      previous = latest.results;
+      log(`Comparing with ${latest.file}.`);
+    } else {
+      log("First run in this history directory.");
+    }
+  }
+  const captureDir =
+    options.captureDir ?? (history ? history.historyPaths(options.history).evidence : null);
+  if (options.render !== "off") {
+    const { renderAvailability } = await import(engine("render.server"));
+    const available = await renderAvailability();
+    if (!available.ok) throw new Error(available.reason);
+    log(`Rendering with ${available.engine} (${options.render}).`);
+  }
+  const run = await verify.runVerifyFile({
+    table: await readInput(options.target),
+    previous,
+    captureDir,
+    log,
+    render: options.render,
+    checkpoint: options.checkpoint,
+  });
+  if (options.checkpoint) {
+    // The run is complete: a stale checkpoint must not silently skip next week's checks.
+    const { unlink } = await import("node:fs/promises");
+    await unlink(options.checkpoint).catch(() => {});
+    log(`Run complete; removed checkpoint ${options.checkpoint}.`);
+  }
+  if (history) {
+    const saved = await history.saveRun(options.history, run, options.keep);
+    log(`Stored ${saved}`);
+  }
+  if (options.webhook) {
+    const { webhookPayload, sendWebhook } = await import(engine("verify-history.server"));
+    const payload = webhookPayload(run);
+    if (!payload) {
+      log("No changes; webhook not called.");
+    } else {
+      try {
+        await sendWebhook(options.webhook, payload);
+        log(`Webhook notified about ${payload.changes.length} change(s).`);
+      } catch (error) {
+        // The run itself succeeded and is stored; a failed notification must be visible.
+        console.error(`Webhook failed: ${error instanceof Error ? error.message : String(error)}`);
+        process.exitCode = 4;
+      }
+    }
+  }
+  const s = run.summary;
+  log(
+    `Done: ${s.meets} meet · ${s.deviates} deviate · ${s.missing} not in HTML · ${s.unverified} unverified.`,
+  );
+  if (options.strict) {
+    process.exitCode = verify.combineStrictExitCode(Number(process.exitCode ?? 0) || 0, run);
+  }
+  return verify.formatVerifyRun(run, options.format);
+}
+
+async function runReplayCommand(options, log) {
+  const verify = await import(engine("verify-run.server"));
+  const run = await verify.replayRun(
+    JSON.parse(await readFile(options.target, "utf8")),
+    options.captureDir,
+    { render: options.render !== "off" },
+  );
+  log(`Replayed ${run.results.length} observation(s) offline.`);
+  if (run.summary.differs > 0 || run.summary.integrity_failed > 0) process.exitCode = 3;
+  return options.format === "json" ? JSON.stringify(run, null, 2) : verify.replayText(run);
 }
 
 async function runScanCommand(options, log) {
@@ -115,6 +303,8 @@ async function runScanCommand(options, log) {
     engines: options.engines.length > 0 ? options.engines : undefined,
     depth: options.depth,
     skipSiteAudit: options.skipAudit,
+    // The CLI runs with the operator's own credentials, for the operator.
+    ownerData: "operator",
   });
   if (!result.ok) throw new Error(result.error);
   const report = result.report;

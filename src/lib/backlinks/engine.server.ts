@@ -219,7 +219,39 @@ export type ScanOptions = {
    * verified first, like every other candidate — never trusted as-is.
    */
   seedUrls?: string[];
+  /**
+   * Who may see the operator's Search Console / Bing Webmaster data for this
+   * host. "allowlist" (default — web UI and HTTP API) attaches it only for hosts
+   * listed in RANKPROOF_OWNER_SITES. "operator" (CLI) attaches it for any host
+   * the operator's credentials can read, because the caller is the operator.
+   */
+  ownerData?: "allowlist" | "operator" | "off";
 };
+
+/** Hosts whose owner data may be shown to any caller of this deployment. */
+export function ownerSitesAllowlist(): string[] {
+  return (process.env.RANKPROOF_OWNER_SITES ?? "")
+    .split(",")
+    .map((item) =>
+      item
+        .trim()
+        .toLowerCase()
+        .replace(/^https?:\/\//, "")
+        .replace(/\/.*$/, ""),
+    )
+    .map((item) => item.replace(/^www\./, ""))
+    .filter(Boolean);
+}
+
+export function mayAttachOwnerData(
+  host: string,
+  mode: ScanOptions["ownerData"] = "allowlist",
+): boolean {
+  if (mode === "off") return false;
+  if (mode === "operator") return true;
+  const h = host.toLowerCase().replace(/^www\./, "");
+  return ownerSitesAllowlist().some((site) => h === site || h.endsWith(`.${site}`));
+}
 
 export async function runScan(rawInput: string, options: ScanOptions = {}): Promise<ScanResult> {
   const startedAt = Date.now();
@@ -249,7 +281,7 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
   const redditT = timed(() => scanReddit([host, sld(host)], host, budget.signal));
 
   const intelR = await intelT;
-  if (intelR.error) notes.push(`Analiza celu: ${intelR.error}`);
+  if (intelR.error) notes.push(`Target analysis: ${intelR.error}`);
   notes.push(...(intelR.value?.notes ?? []));
 
   const tokens = intelR.value?.tokens ?? [sld(host)];
@@ -733,9 +765,12 @@ export async function runScan(rawInput: string, options: ScanOptions = {}): Prom
         );
 
   // Real clicks and impressions, but only when the operator connected an account.
-  const searchConsole = light
-    ? null
-    : buildSearchConsoleInsights(await fetchSearchConsoleData(host).catch(() => []), serpQueries);
+  // Owner data is private: in a shared deployment one caller must not read the
+  // operator's Search Console numbers for a site just by scanning it.
+  const ownerAllowed = !light && mayAttachOwnerData(host, options.ownerData);
+  const searchConsole = ownerAllowed
+    ? buildSearchConsoleInsights(await fetchSearchConsoleData(host).catch(() => []), serpQueries)
+    : null;
 
   const scorecard = buildScorecard({
     analytics,

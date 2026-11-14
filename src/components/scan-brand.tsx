@@ -32,55 +32,99 @@ function Meter({
  * The headline visibility index — one number tying together links, SERP,
  * page readiness, risk and momentum, broken down into its components.
  */
+const BASIS_LABEL = {
+  observed: "Measured",
+  estimated: "Model",
+  unknown: "Not measured",
+} as const;
+
 export function ScorecardPanel({ card }: { card: Scorecard }) {
+  const coverage = card.coverage ?? 100;
+  const thin = coverage < 60;
   return (
     <div className="rounded-xl border border-border bg-surface p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Gauge className="size-4 text-fg-soft" />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-2">
+          <Gauge className="mt-0.5 size-4 text-fg-soft" />
           <div>
             <p className="text-sm font-medium text-fg">RankProof visibility index</p>
-            <p className="mt-1 text-xs text-muted">
-              Weakest component: <span className="text-fg-soft">{card.weakest}</span>
+            <p className="mt-1 max-w-md text-xs text-muted">
+              A heuristic for comparing scans of the same domain over time, not a third-party
+              authority score. Computed from {coverage}% of the model; parts that could not be
+              measured are left out rather than scored.
             </p>
+            {card.weakest ? (
+              <p className="mt-1 text-xs text-muted">
+                Weakest measured part: <span className="text-fg-soft">{card.weakest}</span>
+              </p>
+            ) : null}
           </div>
         </div>
-        <p className="font-mono text-3xl tabular-nums text-fg">
-          {card.index}
-          <span className="ml-2 text-sm text-muted">/ 100 · {card.grade}</span>
+        <p className={`font-mono text-3xl tabular-nums ${thin ? "text-muted" : "text-fg"}`}>
+          {coverage === 0 ? "—" : card.index}
+          <span className="ml-2 text-sm text-muted">
+            / 100{coverage > 0 ? ` (${card.grade})` : ""}
+          </span>
         </p>
       </div>
+      {thin && coverage > 0 ? (
+        <p className="mt-3 rounded-lg border border-nofollow/30 bg-nofollow/8 px-3 py-2 text-xs text-fg-soft">
+          Less than 60% of the index could be measured in this scan, so the number says little on
+          its own. Check the parts below.
+        </p>
+      ) : null}
       <div className="mt-3">
         <Meter
-          value={card.index}
+          value={coverage === 0 ? 0 : card.index}
           tone={card.index >= 65 ? "good" : card.index < 40 ? "risk" : "default"}
         />
       </div>
       <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {card.parts.map((part) => (
-          <li key={part.key} className="rounded-lg border border-border p-3">
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="text-sm text-fg-soft">{part.label}</span>
-              <span className="font-mono text-xs tabular-nums text-muted">
-                {part.score}/{part.max}
-              </span>
-            </div>
-            <div className="mt-2">
-              <Meter
-                value={part.score}
-                max={part.max}
-                tone={
-                  part.score / part.max > 0.66
-                    ? "good"
-                    : part.score / part.max < 0.34
-                      ? "risk"
-                      : "default"
-                }
-              />
-            </div>
-            <p className="mt-2 text-xs text-subtle">{part.hint}</p>
-          </li>
-        ))}
+        {card.parts.map((part) => {
+          const unknown = part.basis === "unknown";
+          return (
+            <li
+              key={part.key}
+              className={`rounded-lg border p-3 ${unknown ? "border-dashed border-border" : "border-border"}`}
+            >
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-sm text-fg-soft">{part.label}</span>
+                <span className="font-mono text-xs tabular-nums text-muted">
+                  {unknown ? "—" : `${part.score}/${part.max}`}
+                </span>
+              </div>
+              {part.basis ? (
+                <span
+                  className={`mt-1 inline-block rounded px-1.5 py-0.5 text-[11px] ${
+                    part.basis === "observed"
+                      ? "bg-follow/12 text-follow"
+                      : unknown
+                        ? "bg-surface-3 text-subtle"
+                        : "bg-surface-3 text-fg-soft"
+                  }`}
+                >
+                  {BASIS_LABEL[part.basis]}
+                </span>
+              ) : null}
+              {unknown ? null : (
+                <div className="mt-2">
+                  <Meter
+                    value={part.score}
+                    max={part.max}
+                    tone={
+                      part.score / part.max > 0.66
+                        ? "good"
+                        : part.score / part.max < 0.34
+                          ? "risk"
+                          : "default"
+                    }
+                  />
+                </div>
+              )}
+              <p className="mt-2 text-xs text-subtle">{part.hint}</p>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

@@ -19,8 +19,12 @@ To measure competitor Google SERPs, run a self-hosted JSON provider (e.g. [OpenS
 
 ```bash
 export RANKPROOF_GOOGLE_PROVIDER_URL=http://127.0.0.1:7000
+# A loopback provider is refused by the SSRF guard unless you opt in explicitly:
+export RANKPROOF_GOOGLE_PROVIDER_ALLOW_LOOPBACK=1
 # legacy alias still accepted: OPENVIS_GOOGLE_PROVIDER_URL
 ```
+
+`RANKPROOF_GOOGLE_PROVIDER_ALLOW_LOOPBACK=1` exempts only literal loopback hosts (`127.0.0.0/8`, `::1`, `localhost`) for the operator-configured provider URL. Link-local, metadata and LAN addresses stay blocked, and provider redirects are refused. A provider on a public host needs no flag.
 
 Expected request:
 

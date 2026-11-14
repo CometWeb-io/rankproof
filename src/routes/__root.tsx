@@ -13,7 +13,7 @@ export const Route = createRootRoute({
       {
         name: "description",
         content:
-          "A free backlink and search visibility scanner. Verified backlinks, keywords, positions across Bing, DuckDuckGo, Mojeek and Brave, internal structure and an on-page audit — with no paid SEO databases.",
+          "Verify the backlinks you already know about: exact target URL, agreed anchor and rel, a receipt of the HTML that was read, and what changed since the last check. Plus an open-source domain audit with no paid SEO databases.",
       },
       { name: "theme-color", content: "#0f0f0f" },
     ],

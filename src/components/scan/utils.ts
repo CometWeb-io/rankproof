@@ -14,7 +14,7 @@ export function relLabel(rel: LinkRel): string {
 
 export function formatDate(iso: string): string {
   try {
-    return new Intl.DateTimeFormat(undefined, {
+    return new Intl.DateTimeFormat("en-GB", {
       dateStyle: "medium",
       timeStyle: "short",
     }).format(new Date(iso));

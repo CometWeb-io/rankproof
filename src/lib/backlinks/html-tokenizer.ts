@@ -11,6 +11,8 @@ export type HtmlToken = {
 export type HtmlDocument = {
   tokens: HtmlToken[];
   visibleText: string;
+  /** Visible text with the content of every `<a>…</a>` removed (plain mentions). */
+  textOutsideAnchors: string;
   title: string | null;
   complete: boolean;
 };
@@ -35,6 +37,12 @@ export function tokenizeHtml(html: string, strict = false): HtmlDocument {
   const lower = html.replace(/[A-Z]/g, (char) => char.toLowerCase());
   const tokens: HtmlToken[] = [];
   const text: string[] = [];
+  const outside: string[] = [];
+  let inAnchor = false;
+  const emit = (value: string) => {
+    text.push(value);
+    if (!inAnchor) outside.push(value);
+  };
   let cursor = 0;
   let templateDepth = 0;
   let inHead = false;
@@ -63,10 +71,10 @@ export function tokenizeHtml(html: string, strict = false): HtmlDocument {
     }
     const start = html.indexOf("<", cursor);
     if (start === -1) {
-      if (!templateDepth && !inHead) text.push(html.slice(cursor));
+      if (!templateDepth && !inHead) emit(html.slice(cursor));
       break;
     }
-    if (!templateDepth && !inHead) text.push(html.slice(cursor, start));
+    if (!templateDepth && !inHead) emit(html.slice(cursor, start));
     if (html.startsWith("<!--", start)) {
       const close = html.indexOf("-->", start + 4);
       if (close === -1) {
@@ -85,7 +93,7 @@ export function tokenizeHtml(html: string, strict = false): HtmlDocument {
     const declaration = html[start + 1] === "!" || html[start + 1] === "?";
     if (!name && !declaration) {
       // A bare less-than in text is not a tag.
-      if (!templateDepth && !inHead) text.push("<");
+      if (!templateDepth && !inHead) emit("<");
       cursor = start + 1;
       continue;
     }
@@ -132,6 +140,7 @@ export function tokenizeHtml(html: string, strict = false): HtmlDocument {
     }
     if (templateDepth) continue;
     if (name === "head") inHead = !closing;
+    if (name === "a") inAnchor = !closing;
     if (tokens.length >= 100_000) {
       invalid();
       break;
@@ -145,5 +154,11 @@ export function tokenizeHtml(html: string, strict = false): HtmlDocument {
     });
   }
   if (templateDepth || raw) invalid();
-  return { tokens, visibleText: text.join(" "), title, complete };
+  return {
+    tokens,
+    visibleText: text.join(" "),
+    textOutsideAnchors: outside.join(" "),
+    title,
+    complete,
+  };
 }

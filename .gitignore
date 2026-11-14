@@ -19,3 +19,7 @@ playwright/.cache/
 
 # GitHub Pages build output
 _site
+
+# Python bytecode (clients/python)
+__pycache__/
+*.pyc
