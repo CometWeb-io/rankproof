@@ -11,12 +11,18 @@
 
 Both tools are read-only (`readOnlyHint`); `verify_links` fetches public pages (`openWorldHint`). Private, loopback and metadata addresses are refused as everywhere else. `render` works only when the server was started with `RANKPROOF_RENDER=1` and Playwright is installed.
 
+RankProof is not published to npm yet, so run the server from a clone. No build step is needed:
+
+```bash
+git clone https://github.com/CometWeb-io/rankproof.git
+cd rankproof
+npm ci
+```
+
 ## Claude Code
 
 ```bash
-claude mcp add rankproof -- npx -y rankproof mcp
-# from a clone instead of npm:
-claude mcp add rankproof -- node /path/to/rankproof/bin/rankproof.mjs mcp
+claude mcp add rankproof -- node /absolute/path/to/rankproof/bin/rankproof.mjs mcp
 ```
 
 ## Claude Desktop and other clients
@@ -25,8 +31,8 @@ claude mcp add rankproof -- node /path/to/rankproof/bin/rankproof.mjs mcp
 {
   "mcpServers": {
     "rankproof": {
-      "command": "npx",
-      "args": ["-y", "rankproof", "mcp"],
+      "command": "node",
+      "args": ["/absolute/path/to/rankproof/bin/rankproof.mjs", "mcp"],
       "env": { "RANKPROOF_RENDER": "0" }
     }
   }
